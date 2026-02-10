@@ -24,7 +24,7 @@ const Sidebar = () => {
             style={{
                 width: "260px",
                 minHeight: "100vh",
-                background: "linear-gradient(180deg, #1e3c72, #2a5298)",
+                background: "blue",
                 color: "#fff",
                 padding: "20px",
                 boxShadow: "4px 0 10px rgba(0,0,0,0.3)",
@@ -59,45 +59,13 @@ const Sidebar = () => {
                         <span>Dashboard</span>
                     </li>
 
-                    {/* Services */}
                     <li
                         style={menuItemStyle}
-                        onClick={() => setOpenServices(!openServices)}
+                        onClick={() => navigate("#")}
                     >
-                        <FaCreditCard />
-                        <span style={{ flexGrow: 1 }}>Services</span>
-                        {openServices ? <FaChevronUp /> : <FaChevronDown />}
+                        <FaTachometerAlt />
+                        <span>Customer Requests</span>
                     </li>
-
-                    {openServices && (
-                        <ul style={{ listStyle: "none", paddingLeft: "35px" }}>
-
-                            <li
-                                style={subMenuItemStyle}
-                                onClick={() => navigate("/services/debit-card")}
-                            >
-                                <FaCreditCard />
-                                <span>Debit Card Service</span>
-                            </li>
-
-                            <li
-                                style={subMenuItemStyle}
-                                onClick={() => navigate("/services/credit-card")}
-                            >
-                                <FaCreditCard />
-                                <span>Credit Card Service</span>
-                            </li>
-
-                            <li
-                                style={subMenuItemStyle}
-                                onClick={() => navigate("/services/checkbook")}
-                            >
-                                <FaBook />
-                                <span>Checkbook Leaves</span>
-                            </li>
-
-                        </ul>
-                    )}
 
                     {/* Profile */}
                     <li
