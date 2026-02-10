@@ -211,7 +211,7 @@ const Login = () => {
                         <div style={styles.loginLogo}>
                             <FaSignInAlt size={36} color="#4361ee" />
                         </div>
-                        <h2 style={styles.loginTitle}>Welcome Back</h2>
+                        <h2 style={styles.loginTitle}>Admin Side Login</h2>
                         <p style={styles.loginSubtitle}>Sign in to your ABC Bank account</p>
                     </div>
 
@@ -346,7 +346,7 @@ const styles = {
     // Left Panel Styles
     leftPanel: {
         flex: 1,
-        background: "linear-gradient(135deg, #1a237e 0%, #283593 50%, #3949ab 100%)",
+        backgroundColor: "blue",
         color: "#ffffff",
         padding: "60px",
         display: "flex",
