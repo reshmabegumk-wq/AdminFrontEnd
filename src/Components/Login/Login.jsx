@@ -12,7 +12,12 @@ import {
     FaMobileAlt,
     FaGlobeAmericas,
     FaStar,
-    FaCheckCircle
+    FaCheckCircle,
+    FaChartLine,
+    FaWallet,
+    FaArrowRight,
+    FaBuilding,
+    FaUserShield
 } from "react-icons/fa";
 import API from "../../api";
 import { useSnackbar } from "../../Context/SnackbarContext";
@@ -21,14 +26,12 @@ const Login = () => {
     const navigate = useNavigate();
     const { showSnackbar } = useSnackbar();
 
-
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-
-
     const [errors, setErrors] = useState({});
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [focusedField, setFocusedField] = useState(null);
 
     const validateForm = () => {
         const newErrors = {};
@@ -52,7 +55,6 @@ const Login = () => {
 
     const handleEmailChange = (e) => {
         setEmail(e.target.value);
-
         if (errors.email) {
             setErrors({ ...errors, email: "" });
         }
@@ -60,42 +62,41 @@ const Login = () => {
 
     const handlePasswordChange = (e) => {
         setPassword(e.target.value);
-
         if (errors.password) {
             setErrors({ ...errors, password: "" });
         }
     };
 
-
     const handleLogin = async () => {
         if (!validateForm()) return;
+        setIsLoading(true);
 
         try {
             const payload = {
-                userName: email,
+                email: email,
                 password: password
             }
             const response = await API.post("api/users/login", payload);
 
-            localStorage.setItem("token", response.data.token);
-            navigate("/dashboard");
-
+            if (response.data.roleId === 1) {
+                localStorage.setItem("token", response.data.token);
+                showSnackbar("success", "Welcome back! Login successful.");
+                navigate("/dashboard");
+            } else {
+                showSnackbar("error", "Unauthorized access. Admin privileges required.");
+            }
         } catch (error) {
-            showSnackbar("error", "Invalid credentials");
-        }
-
-        setIsLoading(true);
-
-        setTimeout(() => {
+            showSnackbar("error", "Invalid credentials. Please try again.");
+        } finally {
             setIsLoading(false);
-            navigate("/dashboard");
-        }, 1500);
+        }
     };
 
     const handleReset = () => {
         setEmail("");
         setPassword("");
         setErrors({});
+        showSnackbar("info", "Form has been cleared");
     };
 
     const handleKeyPress = (e) => {
@@ -104,232 +105,248 @@ const Login = () => {
         }
     };
 
-    const togglePasswordVisibility = () => {
-        setShowPassword(!showPassword);
-    };
-
     return (
         <div style={styles.container}>
-            {/* Left Side - Bank Info */}
+            {/* Left Side - ABC Bank Premium Experience */}
             <div style={styles.leftPanel}>
-                <div style={styles.bankContent}>
-                    {/* Bank Logo & Name */}
+                <div style={styles.gradientOverlay}></div>
+                <div style={styles.patternOverlay}></div>
+                <div style={styles.leftContent}>
+                    {/* Bank Header with Logo */}
                     <div style={styles.bankHeader}>
-                        <div style={styles.bankLogo}>
-                            <FaShieldAlt size={42} color="#ffffff" />
-                        </div>
-                        <h1 style={styles.bankName}>
-                            <span style={styles.bankNameAccent}>ABC</span> Bank
-                        </h1>
-                        <p style={styles.bankTagline}>Secure Banking, Trusted Worldwide</p>
-                    </div>
-
-                    {/* Bank Stats */}
-                    <div style={styles.bankStats}>
-                        <div style={styles.statItem}>
-                            <div style={styles.statNumber}>2.5M+</div>
-                            <div style={styles.statLabel}>Happy Customers</div>
-                        </div>
-                        <div style={styles.statDivider} />
-                        <div style={styles.statItem}>
-                            <div style={styles.statNumber}>50+</div>
-                            <div style={styles.statLabel}>Countries</div>
-                        </div>
-                        <div style={styles.statDivider} />
-                        <div style={styles.statItem}>
-                            <div style={styles.statNumber}>24/7</div>
-                            <div style={styles.statLabel}>Customer Support</div>
-                        </div>
-                    </div>
-
-                    {/* Features List */}
-                    <div style={styles.featuresContainer}>
-                        <h3 style={styles.featuresTitle}>Why Choose ABC Bank?</h3>
-
-                        <div style={styles.featureItem}>
-                            <FaCheckCircle style={styles.featureIcon} />
-                            <div style={styles.featureText}>
-                                <span style={styles.featureTitle}>Military-Grade Security</span>
-                                <span style={styles.featureDesc}>256-bit encryption & biometric authentication</span>
+                        <div style={styles.logoContainer}>
+                            <div style={styles.logoGlow}></div>
+                            <div style={styles.logoIcon}>
+                                <FaBuilding size={32} color="#FFFFFF" />
                             </div>
                         </div>
-
-                        <div style={styles.featureItem}>
-                            <FaCreditCard style={styles.featureIcon} />
-                            <div style={styles.featureText}>
-                                <span style={styles.featureTitle}>Zero Annual Fees</span>
-                                <span style={styles.featureDesc}>Premium banking with no hidden charges</span>
-                            </div>
-                        </div>
-
-                        <div style={styles.featureItem}>
-                            <FaMobileAlt style={styles.featureIcon} />
-                            <div style={styles.featureText}>
-                                <span style={styles.featureTitle}>Mobile Banking</span>
-                                <span style={styles.featureDesc}>Manage accounts anytime, anywhere</span>
-                            </div>
-                        </div>
-
-                        <div style={styles.featureItem}>
-                            <FaGlobeAmericas style={styles.featureIcon} />
-                            <div style={styles.featureText}>
-                                <span style={styles.featureTitle}>Global Access</span>
-                                <span style={styles.featureDesc}>Bank globally with competitive FX rates</span>
+                        <div style={styles.bankTitleGroup}>
+                            <h1 style={styles.bankName}>
+                                <span style={styles.bankNameAccent}>ABC</span> Bank
+                            </h1>
+                            <div style={styles.bankBadge}>
+                                <FaUserShield style={styles.badgeIcon} />
+                                <span style={styles.badgeText}>EST. 1985</span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Testimonial */}
-                    <div style={styles.testimonial}>
-                        <div style={styles.quoteIcon}>"</div>
-                        <p style={styles.testimonialText}>
-                            Banking with ABC has been seamless. Their digital platform is intuitive and customer service is exceptional.
+                    {/* Hero Message */}
+                    <div style={styles.heroSection}>
+                        <h2 style={styles.heroTitle}>
+                            Banking Beyond
+                            <span style={styles.heroTitleHighlight}> Boundaries</span>
+                        </h2>
+                        <p style={styles.heroSubtitle}>
+                            Experience the perfect blend of tradition and innovation with India's most trusted banking partner
                         </p>
-                        <div style={styles.testimonialAuthor}>
-                            <div style={styles.authorRating}>
-                                {[...Array(5)].map((_, i) => (
-                                    <FaStar key={i} style={styles.starIcon} />
-                                ))}
+                    </div>
+
+                    {/* Compact Feature Grid */}
+                    <div style={styles.featureGrid}>
+                        <div style={styles.featureCard}>
+                            <div style={styles.featureIconWrapper}>
+                                <FaShieldAlt style={styles.featureIcon} />
                             </div>
-                            <div style={styles.authorName}>- Sarah Johnson</div>
-                            <div style={styles.authorRole}>Premium Customer Since 2018</div>
+                            <div style={styles.featureInfo}>
+                                <span style={styles.featureLabel}>Secure Banking</span>
+                                <span style={styles.featureValue}>256-bit</span>
+                            </div>
+                        </div>
+                        <div style={styles.featureCard}>
+                            <div style={styles.featureIconWrapper}>
+                                <FaMobileAlt style={styles.featureIcon} />
+                            </div>
+                            <div style={styles.featureInfo}>
+                                <span style={styles.featureLabel}>Mobile App</span>
+                                <span style={styles.featureValue}>4.8★</span>
+                            </div>
+                        </div>
+                        <div style={styles.featureCard}>
+                            <div style={styles.featureIconWrapper}>
+                                <FaCreditCard style={styles.featureIcon} />
+                            </div>
+                            <div style={styles.featureInfo}>
+                                <span style={styles.featureLabel}>Zero Fees</span>
+                                <span style={styles.featureValue}>Lifetime</span>
+                            </div>
+                        </div>
+                        <div style={styles.featureCard}>
+                            <div style={styles.featureIconWrapper}>
+                                <FaGlobeAmericas style={styles.featureIcon} />
+                            </div>
+                            <div style={styles.featureInfo}>
+                                <span style={styles.featureLabel}>Global Access</span>
+                                <span style={styles.featureValue}>190+</span>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Security Badge */}
-                    <div style={styles.securityBadge}>
-                        <FaShieldAlt style={styles.securityIcon} />
-                        <span style={styles.securityText}>ISO 27001 Certified • GDPR Compliant</span>
+                    {/* Customer Trust Section */}
+                    <div style={styles.trustSection}>
+                        <div style={styles.trustBadge}>
+                            <FaStar style={styles.trustStar} />
+                            <FaStar style={styles.trustStar} />
+                            <FaStar style={styles.trustStar} />
+                            <FaStar style={styles.trustStar} />
+                            <FaStar style={styles.trustStar} />
+                            <span style={styles.trustText}>Trusted by 2.5M+ customers</span>
+                        </div>
+                        <div style={styles.statsRow}>
+                            <div style={styles.statItem}>
+                                <span style={styles.statNumber}>₹500B+</span>
+                                <span style={styles.statDesc}>Assets</span>
+                            </div>
+                            <div style={styles.statDot}></div>
+                            <div style={styles.statItem}>
+                                <span style={styles.statNumber}>50+</span>
+                                <span style={styles.statDesc}>Countries</span>
+                            </div>
+                            <div style={styles.statDot}></div>
+                            <div style={styles.statItem}>
+                                <span style={styles.statNumber}>24/7</span>
+                                <span style={styles.statDesc}>Support</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
             {/* Right Side - Login Form */}
             <div style={styles.rightPanel}>
-                <div style={styles.loginContainer}>
-                    <div style={styles.loginHeader}>
-                        <div style={styles.loginLogo}>
-                            <FaSignInAlt size={36} color="#4361ee" />
+                <div style={styles.loginCard}>
+                    {/* Welcome Header */}
+                    <div style={styles.welcomeHeader}>
+                        <div style={styles.welcomeIcon}>
+                            <FaSignInAlt size={24} color="#0052A5" />
                         </div>
-                        <h2 style={styles.loginTitle}>Admin Side Login</h2>
-                        <p style={styles.loginSubtitle}>Sign in to your ABC Bank account</p>
+                        <div style={styles.welcomeText}>
+                            <h3 style={styles.welcomeTitle}>Admin Login</h3>
+                            <p style={styles.welcomeSubtitle}>Secure access to ABC Bank dashboard</p>
+                        </div>
                     </div>
 
-                    {/* Email Field */}
-                    <div style={styles.inputContainer}>
-                        <div style={styles.inputGroup}>
-                            <FaEnvelope style={styles.icon} />
-                            <input
-                                type="email"
-                                name="email"
-                                placeholder="Enter your email address"
-                                value={email}
-                                onChange={handleEmailChange}
-                                onKeyPress={handleKeyPress}
-                                style={styles.input}
-                            />
+                    {/* Login Form */}
+                    <div style={styles.formContainer}>
+                        {/* Email Field */}
+                        <div style={styles.fieldGroup}>
+                            <label style={styles.fieldLabel}>Email Address</label>
+                            <div style={{
+                                ...styles.inputBox,
+                                ...(focusedField === 'email' ? styles.inputBoxFocused : {}),
+                                ...(errors.email ? styles.inputBoxError : {})
+                            }}>
+                                <FaEnvelope style={styles.inputIcon} />
+                                <input
+                                    type="email"
+                                    placeholder="admin@abcbank.com"
+                                    value={email}
+                                    onChange={handleEmailChange}
+                                    onKeyPress={handleKeyPress}
+                                    onFocus={() => setFocusedField('email')}
+                                    onBlur={() => setFocusedField(null)}
+                                    style={styles.input}
+                                />
+                            </div>
+                            {errors.email && <span style={styles.errorMsg}>{errors.email}</span>}
                         </div>
-                        {errors.email && <span style={styles.error}>{errors.email}</span>}
-                    </div>
 
-                    {/* Password Field */}
-                    <div style={styles.inputContainer}>
-                        <div style={styles.inputGroup}>
-                            <FaLock style={styles.icon} />
-                            <input
-                                type={showPassword ? "text" : "password"}
-                                name="password"
-                                placeholder="Enter your password"
-                                value={password}
-                                onChange={handlePasswordChange}
-                                onKeyPress={handleKeyPress}
-                                style={styles.input}
-                            />
-                            <div
-                                style={styles.eyeIcon}
-                                onClick={togglePasswordVisibility}
-                                role="button"
-                                tabIndex={0}
+                        {/* Password Field */}
+                        <div style={styles.fieldGroup}>
+                            <div style={styles.passwordHeader}>
+                                <label style={styles.fieldLabel}>Password</label>
+                                <button 
+                                    style={styles.forgotBtn}
+                                    onClick={() => showSnackbar("info", "Reset link sent to registered email")}
+                                >
+                                    Forgot?
+                                </button>
+                            </div>
+                            <div style={{
+                                ...styles.inputBox,
+                                ...(focusedField === 'password' ? styles.inputBoxFocused : {}),
+                                ...(errors.password ? styles.inputBoxError : {})
+                            }}>
+                                <FaLock style={styles.inputIcon} />
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    placeholder="Enter your password"
+                                    value={password}
+                                    onChange={handlePasswordChange}
+                                    onKeyPress={handleKeyPress}
+                                    onFocus={() => setFocusedField('password')}
+                                    onBlur={() => setFocusedField(null)}
+                                    style={styles.input}
+                                />
+                                <button 
+                                    style={styles.toggleBtn}
+                                    onClick={() => setShowPassword(!showPassword)}
+                                >
+                                    {showPassword ? <FaEyeSlash /> : <FaEye />}
+                                </button>
+                            </div>
+                            {errors.password && <span style={styles.errorMsg}>{errors.password}</span>}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div style={styles.actionRow}>
+                            <button
+                                style={styles.loginBtn}
+                                onClick={handleLogin}
+                                disabled={isLoading}
                             >
-                                {showPassword ? <FaEyeSlash /> : <FaEye />}
+                                {isLoading ? (
+                                    <div style={styles.loader}></div>
+                                ) : (
+                                    <>
+                                        <span>Sign In</span>
+                                        <FaArrowRight style={styles.loginArrow} />
+                                    </>
+                                )}
+                            </button>
+                            
+                            <button
+                                style={styles.clearBtn}
+                                onClick={handleReset}
+                                disabled={isLoading}
+                            >
+                                <FaRedo style={styles.clearIcon} />
+                                Clear
+                            </button>
+                        </div>
+
+                        {/* Demo Access */}
+                        <div style={styles.demoContainer}>
+                            <div style={styles.dividerLine}>
+                                <span style={styles.dividerText}>Quick Access</span>
+                            </div>
+                            
+                            <button
+                                style={styles.demoBtn}
+                                onClick={() => {
+                                    setEmail("admin@abcbank.com");
+                                    setPassword("admin123");
+                                }}
+                            >
+                                <FaUserShield style={styles.demoIcon} />
+                                <span style={styles.demoText}>Demo Admin Access</span>
+                            </button>
+                        </div>
+
+                        {/* Security Badge */}
+                        <div style={styles.securityBadge}>
+                            <FaShieldAlt style={styles.securityIcon} />
+                            <div style={styles.securityInfo}>
+                                <span style={styles.securityTitle}>256-bit SSL Encrypted</span>
+                                <span style={styles.securityDesc}>Your data is protected</span>
                             </div>
                         </div>
-                        {errors.password && <span style={styles.error}>{errors.password}</span>}
                     </div>
 
-                    {/* Forgot Password */}
-                    {/* <div style={styles.forgotContainer}>
-            <a 
-              href="#" 
-              style={styles.forgotLink}
-              onClick={(e) => {
-                e.preventDefault();
-                alert("Password reset instructions will be sent to your email!");
-              }}
-            >
-              Forgot Password?
-            </a>
-          </div> */}
-
-                    {/* Buttons */}
-                    <div style={styles.buttonGroup}>
-                        <button
-                            style={{
-                                ...styles.loginBtn,
-                                ...(isLoading ? styles.loginBtnLoading : {})
-                            }}
-                            onClick={handleLogin}
-                            disabled={isLoading}
-                        >
-                            {isLoading ? (
-                                <div style={styles.loadingSpinner}></div>
-                            ) : (
-                                <>
-                                    <FaSignInAlt style={styles.btnIcon} />
-                                    Sign In
-                                </>
-                            )}
-                        </button>
-
-                        <button
-                            style={styles.resetBtn}
-                            onClick={handleReset}
-                            disabled={isLoading}
-                        >
-                            <FaRedo style={styles.btnIcon} />
-                            Clear
-                        </button>
-                    </div>
-
-                    {/* Divider */}
-                    <div style={styles.divider}>
-                        <span style={styles.dividerText}>or</span>
-                    </div>
-
-                    {/* Additional Options */}
-                    <div style={styles.optionsContainer}>
-                        {/* <button 
-              style={styles.registerBtn}
-              onClick={() => navigate("/register")}
-            >
-              Create New Account
-            </button> */}
-
-                        <button
-                            style={styles.demoBtn}
-                            onClick={() => {
-                                setEmail("demo@example.com");
-                                setPassword("demo123");
-                            }}
-                        >
-                            Try Demo Account
-                        </button>
-                    </div>
-
-                    {/* Security Note */}
-                    <div style={styles.securityNote}>
-                        <FaShieldAlt style={styles.noteIcon} />
-                        <span>Your security is our priority. All data is encrypted.</span>
+                    {/* Footer */}
+                    <div style={styles.footerNote}>
+                        <FaCheckCircle style={styles.footerIcon} />
+                        <span style={styles.footerText}>ISO 27001 Certified • RBI Regulated</span>
                     </div>
                 </div>
             </div>
@@ -339,427 +356,549 @@ const Login = () => {
 
 const styles = {
     container: {
-        minHeight: "100vh",
+        height: "100vh",
+        width: "100vw",
         display: "flex",
-        backgroundColor: "#ffffff"
+        backgroundColor: "#FFFFFF",
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        overflow: "hidden", // Prevents any scroll
     },
-    // Left Panel Styles
+    // Left Panel - Premium Blue Theme
     leftPanel: {
-        flex: 1,
-        backgroundColor: "blue",
-        color: "#ffffff",
-        padding: "60px",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
+        flex: "1.1",
+        background: "linear-gradient(145deg, #003366 0%, #002244 100%)", // ABC Bank blue
         position: "relative",
-        overflow: "hidden"
-    },
-    bankContent: {
-        maxWidth: "600px",
-        margin: "0 auto",
-        position: "relative",
-        zIndex: 2
-    },
-    bankHeader: {
-        textAlign: "center",
-        marginBottom: "60px"
-    },
-    bankLogo: {
-        width: "80px",
-        height: "80px",
-        borderRadius: "50%",
-        background: "linear-gradient(45deg, #5c6bc0, #3949ab)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        margin: "0 auto 20px",
-        boxShadow: "0 8px 32px rgba(0,0,0,0.2)"
-    },
-    bankName: {
-        fontSize: "48px",
-        fontWeight: "800",
-        marginBottom: "10px",
-        letterSpacing: "1px"
-    },
-    bankNameAccent: {
-        background: "linear-gradient(45deg, #64b5f6, #2196f3)",
-        WebkitBackgroundClip: "text",
-        WebkitTextFillColor: "transparent"
-    },
-    bankTagline: {
-        fontSize: "18px",
-        opacity: "0.9",
-        fontWeight: "300",
-        letterSpacing: "0.5px"
-    },
-    bankStats: {
-        display: "flex",
-        justifyContent: "space-around",
-        alignItems: "center",
-        background: "rgba(255,255,255,0.1)",
-        backdropFilter: "blur(10px)",
-        borderRadius: "20px",
-        padding: "30px",
-        marginBottom: "50px",
-        border: "1px solid rgba(255,255,255,0.2)"
-    },
-    statItem: {
-        textAlign: "center"
-    },
-    statNumber: {
-        fontSize: "32px",
-        fontWeight: "700",
-        background: "linear-gradient(45deg, #64b5f6, #2196f3)",
-        WebkitBackgroundClip: "text",
-        WebkitTextFillColor: "transparent",
-        marginBottom: "5px"
-    },
-    statLabel: {
-        fontSize: "14px",
-        opacity: "0.8",
-        fontWeight: "300"
-    },
-    statDivider: {
-        width: "1px",
-        height: "40px",
-        background: "rgba(255,255,255,0.2)"
-    },
-    featuresContainer: {
-        marginBottom: "50px"
-    },
-    featuresTitle: {
-        fontSize: "24px",
-        fontWeight: "600",
-        marginBottom: "30px",
-        color: "#bbdefb"
-    },
-    featureItem: {
-        display: "flex",
-        alignItems: "flex-start",
-        marginBottom: "25px",
-        padding: "15px",
-        borderRadius: "12px",
-        background: "rgba(255,255,255,0.05)",
-        transition: "all 0.3s ease"
-    },
-    featureIcon: {
-        fontSize: "20px",
-        color: "#64b5f6",
-        marginRight: "15px",
-        marginTop: "2px"
-    },
-    featureText: {
-        display: "flex",
-        flexDirection: "column"
-    },
-    featureTitle: {
-        fontSize: "16px",
-        fontWeight: "600",
-        marginBottom: "5px"
-    },
-    featureDesc: {
-        fontSize: "14px",
-        opacity: "0.8",
-        fontWeight: "300"
-    },
-    testimonial: {
-        background: "rgba(255,255,255,0.1)",
-        backdropFilter: "blur(10px)",
-        borderRadius: "20px",
-        padding: "30px",
-        marginBottom: "40px",
-        border: "1px solid rgba(255,255,255,0.2)",
-        position: "relative"
-    },
-    quoteIcon: {
-        fontSize: "60px",
-        color: "#64b5f6",
-        opacity: "0.3",
-        position: "absolute",
-        top: "-10px",
-        left: "20px",
-        fontWeight: "bold"
-    },
-    testimonialText: {
-        fontSize: "16px",
-        lineHeight: "1.6",
-        marginBottom: "20px",
-        fontStyle: "italic",
-        position: "relative",
-        zIndex: 1
-    },
-    testimonialAuthor: {
-        textAlign: "center"
-    },
-    authorRating: {
-        display: "flex",
-        justifyContent: "center",
-        gap: "5px",
-        marginBottom: "10px"
-    },
-    starIcon: {
-        color: "#ffd600",
-        fontSize: "16px"
-    },
-    authorName: {
-        fontSize: "16px",
-        fontWeight: "600",
-        marginBottom: "5px"
-    },
-    authorRole: {
-        fontSize: "14px",
-        opacity: "0.8",
-        fontWeight: "300"
-    },
-    securityBadge: {
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "10px",
-        padding: "15px",
-        background: "rgba(255,255,255,0.05)",
-        borderRadius: "12px",
-        border: "1px solid rgba(255,255,255,0.1)"
-    },
-    securityIcon: {
-        color: "#4caf50"
-    },
-    securityText: {
-        fontSize: "14px",
-        fontWeight: "300",
-        letterSpacing: "0.5px"
-    },
-    // Right Panel Styles
-    rightPanel: {
-        flex: 1,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         padding: "40px",
-        background: "#f8fafc"
+        overflow: "hidden",
     },
-    loginContainer: {
+    gradientOverlay: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "radial-gradient(circle at 20% 30%, rgba(0, 82, 165, 0.4) 0%, transparent 60%)",
+        pointerEvents: "none",
+    },
+    patternOverlay: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundImage: "url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDgwIDgwIj48cGF0aCBkPSJNMjAgMjBoMTB2MTBIMjB6TTUwIDUwaDEwdjEwSDUweiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjAyKSIvPjwvc3ZnPg==')",
+        opacity: 0.4,
+        pointerEvents: "none",
+    },
+    leftContent: {
         width: "100%",
-        maxWidth: "480px",
-        padding: "50px",
-        background: "#ffffff",
-        borderRadius: "24px",
-        boxShadow: "0 20px 60px rgba(0,0,0,0.08)",
-        border: "1px solid rgba(0,0,0,0.05)"
+        maxWidth: "580px",
+        position: "relative",
+        zIndex: 2,
     },
-    loginHeader: {
-        textAlign: "center",
-        marginBottom: "40px"
+    bankHeader: {
+        display: "flex",
+        alignItems: "center",
+        gap: "20px",
+        marginBottom: "48px",
     },
-    loginLogo: {
+    logoContainer: {
+        position: "relative",
+    },
+    logoGlow: {
+        position: "absolute",
         width: "70px",
         height: "70px",
-        borderRadius: "50%",
-        background: "linear-gradient(45deg, #e3f2fd, #bbdefb)",
+        borderRadius: "20px",
+        background: "rgba(255, 255, 255, 0.2)",
+        filter: "blur(10px)",
+        top: "-5px",
+        left: "-5px",
+    },
+    logoIcon: {
+        width: "60px",
+        height: "60px",
+        borderRadius: "18px",
+        background: "linear-gradient(135deg, #0052A5, #003366)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        margin: "0 auto 20px"
+        position: "relative",
+        boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+        border: "1px solid rgba(255,255,255,0.2)",
     },
-    loginTitle: {
-        fontSize: "32px",
-        fontWeight: "700",
-        color: "#1a237e",
-        marginBottom: "10px"
+    bankTitleGroup: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
     },
-    loginSubtitle: {
-        color: "#64748b",
-        fontSize: "15px",
-        fontWeight: "400"
+    bankName: {
+        fontSize: "40px",
+        fontWeight: "800",
+        margin: 0,
+        color: "#FFFFFF",
+        lineHeight: 1,
     },
-    inputContainer: {
-        marginBottom: "25px"
+    bankNameAccent: {
+        color: "#FFD700", // Gold accent for ABC
     },
-    inputGroup: {
+    bankBadge: {
         display: "flex",
         alignItems: "center",
-        border: "2px solid #e2e8f0",
-        borderRadius: "14px",
-        padding: "16px 20px",
-        transition: "all 0.3s ease",
-        backgroundColor: "#f8fafc"
+        gap: "8px",
+        padding: "6px 14px",
+        background: "rgba(255, 215, 0, 0.15)",
+        borderRadius: "30px",
+        border: "1px solid rgba(255, 215, 0, 0.3)",
+        alignSelf: "flex-start",
     },
-    icon: {
-        marginRight: "15px",
-        color: "#64748b",
-        fontSize: "18px"
+    badgeIcon: {
+        color: "#FFD700",
+        fontSize: "12px",
     },
-    eyeIcon: {
-        marginLeft: "15px",
-        color: "#64748b",
-        cursor: "pointer",
-        fontSize: "18px",
+    badgeText: {
+        color: "#FFD700",
+        fontSize: "12px",
+        fontWeight: "600",
+        letterSpacing: "1px",
+    },
+    heroSection: {
+        marginBottom: "40px",
+    },
+    heroTitle: {
+        fontSize: "42px",
+        fontWeight: "700",
+        margin: 0,
+        marginBottom: "16px",
+        color: "#FFFFFF",
+        lineHeight: 1.2,
+    },
+    heroTitleHighlight: {
+        color: "#FFD700",
+        display: "block",
+    },
+    heroSubtitle: {
+        fontSize: "16px",
+        lineHeight: 1.6,
+        color: "#E6F0FF",
+        margin: 0,
+        opacity: 0.9,
+        maxWidth: "480px",
+    },
+    featureGrid: {
+        display: "grid",
+        gridTemplateColumns: "repeat(2, 1fr)",
+        gap: "16px",
+        marginBottom: "32px",
+    },
+    featureCard: {
         display: "flex",
-        alignItems: "center"
+        alignItems: "center",
+        gap: "12px",
+        padding: "16px",
+        background: "rgba(255, 255, 255, 0.05)",
+        borderRadius: "16px",
+        border: "1px solid rgba(255, 255, 255, 0.1)",
+        backdropFilter: "blur(10px)",
+    },
+    featureIconWrapper: {
+        width: "40px",
+        height: "40px",
+        borderRadius: "12px",
+        background: "rgba(255, 215, 0, 0.15)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    featureIcon: {
+        color: "#FFD700",
+        fontSize: "18px",
+    },
+    featureInfo: {
+        display: "flex",
+        flexDirection: "column",
+    },
+    featureLabel: {
+        fontSize: "13px",
+        color: "#E6F0FF",
+        opacity: 0.9,
+    },
+    featureValue: {
+        fontSize: "15px",
+        fontWeight: "700",
+        color: "#FFFFFF",
+    },
+    trustSection: {
+        background: "rgba(255, 255, 255, 0.03)",
+        borderRadius: "20px",
+        padding: "24px",
+        border: "1px solid rgba(255, 255, 255, 0.1)",
+    },
+    trustBadge: {
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+        marginBottom: "16px",
+    },
+    trustStar: {
+        color: "#FFD700",
+        fontSize: "14px",
+    },
+    trustText: {
+        color: "#FFFFFF",
+        fontSize: "14px",
+        fontWeight: "500",
+        marginLeft: "8px",
+    },
+    statsRow: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+    statItem: {
+        display: "flex",
+        flexDirection: "column",
+    },
+    statNumber: {
+        fontSize: "22px",
+        fontWeight: "700",
+        color: "#FFD700",
+        marginBottom: "4px",
+    },
+    statDesc: {
+        fontSize: "13px",
+        color: "#E6F0FF",
+        opacity: 0.8,
+    },
+    statDot: {
+        width: "4px",
+        height: "4px",
+        borderRadius: "50%",
+        background: "rgba(255, 215, 0, 0.5)",
+    },
+    // Right Panel - Clean & Professional
+    rightPanel: {
+        flex: "0.9",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "40px",
+        background: "#F5F9FF",
+        overflow: "hidden",
+    },
+    loginCard: {
+        width: "100%",
+        maxWidth: "440px",
+        background: "#FFFFFF",
+        borderRadius: "28px",
+        padding: "40px",
+        boxShadow: "0 20px 40px rgba(0, 51, 102, 0.08)",
+        border: "1px solid rgba(0, 82, 165, 0.08)",
+    },
+    welcomeHeader: {
+        display: "flex",
+        alignItems: "center",
+        gap: "16px",
+        marginBottom: "32px",
+    },
+    welcomeIcon: {
+        width: "56px",
+        height: "56px",
+        borderRadius: "18px",
+        background: "linear-gradient(135deg, #E6F0FF, #CCE5FF)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    welcomeText: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "4px",
+    },
+    welcomeTitle: {
+        fontSize: "26px",
+        fontWeight: "700",
+        margin: 0,
+        color: "#003366",
+        letterSpacing: "-0.5px",
+    },
+    welcomeSubtitle: {
+        fontSize: "14px",
+        margin: 0,
+        color: "#4A6F8F",
+    },
+    formContainer: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "20px",
+    },
+    fieldGroup: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px",
+    },
+    fieldLabel: {
+        fontSize: "14px",
+        fontWeight: "600",
+        color: "#003366",
+    },
+    passwordHeader: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+    },
+    forgotBtn: {
+        background: "none",
+        border: "none",
+        fontSize: "13px",
+        color: "#0052A5",
+        fontWeight: "600",
+        cursor: "pointer",
+        padding: "4px 8px",
+        borderRadius: "6px",
+        transition: "all 0.2s",
+        ":hover": {
+            background: "#E6F0FF",
+        },
+    },
+    inputBox: {
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        padding: "14px 18px",
+        background: "#F8FBFF",
+        border: "2px solid #E6EDF5",
+        borderRadius: "16px",
+        transition: "all 0.2s ease",
+    },
+    inputBoxFocused: {
+        borderColor: "#0052A5",
+        background: "#FFFFFF",
+        boxShadow: "0 4px 12px rgba(0, 82, 165, 0.1)",
+    },
+    inputBoxError: {
+        borderColor: "#DC3545",
+    },
+    inputIcon: {
+        color: "#6B8BA4",
+        fontSize: "16px",
     },
     input: {
+        flex: 1,
         border: "none",
         outline: "none",
-        width: "100%",
+        background: "transparent",
         fontSize: "15px",
-        backgroundColor: "transparent",
-        color: "#1e293b",
-        fontWeight: "500"
+        color: "#003366",
+        fontWeight: "500",
+        "::placeholder": {
+            color: "#8DA6C0",
+            fontWeight: "400",
+        },
     },
-    error: {
-        color: "#ef4444",
-        fontSize: "13px",
-        marginTop: "8px",
-        marginLeft: "10px",
-        display: "block",
-        fontWeight: "500"
-    },
-    forgotContainer: {
-        textAlign: "right",
-        marginBottom: "30px"
-    },
-    forgotLink: {
-        color: "#4361ee",
-        fontSize: "14px",
-        textDecoration: "none",
-        fontWeight: "600",
+    toggleBtn: {
+        background: "none",
+        border: "none",
+        color: "#6B8BA4",
         cursor: "pointer",
-        transition: "color 0.3s ease"
-    },
-    buttonGroup: {
+        padding: 0,
         display: "flex",
-        gap: "15px",
-        marginBottom: "30px"
+        alignItems: "center",
+        fontSize: "16px",
+        transition: "color 0.2s",
+        ":hover": {
+            color: "#0052A5",
+        },
+    },
+    errorMsg: {
+        fontSize: "12px",
+        color: "#DC3545",
+        fontWeight: "500",
+        marginTop: "2px",
+    },
+    actionRow: {
+        display: "flex",
+        gap: "12px",
+        marginTop: "8px",
     },
     loginBtn: {
-        flex: "2",
-        padding: "18px",
-        background: "linear-gradient(45deg, #4361ee, #3a0ca3)",
-        color: "#fff",
+        flex: 2,
+        padding: "16px 24px",
+        background: "linear-gradient(135deg, #0052A5, #003366)",
         border: "none",
-        borderRadius: "14px",
-        cursor: "pointer",
+        borderRadius: "16px",
+        color: "#FFFFFF",
+        fontSize: "15px",
         fontWeight: "600",
-        fontSize: "16px",
-        transition: "all 0.3s ease",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         gap: "10px",
-        boxShadow: "0 4px 20px rgba(67, 97, 238, 0.3)"
-    },
-    loginBtnLoading: {
-        opacity: "0.8",
-        cursor: "not-allowed"
-    },
-    resetBtn: {
-        flex: "1",
-        padding: "18px",
-        backgroundColor: "#f1f5f9",
-        color: "#64748b",
-        border: "2px solid #e2e8f0",
-        borderRadius: "14px",
         cursor: "pointer",
+        transition: "all 0.2s ease",
+        boxShadow: "0 8px 20px rgba(0, 82, 165, 0.25)",
+        ":hover": {
+            transform: "translateY(-2px)",
+            boxShadow: "0 12px 28px rgba(0, 82, 165, 0.35)",
+        },
+        ":disabled": {
+            opacity: 0.7,
+            cursor: "not-allowed",
+            transform: "none",
+        },
+    },
+    loginArrow: {
+        fontSize: "14px",
+    },
+    clearBtn: {
+        flex: 1,
+        padding: "16px 24px",
+        background: "#F0F7FF",
+        border: "2px solid #CCE5FF",
+        borderRadius: "16px",
+        color: "#003366",
+        fontSize: "15px",
         fontWeight: "600",
-        fontSize: "16px",
-        transition: "all 0.3s ease",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        gap: "8px"
+        gap: "8px",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+        ":hover": {
+            background: "#E6F0FF",
+            borderColor: "#0052A5",
+        },
     },
-    btnIcon: {
-        fontSize: "14px"
+    clearIcon: {
+        fontSize: "14px",
     },
-    loadingSpinner: {
+    loader: {
         width: "20px",
         height: "20px",
-        border: "3px solid rgba(255,255,255,0.3)",
+        border: "3px solid rgba(255, 255, 255, 0.3)",
+        borderTop: "3px solid #FFFFFF",
         borderRadius: "50%",
-        borderTopColor: "#fff",
-        animation: "spin 1s linear infinite"
+        animation: "spin 1s linear infinite",
     },
-    divider: {
+    demoContainer: {
+        marginTop: "4px",
+    },
+    dividerLine: {
         display: "flex",
         alignItems: "center",
         textAlign: "center",
-        margin: "30px 0"
+        marginBottom: "16px",
+        ":before": {
+            content: "''",
+            flex: 1,
+            borderBottom: "1px solid #E6EDF5",
+        },
+        ":after": {
+            content: "''",
+            flex: 1,
+            borderBottom: "1px solid #E6EDF5",
+        },
     },
     dividerText: {
-        padding: "0 20px",
-        color: "#94a3b8",
-        fontSize: "14px",
-        fontWeight: "500",
-        backgroundColor: "#ffffff"
-    },
-    optionsContainer: {
-        display: "flex",
-        flexDirection: "column",
-        gap: "15px",
-        marginBottom: "30px"
-    },
-    registerBtn: {
-        padding: "16px",
-        background: "transparent",
-        color: "#4361ee",
-        border: "2px solid #4361ee",
-        borderRadius: "14px",
-        cursor: "pointer",
+        padding: "0 16px",
+        color: "#6B8BA4",
+        fontSize: "12px",
         fontWeight: "600",
-        fontSize: "16px",
-        transition: "all 0.3s ease"
+        textTransform: "uppercase",
+        letterSpacing: "1px",
+        background: "#FFFFFF",
     },
     demoBtn: {
-        padding: "16px",
-        background: "#f1f5f9",
-        color: "#475569",
-        border: "2px solid #e2e8f0",
+        width: "100%",
+        padding: "14px",
+        background: "linear-gradient(135deg, #FFF9E6, #FFF2CC)",
+        border: "1px solid #FFEAA7",
         borderRadius: "14px",
-        cursor: "pointer",
-        fontWeight: "600",
-        fontSize: "16px",
-        transition: "all 0.3s ease"
-    },
-    securityNote: {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         gap: "10px",
-        padding: "15px",
-        background: "#f8fafc",
-        borderRadius: "12px",
-        fontSize: "13px",
-        color: "#64748b",
-        fontWeight: "500"
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+        ":hover": {
+            background: "linear-gradient(135deg, #FFF2CC, #FFEAA7)",
+            borderColor: "#FFD700",
+        },
     },
-    noteIcon: {
-        color: "#10b981"
-    }
+    demoIcon: {
+        color: "#0052A5",
+        fontSize: "14px",
+    },
+    demoText: {
+        color: "#003366",
+        fontSize: "14px",
+        fontWeight: "600",
+    },
+    securityBadge: {
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        padding: "14px",
+        background: "#F0F7FF",
+        borderRadius: "14px",
+        marginTop: "8px",
+    },
+    securityIcon: {
+        color: "#0052A5",
+        fontSize: "20px",
+    },
+    securityInfo: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "2px",
+    },
+    securityTitle: {
+        fontSize: "14px",
+        fontWeight: "600",
+        color: "#003366",
+    },
+    securityDesc: {
+        fontSize: "12px",
+        color: "#4A6F8F",
+    },
+    footerNote: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "8px",
+        marginTop: "24px",
+        padding: "12px",
+        borderTop: "1px solid #E6EDF5",
+    },
+    footerIcon: {
+        color: "#0052A5",
+        fontSize: "12px",
+    },
+    footerText: {
+        fontSize: "12px",
+        color: "#4A6F8F",
+        fontWeight: "500",
+    },
 };
 
-// Add CSS animation
+// Add global styles for animations
 const styleSheet = document.styleSheets[0];
 styleSheet.insertRule(`
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
 `, styleSheet.cssRules.length);
 
-// Add hover effects
 styleSheet.insertRule(`
-  .feature-item-hover:hover {
-    background: rgba(255,255,255,0.1);
-    transform: translateY(-2px);
-  }
+    @keyframes pulse {
+        0% { opacity: 0.6; }
+        50% { opacity: 1; }
+        100% { opacity: 0.6; }
+    }
 `, styleSheet.cssRules.length);
-
-// Apply hover class to feature items
-const addHoverEffects = () => {
-    const featureItems = document.querySelectorAll('[class*="featureItem"]');
-    featureItems.forEach(item => {
-        item.classList.add('feature-item-hover');
-    });
-};
 
 export default Login;
