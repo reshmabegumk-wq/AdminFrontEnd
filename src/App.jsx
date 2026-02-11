@@ -3,6 +3,13 @@ import Login from "./Components/Login/Login";
 import Layout from "./Components/Layout";
 import Dashboard from "./Components/Dashboard/Dashboard";
 import Profile from "./Components/Profile/Profile";
+import ChequeBookRequests from "./Components/Requests/ChequeBookRequests";
+import StolenCardRequests from "./Components/Requests/StolenCardRequests";
+import IncreaseLimitRequests from "./Components/Requests/IncreaseLimitRequests";
+import CustomerQueries from "./Components/Requests/CustomerQueries";
+import CustomerAdminManagement from "./Components/Users/CustomerAdminManagement";
+
+
 
 const App = () => {
   return (
@@ -28,6 +35,52 @@ const App = () => {
             </Layout>
           }
         />
+
+        <Route
+          path="/cheque-book"
+          element={
+            <Layout>
+              <ChequeBookRequests />
+            </Layout>
+          }
+        />
+
+        <Route
+          path="/stolen-card"
+          element={
+            <Layout>
+              <StolenCardRequests />
+            </Layout>
+          }
+        />
+
+        <Route
+          path="/increase-limit"
+          element={
+            <Layout>
+              <IncreaseLimitRequests />
+            </Layout>
+          }
+        />
+
+        <Route
+          path="/customer-queries"
+          element={
+            <Layout>
+              <CustomerQueries />
+            </Layout>
+          }
+        />
+
+        <Route
+          path="/users"
+          element={
+            <Layout>
+              <CustomerAdminManagement />
+            </Layout>
+          }
+        />
+
 
       </Routes>
     </BrowserRouter>

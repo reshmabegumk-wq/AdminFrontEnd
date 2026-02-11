@@ -1,0 +1,1612 @@
+import React, { useState } from "react";
+import {
+    FaUsers,
+    FaUserTie,
+    FaUser,
+    FaSearch,
+    FaFilter,
+    FaEye,
+    FaEdit,
+    FaTrash,
+    FaPlus,
+    FaChevronLeft,
+    FaChevronRight,
+    FaEnvelope,
+    FaPhone,
+    FaBuilding,
+    FaShieldAlt,
+    FaCheckCircle,
+    FaTimesCircle,
+    FaClock,
+    FaCalendarAlt,
+    FaIdCard,
+    FaMapMarkerAlt,
+    FaBriefcase,
+    FaRupeeSign,
+    FaUserPlus,
+    FaRegCreditCard
+} from "react-icons/fa";
+
+const CustomerAdminManagement = () => {
+    const [activeTab, setActiveTab] = useState("customer");
+    const [searchTerm, setSearchTerm] = useState("");
+    const [statusFilter, setStatusFilter] = useState("all");
+    const [currentPage, setCurrentPage] = useState(1);
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [showOverview, setShowOverview] = useState(false);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const itemsPerPage = 8;
+
+    // ============ SAMPLE DATA ============
+    // Customer Data
+    const customerData = [
+        {
+            id: "CUST-2024-001",
+            name: "Rajesh Sharma",
+            email: "rajesh.s@email.com",
+            phone: "+91 98765 43210",
+            accountType: "Savings",
+            accountNumber: "XXXX XXXX 4582",
+            customerSince: "2019-05-15",
+            status: "active",
+            kycStatus: "verified",
+            tier: "Platinum",
+            address: "Andheri East, Mumbai",
+            occupation: "Software Engineer",
+            annualIncome: "₹12,00,000",
+            lastLogin: "2024-03-15 09:30 AM",
+            totalAccounts: 3,
+            totalCards: 2,
+            totalLoans: 1
+        },
+        {
+            id: "CUST-2024-002",
+            name: "Priya Patel",
+            email: "priya.p@email.com",
+            phone: "+91 87654 32109",
+            accountType: "Current",
+            accountNumber: "XXXX XXXX 7891",
+            customerSince: "2020-08-22",
+            status: "active",
+            kycStatus: "verified",
+            tier: "Gold",
+            address: "Banjara Hills, Hyderabad",
+            occupation: "Business Owner",
+            annualIncome: "₹25,00,000",
+            lastLogin: "2024-03-14 02:15 PM",
+            totalAccounts: 2,
+            totalCards: 3,
+            totalLoans: 2
+        },
+        {
+            id: "CUST-2024-003",
+            name: "Amit Kumar",
+            email: "amit.k@email.com",
+            phone: "+91 76543 21098",
+            accountType: "Savings",
+            accountNumber: "XXXX XXXX 1234",
+            customerSince: "2021-11-10",
+            status: "inactive",
+            kycStatus: "pending",
+            tier: "Silver",
+            address: "Connaught Place, Delhi",
+            occupation: "Doctor",
+            annualIncome: "₹18,00,000",
+            lastLogin: "2024-03-10 11:45 AM",
+            totalAccounts: 1,
+            totalCards: 1,
+            totalLoans: 0
+        },
+        {
+            id: "CUST-2024-004",
+            name: "Sneha Reddy",
+            email: "sneha.r@email.com",
+            phone: "+91 65432 10987",
+            accountType: "Current",
+            accountNumber: "XXXX XXXX 5678",
+            customerSince: "2022-02-18",
+            status: "active",
+            kycStatus: "verified",
+            tier: "Platinum",
+            address: "Jubilee Hills, Hyderabad",
+            occupation: "Chartered Accountant",
+            annualIncome: "₹22,00,000",
+            lastLogin: "2024-03-15 10:20 AM",
+            totalAccounts: 2,
+            totalCards: 2,
+            totalLoans: 1
+        },
+        {
+            id: "CUST-2024-005",
+            name: "Vikram Singh",
+            email: "vikram.s@email.com",
+            phone: "+91 54321 09876",
+            accountType: "Savings",
+            accountNumber: "XXXX XXXX 9012",
+            customerSince: "2018-07-30",
+            status: "active",
+            kycStatus: "verified",
+            tier: "Diamond",
+            address: "Civil Lines, Jaipur",
+            occupation: "Civil Servant",
+            annualIncome: "₹15,00,000",
+            lastLogin: "2024-03-13 04:50 PM",
+            totalAccounts: 4,
+            totalCards: 3,
+            totalLoans: 1
+        },
+        {
+            id: "CUST-2024-006",
+            name: "Anjali Nair",
+            email: "anjali.n@email.com",
+            phone: "+91 43210 98765",
+            accountType: "Savings",
+            accountNumber: "XXXX XXXX 3456",
+            customerSince: "2023-01-05",
+            status: "suspended",
+            kycStatus: "rejected",
+            tier: "Basic",
+            address: "Chembur, Mumbai",
+            occupation: "Teacher",
+            annualIncome: "₹7,50,000",
+            lastLogin: "2024-03-05 09:15 AM",
+            totalAccounts: 1,
+            totalCards: 1,
+            totalLoans: 0
+        },
+        {
+            id: "CUST-2024-007",
+            name: "Suresh Iyer",
+            email: "suresh.i@email.com",
+            phone: "+91 32109 87654",
+            accountType: "Current",
+            accountNumber: "XXXX XXXX 7890",
+            customerSince: "2020-09-12",
+            status: "active",
+            kycStatus: "verified",
+            tier: "Gold",
+            address: "T Nagar, Chennai",
+            occupation: "Lawyer",
+            annualIncome: "₹20,00,000",
+            lastLogin: "2024-03-14 11:30 AM",
+            totalAccounts: 2,
+            totalCards: 2,
+            totalLoans: 1
+        },
+        {
+            id: "CUST-2024-008",
+            name: "Neha Gupta",
+            email: "neha.g@email.com",
+            phone: "+91 21098 76543",
+            accountType: "Savings",
+            accountNumber: "XXXX XXXX 2345",
+            customerSince: "2022-06-20",
+            status: "inactive",
+            kycStatus: "pending",
+            tier: "Silver",
+            address: "Salt Lake, Kolkata",
+            occupation: "Architect",
+            annualIncome: "₹14,00,000",
+            lastLogin: "2024-03-08 03:45 PM",
+            totalAccounts: 1,
+            totalCards: 1,
+            totalLoans: 0
+        }
+    ];
+
+    // Admin/Employee Data
+    const adminData = [
+        {
+            id: "ADMIN-2024-001",
+            name: "Arun Prakash",
+            email: "arun.p@abcbank.com",
+            phone: "+91 99887 66554",
+            role: "Branch Manager",
+            department: "Retail Banking",
+            branch: "Andheri East, Mumbai",
+            employeeId: "EMP-2021-458",
+            joiningDate: "2021-04-10",
+            status: "active",
+            accessLevel: "Level 3",
+            lastLogin: "2024-03-15 08:45 AM",
+            reportsTo: "Regional Head",
+            teamSize: 12,
+            permissions: ["approve_loans", "approve_limits", "manage_customers"]
+        },
+        {
+            id: "ADMIN-2024-002",
+            name: "Kavitha Krishnan",
+            email: "kavitha.k@abcbank.com",
+            phone: "+91 88776 55443",
+            role: "Credit Officer",
+            department: "Credit Cards",
+            branch: "Banjara Hills, Hyderabad",
+            employeeId: "EMP-2022-789",
+            joiningDate: "2022-02-15",
+            status: "active",
+            accessLevel: "Level 2",
+            lastLogin: "2024-03-15 09:30 AM",
+            reportsTo: "Branch Manager",
+            teamSize: 5,
+            permissions: ["process_limits", "review_applications"]
+        },
+        {
+            id: "ADMIN-2024-003",
+            name: "Deepak Malhotra",
+            email: "deepak.m@abcbank.com",
+            phone: "+91 77665 44332",
+            role: "Customer Service Rep",
+            department: "Customer Support",
+            branch: "Connaught Place, Delhi",
+            employeeId: "EMP-2023-123",
+            joiningDate: "2023-01-20",
+            status: "active",
+            accessLevel: "Level 1",
+            lastLogin: "2024-03-15 10:15 AM",
+            reportsTo: "Customer Service Manager",
+            teamSize: 0,
+            permissions: ["view_customers", "respond_queries"]
+        },
+        {
+            id: "ADMIN-2024-004",
+            name: "Meera Nambiar",
+            email: "meera.n@abcbank.com",
+            phone: "+91 66554 33221",
+            role: "Risk Analyst",
+            department: "Risk Management",
+            branch: "Jubilee Hills, Hyderabad",
+            employeeId: "EMP-2021-567",
+            joiningDate: "2021-11-05",
+            status: "active",
+            accessLevel: "Level 3",
+            lastLogin: "2024-03-14 02:20 PM",
+            reportsTo: "Chief Risk Officer",
+            teamSize: 4,
+            permissions: ["fraud_analysis", "risk_assessment", "audit_logs"]
+        },
+        {
+            id: "ADMIN-2024-005",
+            name: "Rahul Verma",
+            email: "rahul.v@abcbank.com",
+            phone: "+91 55443 33221",
+            role: "System Admin",
+            department: "IT",
+            branch: "Civil Lines, Jaipur",
+            employeeId: "EMP-2020-234",
+            joiningDate: "2020-08-12",
+            status: "inactive",
+            accessLevel: "Level 4",
+            lastLogin: "2024-03-10 11:30 AM",
+            reportsTo: "IT Head",
+            teamSize: 6,
+            permissions: ["system_config", "user_management", "security_settings"]
+        },
+        {
+            id: "ADMIN-2024-006",
+            name: "Shweta Desai",
+            email: "shweta.d@abcbank.com",
+            phone: "+91 44332 22110",
+            role: "Loan Officer",
+            department: "Loans",
+            branch: "Chembur, Mumbai",
+            employeeId: "EMP-2022-890",
+            joiningDate: "2022-05-18",
+            status: "active",
+            accessLevel: "Level 2",
+            lastLogin: "2024-03-14 03:45 PM",
+            reportsTo: "Branch Manager",
+            teamSize: 3,
+            permissions: ["approve_loans", "review_applications"]
+        }
+    ];
+
+    // Get current data based on active tab
+    const currentData = activeTab === "customer" ? customerData : adminData;
+
+    // Filter data based on search and status
+    const filteredData = currentData.filter(item => {
+        const matchesSearch = activeTab === "customer"
+            ? item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.phone.includes(searchTerm)
+            : item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.role.toLowerCase().includes(searchTerm.toLowerCase());
+
+        const matchesStatus = statusFilter === "all" || item.status === statusFilter;
+
+        return matchesSearch && matchesStatus;
+    });
+
+    // Pagination
+    const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const paginatedData = filteredData.slice(startIndex, startIndex + itemsPerPage);
+
+    // ============ BADGE COMPONENTS ============
+
+    // Status Badge
+    const StatusBadge = ({ status }) => {
+        const statusConfig = {
+            active: { color: "#10B981", bg: "rgba(16, 185, 129, 0.1)", icon: FaCheckCircle, text: "Active" },
+            inactive: { color: "#6B8BA4", bg: "rgba(107, 139, 164, 0.1)", icon: FaClock, text: "Inactive" },
+            suspended: { color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)", icon: FaTimesCircle, text: "Suspended" },
+            pending: { color: "#F59E0B", bg: "rgba(245, 158, 11, 0.1)", icon: FaClock, text: "Pending" }
+        };
+
+        const config = statusConfig[status] || statusConfig.inactive;
+        const Icon = config.icon;
+
+        return (
+            <div style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "4px 12px",
+                background: config.bg,
+                color: config.color,
+                borderRadius: "30px",
+                fontSize: "12px",
+                fontWeight: "600"
+            }}>
+                <Icon size={12} />
+                {config.text}
+            </div>
+        );
+    };
+
+    // KYC Badge
+    const KYCBadge = ({ status }) => {
+        const kycConfig = {
+            verified: { color: "#10B981", bg: "rgba(16, 185, 129, 0.1)", icon: FaCheckCircle, text: "KYC Verified" },
+            pending: { color: "#F59E0B", bg: "rgba(245, 158, 11, 0.1)", icon: FaClock, text: "KYC Pending" },
+            rejected: { color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)", icon: FaTimesCircle, text: "KYC Rejected" }
+        };
+
+        const config = kycConfig[status] || kycConfig.pending;
+        const Icon = config.icon;
+
+        return (
+            <span style={{
+                padding: "4px 10px",
+                background: config.bg,
+                color: config.color,
+                borderRadius: "20px",
+                fontSize: "11px",
+                fontWeight: "600",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px"
+            }}>
+                <Icon size={10} />
+                {config.text}
+            </span>
+        );
+    };
+
+    // Tier Badge
+    const TierBadge = ({ tier }) => {
+        const tierConfig = {
+            Diamond: { color: "#8B5CF6", bg: "rgba(139, 92, 246, 0.1)", text: "💎 Diamond" },
+            Platinum: { color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)", text: "⭐ Platinum" },
+            Gold: { color: "#FFD700", bg: "rgba(255, 215, 0, 0.1)", text: "🥇 Gold" },
+            Silver: { color: "#94A3B8", bg: "rgba(148, 163, 184, 0.1)", text: "🥈 Silver" },
+            Basic: { color: "#6B8BA4", bg: "rgba(107, 139, 164, 0.1)", text: "📘 Basic" }
+        };
+
+        const config = tierConfig[tier] || tierConfig.Basic;
+
+        return (
+            <span style={{
+                padding: "4px 10px",
+                background: config.bg,
+                color: config.color,
+                borderRadius: "20px",
+                fontSize: "11px",
+                fontWeight: "600"
+            }}>
+                {config.text}
+            </span>
+        );
+    };
+
+    // Role Badge (for Admin)
+    const RoleBadge = ({ role }) => {
+        let color, bg;
+
+        if (role.includes("Manager")) {
+            color = "#8B5CF6";
+            bg = "rgba(139, 92, 246, 0.1)";
+        } else if (role.includes("Officer") || role.includes("Analyst")) {
+            color = "#3B82F6";
+            bg = "rgba(59, 130, 246, 0.1)";
+        } else if (role.includes("Admin")) {
+            color = "#EF4444";
+            bg = "rgba(239, 68, 68, 0.1)";
+        } else {
+            color = "#10B981";
+            bg = "rgba(16, 185, 129, 0.1)";
+        }
+
+        return (
+            <span style={{
+                padding: "4px 10px",
+                background: bg,
+                color: color,
+                borderRadius: "20px",
+                fontSize: "11px",
+                fontWeight: "600"
+            }}>
+                {role}
+            </span>
+        );
+    };
+
+    // ============ MODAL COMPONENTS ============
+
+    // View Details Modal
+    const UserOverviewModal = ({ user, onClose, type }) => {
+        if (!user) return null;
+
+        return (
+            <div style={styles.modalOverlay} onClick={onClose}>
+                <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+                    {/* Modal Header */}
+                    <div style={styles.modalHeader}>
+                        <div style={styles.modalTitleGroup}>
+                            <div style={styles.modalIcon}>
+                                {type === "customer" ? (
+                                    <FaUser size={20} color="#FFD700" />
+                                ) : (
+                                    <FaUserTie size={20} color="#FFD700" />
+                                )}
+                            </div>
+                            <div>
+                                <h3 style={styles.modalTitle}>
+                                    {type === "customer" ? "Customer Details" : "Admin Details"}
+                                </h3>
+                                <p style={styles.modalSubtitle}>ID: {user.id}</p>
+                            </div>
+                        </div>
+                        <button style={styles.closeBtn} onClick={onClose}>×</button>
+                    </div>
+
+                    {/* Modal Body */}
+                    <div style={styles.modalBody}>
+                        {/* Status Bar */}
+                        <div style={styles.statusBar}>
+                            <StatusBadge status={user.status} />
+                            {type === "customer" && <KYCBadge status={user.kycStatus} />}
+                            {type === "customer" && <TierBadge tier={user.tier} />}
+                            {type === "admin" && <RoleBadge role={user.role} />}
+                        </div>
+
+                        {/* Personal Information */}
+                        <div style={styles.infoSection}>
+                            <h4 style={styles.sectionTitle}>
+                                <FaUser style={styles.sectionIcon} />
+                                Personal Information
+                            </h4>
+                            <div style={styles.infoGrid}>
+                                <div style={styles.infoRow}>
+                                    <span style={styles.infoLabel}>Full Name</span>
+                                    <span style={styles.infoValue}>{user.name}</span>
+                                </div>
+                                <div style={styles.infoRow}>
+                                    <span style={styles.infoLabel}>Email Address</span>
+                                    <span style={styles.infoValue}>
+                                        <FaEnvelope style={{ marginRight: "6px", color: "#FFD700" }} />
+                                        {user.email}
+                                    </span>
+                                </div>
+                                <div style={styles.infoRow}>
+                                    <span style={styles.infoLabel}>Phone Number</span>
+                                    <span style={styles.infoValue}>
+                                        <FaPhone style={{ marginRight: "6px", color: "#FFD700" }} />
+                                        {user.phone}
+                                    </span>
+                                </div>
+                                <div style={styles.infoRow}>
+                                    <span style={styles.infoLabel}>Address</span>
+                                    <span style={styles.infoValue}>
+                                        <FaMapMarkerAlt style={{ marginRight: "6px", color: "#FFD700" }} />
+                                        {user.address || user.branch}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Account/Bank Information */}
+                        <div style={styles.infoSection}>
+                            <h4 style={styles.sectionTitle}>
+                                <FaBuilding style={styles.sectionIcon} />
+                                {type === "customer" ? "Account Information" : "Employment Information"}
+                            </h4>
+                            <div style={styles.infoGrid}>
+                                {type === "customer" ? (
+                                    <>
+                                        <div style={styles.infoRow}>
+                                            <span style={styles.infoLabel}>Account Number</span>
+                                            <span style={styles.infoValue}>{user.accountNumber}</span>
+                                        </div>
+                                        <div style={styles.infoRow}>
+                                            <span style={styles.infoLabel}>Account Type</span>
+                                            <span style={styles.infoValue}>{user.accountType}</span>
+                                        </div>
+                                        <div style={styles.infoRow}>
+                                            <span style={styles.infoLabel}>Customer Since</span>
+                                            <span style={styles.infoValue}>{user.customerSince}</span>
+                                        </div>
+                                        <div style={styles.infoRow}>
+                                            <span style={styles.infoLabel}>Occupation</span>
+                                            <span style={styles.infoValue}>{user.occupation}</span>
+                                        </div>
+                                        <div style={styles.infoRow}>
+                                            <span style={styles.infoLabel}>Annual Income</span>
+                                            <span style={styles.infoValue}>{user.annualIncome}</span>
+                                        </div>
+                                        <div style={styles.infoRow}>
+                                            <span style={styles.infoLabel}>Last Login</span>
+                                            <span style={styles.infoValue}>{user.lastLogin}</span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div style={styles.infoRow}>
+                                            <span style={styles.infoLabel}>Employee ID</span>
+                                            <span style={styles.infoValue}>{user.employeeId}</span>
+                                        </div>
+                                        <div style={styles.infoRow}>
+                                            <span style={styles.infoLabel}>Role</span>
+                                            <span style={styles.infoValue}>{user.role}</span>
+                                        </div>
+                                        <div style={styles.infoRow}>
+                                            <span style={styles.infoLabel}>Department</span>
+                                            <span style={styles.infoValue}>{user.department}</span>
+                                        </div>
+                                        <div style={styles.infoRow}>
+                                            <span style={styles.infoLabel}>Joining Date</span>
+                                            <span style={styles.infoValue}>{user.joiningDate}</span>
+                                        </div>
+                                        <div style={styles.infoRow}>
+                                            <span style={styles.infoLabel}>Access Level</span>
+                                            <span style={styles.infoValue}>{user.accessLevel}</span>
+                                        </div>
+                                        <div style={styles.infoRow}>
+                                            <span style={styles.infoLabel}>Reports To</span>
+                                            <span style={styles.infoValue}>{user.reportsTo}</span>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div style={styles.modalActions}>
+                            <button style={styles.editBtn}>
+                                <FaEdit size={14} />
+                                Edit {type === "customer" ? "Customer" : "Admin"}
+                            </button>
+                            <button style={styles.primaryBtn}>
+                                {type === "customer" ? (
+                                    <>
+                                        <FaRegCreditCard size={14} />
+                                        Manage Accounts
+                                    </>
+                                ) : (
+                                    <>
+                                        <FaShieldAlt size={14} />
+                                        Manage Permissions
+                                    </>
+                                )}
+                            </button>
+                            <button style={styles.printBtn}>
+                                <FaEye size={14} />
+                                Activity Log
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // Create Customer/Admin Modal
+    const CreateUserModal = ({ type, onClose }) => {
+        return (
+            <div style={styles.modalOverlay} onClick={onClose}>
+                <div style={{ ...styles.modalContent, maxWidth: "600px" }} onClick={(e) => e.stopPropagation()}>
+                    {/* Modal Header */}
+                    <div style={styles.modalHeader}>
+                        <div style={styles.modalTitleGroup}>
+                            <div style={styles.modalIcon}>
+                                <FaUserPlus size={20} color="#FFD700" />
+                            </div>
+                            <div>
+                                <h3 style={styles.modalTitle}>
+                                    Create New {type === "customer" ? "Customer" : "Admin"}
+                                </h3>
+                                <p style={styles.modalSubtitle}>
+                                    Fill in the details to add a new {type}
+                                </p>
+                            </div>
+                        </div>
+                        <button style={styles.closeBtn} onClick={onClose}>×</button>
+                    </div>
+
+                    {/* Modal Body */}
+                    <div style={styles.modalBody}>
+                        <div style={styles.infoGrid}>
+                            <div style={styles.formGroup}>
+                                <label style={styles.formLabel}>Full Name *</label>
+                                <input
+                                    type="text"
+                                    style={styles.formInput}
+                                    placeholder="Enter full name"
+                                />
+                            </div>
+                            <div style={styles.formGroup}>
+                                <label style={styles.formLabel}>Email Address *</label>
+                                <input
+                                    type="email"
+                                    style={styles.formInput}
+                                    placeholder="Enter email address"
+                                />
+                            </div>
+                            <div style={styles.formGroup}>
+                                <label style={styles.formLabel}>Phone Number *</label>
+                                <input
+                                    type="text"
+                                    style={styles.formInput}
+                                    placeholder="Enter phone number"
+                                />
+                            </div>
+                            <div style={styles.formGroup}>
+                                <label style={styles.formLabel}>
+                                    {type === "customer" ? "Account Type" : "Department"}
+                                </label>
+                                <select style={styles.formSelect}>
+                                    <option>Select option</option>
+                                    {type === "customer" ? (
+                                        <>
+                                            <option>Savings</option>
+                                            <option>Current</option>
+                                            <option>Salary</option>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <option>Retail Banking</option>
+                                            <option>Credit Cards</option>
+                                            <option>Loans</option>
+                                            <option>IT</option>
+                                            <option>Risk Management</option>
+                                        </>
+                                    )}
+                                </select>
+                            </div>
+                            <div style={styles.formGroup}>
+                                <label style={styles.formLabel}>Address/Branch</label>
+                                <input
+                                    type="text"
+                                    style={styles.formInput}
+                                    placeholder={type === "customer" ? "Enter address" : "Enter branch location"}
+                                />
+                            </div>
+                            <div style={styles.formGroup}>
+                                <label style={styles.formLabel}>Date of Birth/Joining</label>
+                                <input
+                                    type="date"
+                                    style={styles.formInput}
+                                />
+                            </div>
+                        </div>
+
+                        <div style={{ ...styles.modalActions, marginTop: "32px" }}>
+                            <button style={styles.approveBtn}>
+                                <FaCheckCircle size={14} />
+                                Create {type === "customer" ? "Customer" : "Admin"}
+                            </button>
+                            <button style={styles.rejectBtn} onClick={onClose}>
+                                <FaTimesCircle size={14} />
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // ============ MAIN RENDER ============
+    return (
+        <div style={styles.container}>
+            {/* Header Section */}
+            <div style={styles.header}>
+                <div style={styles.headerLeft}>
+                    <div style={styles.headerIcon}>
+                        <FaUsers size={24} color="#FFD700" />
+                    </div>
+                    <div>
+                        <h1 style={styles.title}>Customer & Admin Management</h1>
+                        <p style={styles.subtitle}>Manage customers, administrators, and their permissions</p>
+                    </div>
+                </div>
+
+                {/* Stats Cards */}
+                <div style={styles.statsContainer}>
+                    <div style={styles.statCard}>
+                        <span style={styles.statValue}>{customerData.length}</span>
+                        <span style={styles.statLabel}>Total Customers</span>
+                    </div>
+                    <div style={styles.statCard}>
+                        <span style={styles.statValue}>{adminData.length}</span>
+                        <span style={styles.statLabel}>Total Admins</span>
+                    </div>
+                    <div style={styles.statCard}>
+                        <span style={styles.statValue}>
+                            {customerData.filter(c => c.status === "active").length}
+                        </span>
+                        <span style={styles.statLabel}>Active Users</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Tabs Section */}
+            <div style={styles.tabsContainer}>
+                <div style={styles.tabsWrapper}>
+                    {/* Customer Tab */}
+                    <div
+                        style={{
+                            ...styles.tab,
+                            background: activeTab === "customer"
+                                ? "linear-gradient(135deg, #003366, #002244)"
+                                : "transparent",
+                            border: activeTab === "customer"
+                                ? "2px solid #FFD700"
+                                : "2px solid #E6EDF5",
+                            color: activeTab === "customer" ? "#FFFFFF" : "#003366"
+                        }}
+                        onClick={() => {
+                            setActiveTab("customer");
+                            setCurrentPage(1);
+                            setSearchTerm("");
+                            setStatusFilter("all");
+                        }}
+                    >
+                        <FaUser size={16} style={{ marginRight: "8px" }} />
+                        Customers
+                        {activeTab === "customer" && (
+                            <span style={styles.tabCount}>{customerData.length}</span>
+                        )}
+                    </div>
+
+                    {/* Admin Tab */}
+                    <div
+                        style={{
+                            ...styles.tab,
+                            background: activeTab === "admin"
+                                ? "linear-gradient(135deg, #003366, #002244)"
+                                : "transparent",
+                            border: activeTab === "admin"
+                                ? "2px solid #FFD700"
+                                : "2px solid #E6EDF5",
+                            color: activeTab === "admin" ? "#FFFFFF" : "#003366"
+                        }}
+                        onClick={() => {
+                            setActiveTab("admin");
+                            setCurrentPage(1);
+                            setSearchTerm("");
+                            setStatusFilter("all");
+                        }}
+                    >
+                        <FaUserTie size={16} style={{ marginRight: "8px" }} />
+                        Administrators
+                        {activeTab === "admin" && (
+                            <span style={styles.tabCount}>{adminData.length}</span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Create Button - Top Right */}
+                <button
+                    style={styles.createBtn}
+                    onClick={() => setShowCreateModal(true)}
+                >
+                    <FaPlus size={14} />
+                    Create {activeTab === "customer" ? "Customer" : "Admin"}
+                </button>
+            </div>
+
+            {/* Filters Section */}
+            <div style={styles.filtersContainer}>
+                <div style={styles.searchBox}>
+                    <FaSearch style={styles.searchIcon} />
+                    <input
+                        type="text"
+                        placeholder={activeTab === "customer"
+                            ? "Search by ID, name, email or phone..."
+                            : "Search by ID, name, email or role..."
+                        }
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        style={styles.searchInput}
+                    />
+                </div>
+                <div style={styles.filterGroup}>
+                    <FaFilter style={styles.filterIcon} />
+                    <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        style={styles.filterSelect}
+                    >
+                        <option value="all">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="suspended">Suspended</option>
+                        {activeTab === "customer" && <option value="pending">Pending</option>}
+                    </select>
+                </div>
+            </div>
+
+            {/* Table Section */}
+            <div style={styles.tableContainer}>
+                <table style={styles.table}>
+                    <thead style={styles.tableHead}>
+                        <tr>
+                            {activeTab === "customer" ? (
+                                // Customer Table Headers
+                                <>
+                                    <th style={styles.tableHeader}>Customer ID</th>
+                                    <th style={styles.tableHeader}>Customer Name</th>
+                                    <th style={styles.tableHeader}>Contact</th>
+                                    <th style={styles.tableHeader}>Account Type</th>
+                                    <th style={styles.tableHeader}>Customer Since</th>
+                                    <th style={styles.tableHeader}>Tier</th>
+                                    <th style={styles.tableHeader}>KYC Status</th>
+                                    <th style={styles.tableHeader}>Status</th>
+                                    <th style={styles.tableHeader}>Actions</th>
+                                </>
+                            ) : (
+                                // Admin Table Headers
+                                <>
+                                    <th style={styles.tableHeader}>Admin ID</th>
+                                    <th style={styles.tableHeader}>Name</th>
+                                    <th style={styles.tableHeader}>Role</th>
+                                    <th style={styles.tableHeader}>Department</th>
+                                    <th style={styles.tableHeader}>Branch</th>
+                                    <th style={styles.tableHeader}>Employee ID</th>
+                                    <th style={styles.tableHeader}>Access Level</th>
+                                    <th style={styles.tableHeader}>Status</th>
+                                    <th style={styles.tableHeader}>Actions</th>
+                                </>
+                            )}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {paginatedData.map((item) => (
+                            <tr key={item.id} style={styles.tableRow}>
+                                {activeTab === "customer" ? (
+                                    // Customer Table Rows
+                                    <>
+                                        <td style={styles.tableCell}>
+                                            <span style={styles.requestId}>{item.id}</span>
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <span style={styles.accountHolder}>{item.name}</span>
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                                <span style={{ fontSize: "12px", color: "#4A6F8F" }}>
+                                                    <FaEnvelope style={{ marginRight: "6px", color: "#FFD700", fontSize: "10px" }} />
+                                                    {item.email}
+                                                </span>
+                                                <span style={{ fontSize: "12px", color: "#4A6F8F" }}>
+                                                    <FaPhone style={{ marginRight: "6px", color: "#FFD700", fontSize: "10px" }} />
+                                                    {item.phone}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <span style={styles.deliveryMethod}>{item.accountType}</span>
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <div style={styles.dateCell}>
+                                                <FaCalendarAlt style={styles.dateIcon} />
+                                                {item.customerSince}
+                                            </div>
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <TierBadge tier={item.tier} />
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <KYCBadge status={item.kycStatus} />
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <StatusBadge status={item.status} />
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                                <button
+                                                    style={styles.iconBtn}
+                                                    onClick={() => {
+                                                        setSelectedUser(item);
+                                                        setShowOverview(true);
+                                                    }}
+                                                    title="View Details"
+                                                >
+                                                    <FaEye style={{ color: "#003366", fontSize: "14px" }} />
+                                                </button>
+                                                <button
+                                                    style={styles.iconBtn}
+                                                    title="Edit"
+                                                >
+                                                    <FaEdit style={{ color: "#F59E0B", fontSize: "14px" }} />
+                                                </button>
+                                                <button
+                                                    style={styles.iconBtn}
+                                                    title="Delete"
+                                                >
+                                                    <FaTrash style={{ color: "#EF4444", fontSize: "14px" }} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </>
+                                ) : (
+                                    // Admin Table Rows
+                                    <>
+                                        <td style={styles.tableCell}>
+                                            <span style={styles.requestId}>{item.id}</span>
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <span style={styles.accountHolder}>{item.name}</span>
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <RoleBadge role={item.role} />
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <span style={{ color: "#4A6F8F" }}>{item.department}</span>
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <span style={{ color: "#4A6F8F" }}>{item.branch}</span>
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <span style={{ fontFamily: "monospace", color: "#003366" }}>
+                                                {item.employeeId}
+                                            </span>
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <span style={{
+                                                padding: "4px 10px",
+                                                background: "rgba(59, 130, 246, 0.1)",
+                                                color: "#3B82F6",
+                                                borderRadius: "20px",
+                                                fontSize: "11px",
+                                                fontWeight: "600"
+                                            }}>
+                                                {item.accessLevel}
+                                            </span>
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <StatusBadge status={item.status} />
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                                <button
+                                                    style={styles.iconBtn}
+                                                    onClick={() => {
+                                                        setSelectedUser(item);
+                                                        setShowOverview(true);
+                                                    }}
+                                                    title="View Details"
+                                                >
+                                                    <FaEye style={{ color: "#003366", fontSize: "14px" }} />
+                                                </button>
+                                                <button
+                                                    style={styles.iconBtn}
+                                                    title="Edit"
+                                                >
+                                                    <FaEdit style={{ color: "#F59E0B", fontSize: "14px" }} />
+                                                </button>
+                                                <button
+                                                    style={styles.iconBtn}
+                                                    title="Delete"
+                                                >
+                                                    <FaTrash style={{ color: "#EF4444", fontSize: "14px" }} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </>
+                                )}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+
+                {/* No Data Message */}
+                {paginatedData.length === 0 && (
+                    <div style={styles.noData}>
+                        <FaUsers size={48} style={styles.noDataIcon} />
+                        <p style={styles.noDataText}>No {activeTab === "customer" ? "customers" : "admins"} found</p>
+                    </div>
+                )}
+            </div>
+
+            {/* Pagination */}
+            {filteredData.length > 0 && (
+                <div style={styles.pagination}>
+                    <button
+                        style={{
+                            ...styles.pageBtn,
+                            opacity: currentPage === 1 ? 0.5 : 1,
+                            cursor: currentPage === 1 ? "not-allowed" : "pointer"
+                        }}
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                    >
+                        <FaChevronLeft style={{ color: "#003366", fontSize: "12px" }} />
+                    </button>
+                    <span style={styles.pageInfo}>
+                        Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                        style={{
+                            ...styles.pageBtn,
+                            opacity: currentPage === totalPages ? 0.5 : 1,
+                            cursor: currentPage === totalPages ? "not-allowed" : "pointer"
+                        }}
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                    >
+                        <FaChevronRight style={{ color: "#003366", fontSize: "12px" }} />
+                    </button>
+                </div>
+            )}
+
+            {/* Modals */}
+            {showOverview && selectedUser && (
+                <UserOverviewModal
+                    user={selectedUser}
+                    type={activeTab}
+                    onClose={() => {
+                        setShowOverview(false);
+                        setSelectedUser(null);
+                    }}
+                />
+            )}
+
+            {showCreateModal && (
+                <CreateUserModal
+                    type={activeTab}
+                    onClose={() => setShowCreateModal(false)}
+                />
+            )}
+        </div>
+    );
+};
+
+// ============ STYLES - EXACT MATCH WITH YOUR DESIGN SYSTEM ============
+const styles = {
+    container: {
+        padding: "30px",
+        background: "#F5F9FF",
+        minHeight: "100vh",
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    },
+    header: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "30px",
+    },
+    headerLeft: {
+        display: "flex",
+        alignItems: "center",
+        gap: "16px",
+    },
+    headerIcon: {
+        width: "56px",
+        height: "56px",
+        borderRadius: "16px",
+        background: "linear-gradient(135deg, #003366, #002244)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        boxShadow: "0 8px 16px rgba(0, 51, 102, 0.15)",
+    },
+    title: {
+        fontSize: "28px",
+        fontWeight: "700",
+        margin: 0,
+        color: "#003366",
+        letterSpacing: "-0.5px",
+    },
+    subtitle: {
+        fontSize: "14px",
+        margin: "6px 0 0",
+        color: "#4A6F8F",
+    },
+    statsContainer: {
+        display: "flex",
+        gap: "16px",
+    },
+    statCard: {
+        background: "#FFFFFF",
+        padding: "12px 24px",
+        borderRadius: "16px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        boxShadow: "0 4px 12px rgba(0, 51, 102, 0.05)",
+        border: "1px solid rgba(255, 215, 0, 0.15)",
+    },
+    statValue: {
+        fontSize: "24px",
+        fontWeight: "700",
+        color: "#003366",
+    },
+    statLabel: {
+        fontSize: "12px",
+        color: "#4A6F8F",
+        marginTop: "4px",
+    },
+    // Tabs Styles
+    tabsContainer: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "24px",
+    },
+    tabsWrapper: {
+        display: "flex",
+        gap: "12px",
+    },
+    tab: {
+        display: "flex",
+        alignItems: "center",
+        padding: "12px 24px",
+        borderRadius: "14px",
+        cursor: "pointer",
+        fontWeight: "600",
+        fontSize: "15px",
+        transition: "all 0.2s ease",
+        position: "relative",
+    },
+    tabCount: {
+        marginLeft: "10px",
+        padding: "2px 8px",
+        background: "rgba(255, 215, 0, 0.2)",
+        borderRadius: "30px",
+        fontSize: "12px",
+        color: "#FFD700",
+    },
+    createBtn: {
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "12px 24px",
+        background: "linear-gradient(135deg, #003366, #002244)",
+        border: "2px solid #FFD700",
+        borderRadius: "14px",
+        color: "#FFFFFF",
+        fontSize: "14px",
+        fontWeight: "600",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+        boxShadow: "0 4px 12px rgba(0, 51, 102, 0.15)",
+    },
+    filtersContainer: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "24px",
+        gap: "20px",
+    },
+    searchBox: {
+        flex: 1,
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        padding: "12px 20px",
+        background: "#FFFFFF",
+        borderRadius: "16px",
+        border: "2px solid #E6EDF5",
+        transition: "all 0.2s ease",
+    },
+    searchIcon: {
+        color: "#6B8BA4",
+        fontSize: "16px",
+    },
+    searchInput: {
+        flex: 1,
+        border: "none",
+        outline: "none",
+        fontSize: "14px",
+        color: "#003366",
+    },
+    filterGroup: {
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        padding: "12px 20px",
+        background: "#FFFFFF",
+        borderRadius: "16px",
+        border: "2px solid #E6EDF5",
+        minWidth: "200px",
+    },
+    filterIcon: {
+        color: "#FFD700",
+        fontSize: "14px",
+    },
+    filterSelect: {
+        flex: 1,
+        border: "none",
+        outline: "none",
+        fontSize: "14px",
+        color: "#003366",
+        fontWeight: "500",
+        background: "transparent",
+        cursor: "pointer",
+    },
+    tableContainer: {
+        background: "#FFFFFF",
+        borderRadius: "24px",
+        padding: "24px",
+        boxShadow: "0 8px 24px rgba(0, 51, 102, 0.08)",
+        border: "1px solid rgba(255, 215, 0, 0.1)",
+        overflow: "auto",
+    },
+    table: {
+        width: "100%",
+        borderCollapse: "collapse",
+    },
+    tableHead: {
+        background: "#F8FBFF",
+    },
+    tableHeader: {
+        padding: "16px",
+        textAlign: "left",
+        fontSize: "13px",
+        fontWeight: "600",
+        color: "#003366",
+        borderBottom: "2px solid #FFD700",
+        textTransform: "uppercase",
+        letterSpacing: "0.5px",
+    },
+    tableRow: {
+        borderBottom: "1px solid #E6EDF5",
+        transition: "background 0.2s ease",
+    },
+    tableCell: {
+        padding: "16px",
+        fontSize: "14px",
+        color: "#1E293B",
+    },
+    requestId: {
+        fontWeight: "600",
+        color: "#003366",
+        fontFamily: "monospace",
+    },
+    accountHolder: {
+        fontWeight: "600",
+        color: "#1E293B",
+    },
+    dateCell: {
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        color: "#4A6F8F",
+    },
+    dateIcon: {
+        color: "#FFD700",
+        fontSize: "12px",
+    },
+    deliveryMethod: {
+        padding: "4px 10px",
+        background: "#F0F7FF",
+        borderRadius: "20px",
+        fontSize: "12px",
+        color: "#0052A5",
+        fontWeight: "500",
+    },
+    iconBtn: {
+        width: "32px",
+        height: "32px",
+        borderRadius: "8px",
+        border: "1px solid #E6EDF5",
+        background: "#FFFFFF",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+        color: "inherit", // This ensures it doesn't override icon colors
+        padding: 0, // Remove default button padding
+    },
+    noData: {
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "60px",
+        textAlign: "center",
+    },
+    noDataIcon: {
+        color: "#FFD700",
+        opacity: 0.5,
+        marginBottom: "16px",
+    },
+    noDataText: {
+        fontSize: "16px",
+        color: "#4A6F8F",
+        margin: 0,
+    },
+    pagination: {
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: "20px",
+        marginTop: "24px",
+    },
+    pageBtn: {
+        width: "40px",
+        height: "40px",
+        borderRadius: "12px",
+        background: "#FFFFFF",
+        border: "2px solid #E6EDF5",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        color: "#003366",
+        transition: "all 0.2s ease",
+    },
+    pageInfo: {
+        fontSize: "14px",
+        color: "#4A6F8F",
+        fontWeight: "500",
+    },
+    // Modal Styles - Exact match with your design system
+    modalOverlay: {
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "rgba(0, 51, 102, 0.5)",
+        backdropFilter: "blur(8px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+    },
+    modalContent: {
+        width: "90%",
+        maxWidth: "800px",
+        maxHeight: "90vh",
+        overflow: "auto",
+        background: "#FFFFFF",
+        borderRadius: "32px",
+        boxShadow: "0 25px 50px rgba(0, 51, 102, 0.25)",
+        border: "1px solid rgba(255, 215, 0, 0.2)",
+    },
+    modalHeader: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "24px 32px",
+        borderBottom: "1px solid #E6EDF5",
+        background: "linear-gradient(135deg, #F8FBFF, #FFFFFF)",
+    },
+    modalTitleGroup: {
+        display: "flex",
+        alignItems: "center",
+        gap: "16px",
+    },
+    modalIcon: {
+        width: "48px",
+        height: "48px",
+        borderRadius: "14px",
+        background: "linear-gradient(135deg, #003366, #002244)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    modalTitle: {
+        fontSize: "20px",
+        fontWeight: "700",
+        margin: 0,
+        color: "#003366",
+    },
+    modalSubtitle: {
+        fontSize: "13px",
+        margin: "4px 0 0",
+        color: "#4A6F8F",
+        fontFamily: "monospace",
+    },
+    closeBtn: {
+        width: "40px",
+        height: "40px",
+        borderRadius: "12px",
+        border: "2px solid #E6EDF5",
+        background: "#FFFFFF",
+        fontSize: "24px",
+        fontWeight: "500",
+        color: "#4A6F8F",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        transition: "all 0.2s ease",
+    },
+    modalBody: {
+        padding: "32px",
+    },
+    statusBar: {
+        display: "flex",
+        gap: "12px",
+        marginBottom: "24px",
+        paddingBottom: "24px",
+        borderBottom: "1px solid #E6EDF5",
+    },
+    infoSection: {
+        marginBottom: "28px",
+    },
+    sectionTitle: {
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        fontSize: "16px",
+        fontWeight: "600",
+        color: "#003366",
+        marginBottom: "16px",
+    },
+    sectionIcon: {
+        color: "#FFD700",
+        fontSize: "16px",
+    },
+    infoGrid: {
+        display: "grid",
+        gridTemplateColumns: "repeat(2, 1fr)",
+        gap: "16px",
+        background: "#F8FBFF",
+        padding: "20px",
+        borderRadius: "16px",
+    },
+    infoRow: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "4px",
+    },
+    infoLabel: {
+        fontSize: "12px",
+        color: "#6B8BA4",
+        fontWeight: "500",
+    },
+    infoValue: {
+        fontSize: "15px",
+        color: "#003366",
+        fontWeight: "600",
+        display: "flex",
+        alignItems: "center",
+    },
+    modalActions: {
+        display: "flex",
+        gap: "12px",
+        marginTop: "32px",
+        paddingTop: "24px",
+        borderTop: "1px solid #E6EDF5",
+    },
+    approveBtn: {
+        flex: 1,
+        padding: "14px 20px",
+        background: "linear-gradient(135deg, #10B981, #059669)",
+        border: "none",
+        borderRadius: "14px",
+        color: "#FFFFFF",
+        fontSize: "14px",
+        fontWeight: "600",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "8px",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+    },
+    rejectBtn: {
+        flex: 1,
+        padding: "14px 20px",
+        background: "#FFFFFF",
+        border: "2px solid #EF4444",
+        borderRadius: "14px",
+        color: "#EF4444",
+        fontSize: "14px",
+        fontWeight: "600",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "8px",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+    },
+    editBtn: {
+        flex: 1,
+        padding: "14px 20px",
+        background: "#FFFFFF",
+        border: "2px solid #3B82F6",
+        borderRadius: "14px",
+        color: "#3B82F6",
+        fontSize: "14px",
+        fontWeight: "600",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "8px",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+    },
+    primaryBtn: {
+        flex: 1,
+        padding: "14px 20px",
+        background: "linear-gradient(135deg, #003366, #002244)",
+        border: "none",
+        borderRadius: "14px",
+        color: "#FFFFFF",
+        fontSize: "14px",
+        fontWeight: "600",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "8px",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+    },
+    printBtn: {
+        padding: "14px 20px",
+        background: "#FFFFFF",
+        border: "2px solid #E6EDF5",
+        borderRadius: "14px",
+        color: "#4A6F8F",
+        fontSize: "14px",
+        fontWeight: "600",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "8px",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+    },
+    // Form Styles
+    formGroup: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px",
+    },
+    formLabel: {
+        fontSize: "12px",
+        fontWeight: "600",
+        color: "#003366",
+    },
+    formInput: {
+        padding: "12px 16px",
+        border: "2px solid #E6EDF5",
+        borderRadius: "12px",
+        fontSize: "14px",
+        color: "#003366",
+        outline: "none",
+        transition: "all 0.2s ease",
+    },
+    formSelect: {
+        padding: "12px 16px",
+        border: "2px solid #E6EDF5",
+        borderRadius: "12px",
+        fontSize: "14px",
+        color: "#003366",
+        outline: "none",
+        transition: "all 0.2s ease",
+        background: "#FFFFFF",
+    },
+};
+
+export default CustomerAdminManagement;

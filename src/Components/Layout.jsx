@@ -5,9 +5,10 @@ const Layout = ({ children }) => {
         <div
             style={{
                 display: "flex",
-                minHeight: "100vh",
-                width: "100vw",          // ✅ ADD THIS
-                boxSizing: "border-box" // ✅ ADD THIS
+                height: "100vh",      // 🔥 CHANGE minHeight → height
+                width: "100vw",
+                overflow: "hidden",   // 🔥 PREVENT whole page scroll
+                boxSizing: "border-box"
             }}
         >
             <Sidebar />
@@ -17,7 +18,9 @@ const Layout = ({ children }) => {
                     flex: 1,
                     padding: "30px",
                     background: "#f4f6f9",
-                    boxSizing: "border-box" // ✅ ADD THIS
+                    overflowY: "auto",  // 🔥 ONLY MAIN SCROLLS
+                    height: "100vh",    // 🔥 FIXED HEIGHT
+                    boxSizing: "border-box"
                 }}
             >
                 {children}
@@ -25,5 +28,6 @@ const Layout = ({ children }) => {
         </div>
     );
 };
+
 
 export default Layout;
