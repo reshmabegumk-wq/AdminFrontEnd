@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import API from "../../api";
+import { useSnackbar } from "../../Context/SnackbarContext";
 import {
     FaUsers,
     FaUserTie,
@@ -21,10 +23,13 @@ import {
     FaCalendarAlt,
     FaIdCard,
     FaMapMarkerAlt,
+    FaCity,
+    FaMapPin,
+    FaAddressCard,
     FaBriefcase,
     FaRupeeSign,
     FaUserPlus,
-    FaRegCreditCard
+    FaRegCreditCard,
 } from "react-icons/fa";
 
 const CustomerAdminManagement = () => {
@@ -35,6 +40,7 @@ const CustomerAdminManagement = () => {
     const [selectedUser, setSelectedUser] = useState(null);
     const [showOverview, setShowOverview] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const { showSnackbar } = useSnackbar();
     const itemsPerPage = 8;
 
     // ============ SAMPLE DATA ============
@@ -613,107 +619,851 @@ const CustomerAdminManagement = () => {
         );
     };
 
-    // Create Customer/Admin Modal
-    const CreateUserModal = ({ type, onClose }) => {
+    const CreateUserModal = ({ type: initialType, onClose, showSnackbar }) => {
+        const [userType, setUserType] = useState(initialType || "customer");
+        const [formData, setFormData] = useState({
+            // Personal Information
+            firstName: "",
+            lastName: "",
+            mobileNumber: "",
+            email: "",
+            dateOfBirth: "",
+
+            // Address Information
+            address: "",
+            city: "",
+            state: "",
+            country: "India",
+            pincode: "",
+
+            // Identity Documents
+            pancard: "",
+            aadhar: "",
+
+            // Account Information
+            roleId: "",
+            accountTypeId: "",
+            initialBalance: "",
+            branchName: "",
+            branchCode: "",
+
+            // Admin specific
+            department: "",
+            employeeId: "",
+            joiningDate: ""
+        });
+
+        const [errors, setErrors] = useState({});
+        const [touched, setTouched] = useState({});
+        const [isSubmitting, setIsSubmitting] = useState(false);
+
+        const validateForm = () => {
+            const newErrors = {};
+
+            // Mark all fields as touched to show validation errors
+            const allFields = [
+                'firstName', 'lastName', 'mobileNumber', 'email',
+                ...(userType === "customer" ? ['dateOfBirth', 'address', 'city', 'state', 'pincode', 'pancard', 'aadhar', 'accountTypeId', 'initialBalance', 'branchName', 'branchCode'] : []),
+                ...(userType === "admin" ? ['department', 'employeeId', 'joiningDate', 'branchName'] : []),
+                'roleId'
+            ];
+            
+            setTouched(prev => {
+                const newTouched = { ...prev };
+                allFields.forEach(field => {
+                    newTouched[field] = true;
+                });
+                return newTouched;
+            });
+
+            // Personal Information
+            if (!formData.firstName.trim()) {
+                newErrors.firstName = "First name is required";
+            } else if (formData.firstName.length < 2) {
+                newErrors.firstName = "First name must be at least 2 characters";
+            }
+
+            if (!formData.lastName.trim()) {
+                newErrors.lastName = "Last name is required";
+            }
+
+            if (!formData.mobileNumber) {
+                newErrors.mobileNumber = "Mobile number is required";
+            } else if (!/^[6-9]\d{9}$/.test(formData.mobileNumber)) {
+                newErrors.mobileNumber = "Enter a valid 10-digit Indian mobile number";
+            }
+
+            if (!formData.email) {
+                newErrors.email = "Email is required";
+            } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+                newErrors.email = "Enter a valid email address";
+            }
+
+            if (userType === "customer") {
+                if (!formData.dateOfBirth) {
+                    newErrors.dateOfBirth = "Date of birth is required";
+                } else {
+                    const dob = new Date(formData.dateOfBirth);
+                    const today = new Date();
+                    const age = today.getFullYear() - dob.getFullYear();
+                    if (age < 18) {
+                        newErrors.dateOfBirth = "Customer must be at least 18 years old";
+                    }
+                }
+
+                // Address Information
+                if (!formData.address.trim()) {
+                    newErrors.address = "Address is required";
+                }
+                if (!formData.city.trim()) {
+                    newErrors.city = "City is required";
+                }
+                if (!formData.state.trim()) {
+                    newErrors.state = "State is required";
+                }
+                if (!formData.pincode) {
+                    newErrors.pincode = "Pincode is required";
+                } else if (!/^[1-9][0-9]{5}$/.test(formData.pincode)) {
+                    newErrors.pincode = "Enter a valid 6-digit pincode";
+                }
+
+                // Identity Documents
+                if (!formData.pancard) {
+                    newErrors.pancard = "PAN card is required";
+                } else if (!/[A-Z]{5}[0-9]{4}[A-Z]{1}/.test(formData.pancard)) {
+                    newErrors.pancard = "Enter a valid PAN card number";
+                }
+
+                if (!formData.aadhar) {
+                    newErrors.aadhar = "Aadhar number is required";
+                } else if (!/^\d{12}$/.test(formData.aadhar)) {
+                    newErrors.aadhar = "Enter a valid 12-digit Aadhar number";
+                }
+
+                // Account Information
+                if (!formData.accountTypeId) {
+                    newErrors.accountTypeId = "Account type is required";
+                }
+                if (!formData.initialBalance) {
+                    newErrors.initialBalance = "Initial balance is required";
+                } else if (parseFloat(formData.initialBalance) < 500) {
+                    newErrors.initialBalance = "Minimum initial balance is ₹500";
+                }
+                if (!formData.branchName.trim()) {
+                    newErrors.branchName = "Branch name is required";
+                }
+                if (!formData.branchCode.trim()) {
+                    newErrors.branchCode = "Branch code is required";
+                }
+                if (!formData.roleId) {
+                    newErrors.roleId = "Role is required";
+                }
+            } else {
+                // Admin validation
+                if (!formData.department) {
+                    newErrors.department = "Department is required";
+                }
+                if (!formData.employeeId) {
+                    newErrors.employeeId = "Employee ID is required";
+                }
+                if (!formData.joiningDate) {
+                    newErrors.joiningDate = "Joining date is required";
+                }
+                if (!formData.branchName.trim()) {
+                    newErrors.branchName = "Branch location is required";
+                }
+                if (!formData.roleId) {
+                    newErrors.roleId = "Role is required";
+                }
+            }
+
+            setErrors(newErrors);
+            return Object.keys(newErrors).length === 0;
+        };
+
+        const handleChange = (e) => {
+            const { name, value } = e.target;
+            setFormData(prev => ({
+                ...prev,
+                [name]: value
+            }));
+            // Clear error for this field
+            if (errors[name]) {
+                setErrors(prev => ({ ...prev, [name]: "" }));
+            }
+        };
+
+        const handleBlur = (e) => {
+            const { name } = e.target;
+            setTouched(prev => ({ ...prev, [name]: true }));
+        };
+
+        const handleSubmit = async (e) => {
+            e.preventDefault();
+            if (validateForm()) {
+                setIsSubmitting(true);
+                try {
+                    // Format data for API
+                    const submitData = {
+                        ...formData,
+                        roleId: parseInt(formData.roleId),
+                        accountTypeId: userType === "customer" ? parseInt(formData.accountTypeId) : null,
+                        initialBalance: userType === "customer" ? parseFloat(formData.initialBalance) : null,
+                        dateOfBirth: userType === "customer" ? formData.dateOfBirth : null,
+                        // Only include customer-specific fields if it's a customer
+                        ...(userType === "customer" && {
+                            pancard: formData.pancard,
+                            aadhar: formData.aadhar,
+                            address: formData.address,
+                            city: formData.city,
+                            state: formData.state,
+                            country: formData.country,
+                            pincode: formData.pincode
+                        }),
+                        // Only include admin-specific fields if it's an admin
+                        ...(userType === "admin" && {
+                            department: formData.department,
+                            employeeId: formData.employeeId,
+                            joiningDate: formData.joiningDate
+                        })
+                    };
+
+                    const response = await API.post("users/save", submitData);
+                    console.log("response");
+                    
+                    
+                    // Show success message
+                    showSnackbar("success", `${userType === 'customer' ? 'Customer' : 'Admin'} created successfully!`);
+                    
+                    // Close modal
+                    setTimeout(() => {
+                        onClose();
+                    }, 1000);
+                    
+                } catch (error) {
+                    console.error('Error creating user:', error);
+                    showSnackbar("error", error.response?.data?.message || `Failed to create ${userType}. Please try again.`);
+                } finally {
+                    setIsSubmitting(false);
+                }
+            }
+        };
+
         return (
             <div style={styles.modalOverlay} onClick={onClose}>
-                <div style={{ ...styles.modalContent, maxWidth: "600px" }} onClick={(e) => e.stopPropagation()}>
+                <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
                     {/* Modal Header */}
                     <div style={styles.modalHeader}>
                         <div style={styles.modalTitleGroup}>
                             <div style={styles.modalIcon}>
-                                <FaUserPlus size={20} color="#FFD700" />
+                                <FaUserPlus size={24} color="#FFD700" />
                             </div>
                             <div>
                                 <h3 style={styles.modalTitle}>
-                                    Create New {type === "customer" ? "Customer" : "Admin"}
+                                    Create New {userType === "customer" ? "Customer" : "Administrator"}
                                 </h3>
                                 <p style={styles.modalSubtitle}>
-                                    Fill in the details to add a new {type}
+                                    Fill in all the required details to create a new {userType}
                                 </p>
                             </div>
                         </div>
                         <button style={styles.closeBtn} onClick={onClose}>×</button>
                     </div>
 
-                    {/* Modal Body */}
-                    <div style={styles.modalBody}>
-                        <div style={styles.infoGrid}>
-                            <div style={styles.formGroup}>
-                                <label style={styles.formLabel}>Full Name *</label>
-                                <input
-                                    type="text"
-                                    style={styles.formInput}
-                                    placeholder="Enter full name"
-                                />
+                    <form onSubmit={handleSubmit}>
+                        <div style={styles.modalBody}>
+                            {/* User Type Selection */}
+                            <div style={styles.userTypeSection}>
+                                <label style={styles.sectionLabel}>Select User Type</label>
+                                <div style={styles.userTypeToggle}>
+                                    <button
+                                        type="button"
+                                        style={{
+                                            ...styles.userTypeBtn,
+                                            ...(userType === "customer" ? styles.userTypeBtnActive : {})
+                                        }}
+                                        onClick={() => setUserType("customer")}
+                                    >
+                                        <FaUser size={14} />
+                                        Customer
+                                    </button>
+                                    <button
+                                        type="button"
+                                        style={{
+                                            ...styles.userTypeBtn,
+                                            ...(userType === "admin" ? styles.userTypeBtnActive : {})
+                                        }}
+                                        onClick={() => setUserType("admin")}
+                                    >
+                                        <FaShieldAlt size={14} />
+                                        Admin
+                                    </button>
+                                </div>
                             </div>
-                            <div style={styles.formGroup}>
-                                <label style={styles.formLabel}>Email Address *</label>
-                                <input
-                                    type="email"
-                                    style={styles.formInput}
-                                    placeholder="Enter email address"
-                                />
-                            </div>
-                            <div style={styles.formGroup}>
-                                <label style={styles.formLabel}>Phone Number *</label>
-                                <input
-                                    type="text"
-                                    style={styles.formInput}
-                                    placeholder="Enter phone number"
-                                />
-                            </div>
-                            <div style={styles.formGroup}>
-                                <label style={styles.formLabel}>
-                                    {type === "customer" ? "Account Type" : "Department"}
-                                </label>
-                                <select style={styles.formSelect}>
-                                    <option>Select option</option>
-                                    {type === "customer" ? (
+
+                            {/* Personal Information Section */}
+                            <div style={styles.formSection}>
+                                <div style={styles.sectionHeader}>
+                                    <FaUser size={16} color="#4361ee" />
+                                    <h4 style={styles.sectionTitle}>Personal Information</h4>
+                                </div>
+                                <div style={styles.infoGrid}>
+                                    <div style={styles.formGroup}>
+                                        <label style={styles.formLabel}>
+                                            First Name <span style={styles.required}>*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="firstName"
+                                            value={formData.firstName}
+                                            onChange={handleChange}
+                                            onBlur={handleBlur}
+                                            style={{
+                                                ...styles.formInput,
+                                                ...(touched.firstName && errors.firstName ? styles.inputError : {})
+                                            }}
+                                            placeholder="Enter first name"
+                                        />
+                                        {touched.firstName && errors.firstName && (
+                                            <span style={styles.errorText}>{errors.firstName}</span>
+                                        )}
+                                    </div>
+
+                                    <div style={styles.formGroup}>
+                                        <label style={styles.formLabel}>
+                                            Last Name <span style={styles.required}>*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="lastName"
+                                            value={formData.lastName}
+                                            onChange={handleChange}
+                                            onBlur={handleBlur}
+                                            style={{
+                                                ...styles.formInput,
+                                                ...(touched.lastName && errors.lastName ? styles.inputError : {})
+                                            }}
+                                            placeholder="Enter last name"
+                                        />
+                                        {touched.lastName && errors.lastName && (
+                                            <span style={styles.errorText}>{errors.lastName}</span>
+                                        )}
+                                    </div>
+
+                                    <div style={styles.formGroup}>
+                                        <label style={styles.formLabel}>
+                                            Mobile Number <span style={styles.required}>*</span>
+                                        </label>
+                                        <div style={styles.inputWithIcon}>
+                                            <FaPhone style={styles.inputIcon} size={14} color="#94a3b8" />
+                                            <input
+                                                type="tel"
+                                                name="mobileNumber"
+                                                value={formData.mobileNumber}
+                                                onChange={handleChange}
+                                                onBlur={handleBlur}
+                                                style={{
+                                                    ...styles.formInputWithIcon,
+                                                    ...(touched.mobileNumber && errors.mobileNumber ? styles.inputError : {})
+                                                }}
+                                                placeholder="9876543210"
+                                                maxLength="10"
+                                            />
+                                        </div>
+                                        {touched.mobileNumber && errors.mobileNumber && (
+                                            <span style={styles.errorText}>{errors.mobileNumber}</span>
+                                        )}
+                                    </div>
+
+                                    <div style={styles.formGroup}>
+                                        <label style={styles.formLabel}>
+                                            Email Address <span style={styles.required}>*</span>
+                                        </label>
+                                        <div style={styles.inputWithIcon}>
+                                            <FaEnvelope style={styles.inputIcon} size={14} color="#94a3b8" />
+                                            <input
+                                                type="email"
+                                                name="email"
+                                                value={formData.email}
+                                                onChange={handleChange}
+                                                onBlur={handleBlur}
+                                                style={{
+                                                    ...styles.formInputWithIcon,
+                                                    ...(touched.email && errors.email ? styles.inputError : {})
+                                                }}
+                                                placeholder="name@example.com"
+                                            />
+                                        </div>
+                                        {touched.email && errors.email && (
+                                            <span style={styles.errorText}>{errors.email}</span>
+                                        )}
+                                    </div>
+
+                                    {userType === "customer" && (
+                                        <div style={styles.formGroup}>
+                                            <label style={styles.formLabel}>
+                                                Date of Birth <span style={styles.required}>*</span>
+                                            </label>
+                                            <div style={styles.inputWithIcon}>
+                                                <FaCalendarAlt style={styles.inputIcon} size={14} color="#94a3b8" />
+                                                <input
+                                                    type="date"
+                                                    name="dateOfBirth"
+                                                    value={formData.dateOfBirth}
+                                                    onChange={handleChange}
+                                                    onBlur={handleBlur}
+                                                    style={{
+                                                        ...styles.formInputWithIcon,
+                                                        ...(touched.dateOfBirth && errors.dateOfBirth ? styles.inputError : {})
+                                                    }}
+                                                />
+                                            </div>
+                                            {touched.dateOfBirth && errors.dateOfBirth && (
+                                                <span style={styles.errorText}>{errors.dateOfBirth}</span>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {userType === "admin" && (
                                         <>
-                                            <option>Savings</option>
-                                            <option>Current</option>
-                                            <option>Salary</option>
+                                            <div style={styles.formGroup}>
+                                                <label style={styles.formLabel}>
+                                                    Employee ID <span style={styles.required}>*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    name="employeeId"
+                                                    value={formData.employeeId}
+                                                    onChange={handleChange}
+                                                    onBlur={handleBlur}
+                                                    style={{
+                                                        ...styles.formInput,
+                                                        ...(touched.employeeId && errors.employeeId ? styles.inputError : {})
+                                                    }}
+                                                    placeholder="EMP001234"
+                                                />
+                                                {touched.employeeId && errors.employeeId && (
+                                                    <span style={styles.errorText}>{errors.employeeId}</span>
+                                                )}
+                                            </div>
+                                            <div style={styles.formGroup}>
+                                                <label style={styles.formLabel}>
+                                                    Joining Date <span style={styles.required}>*</span>
+                                                </label>
+                                                <div style={styles.inputWithIcon}>
+                                                    <FaCalendarAlt style={styles.inputIcon} size={14} color="#94a3b8" />
+                                                    <input
+                                                        type="date"
+                                                        name="joiningDate"
+                                                        value={formData.joiningDate}
+                                                        onChange={handleChange}
+                                                        onBlur={handleBlur}
+                                                        style={{
+                                                            ...styles.formInputWithIcon,
+                                                            ...(touched.joiningDate && errors.joiningDate ? styles.inputError : {})
+                                                        }}
+                                                    />
+                                                </div>
+                                                {touched.joiningDate && errors.joiningDate && (
+                                                    <span style={styles.errorText}>{errors.joiningDate}</span>
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Customer Only Sections */}
+                            {userType === "customer" && (
+                                <>
+                                    {/* Address Section */}
+                                    <div style={styles.formSection}>
+                                        <div style={styles.sectionHeader}>
+                                            <FaMapMarkerAlt size={16} color="#4361ee" />
+                                            <h4 style={styles.sectionTitle}>Address Information</h4>
+                                        </div>
+                                        <div style={styles.infoGrid}>
+                                            <div style={{ ...styles.formGroup, gridColumn: "span 2" }}>
+                                                <label style={styles.formLabel}>
+                                                    Address <span style={styles.required}>*</span>
+                                                </label>
+                                                <textarea
+                                                    name="address"
+                                                    value={formData.address}
+                                                    onChange={handleChange}
+                                                    onBlur={handleBlur}
+                                                    style={{
+                                                        ...styles.formTextarea,
+                                                        ...(touched.address && errors.address ? styles.inputError : {})
+                                                    }}
+                                                    placeholder="Enter complete address"
+                                                    rows="2"
+                                                />
+                                                {touched.address && errors.address && (
+                                                    <span style={styles.errorText}>{errors.address}</span>
+                                                )}
+                                            </div>
+
+                                            <div style={styles.formGroup}>
+                                                <label style={styles.formLabel}>
+                                                    City <span style={styles.required}>*</span>
+                                                </label>
+                                                <div style={styles.inputWithIcon}>
+                                                    <FaCity style={styles.inputIcon} size={14} color="#94a3b8" />
+                                                    <input
+                                                        type="text"
+                                                        name="city"
+                                                        value={formData.city}
+                                                        onChange={handleChange}
+                                                        onBlur={handleBlur}
+                                                        style={{
+                                                            ...styles.formInputWithIcon,
+                                                            ...(touched.city && errors.city ? styles.inputError : {})
+                                                        }}
+                                                        placeholder="Chennai"
+                                                    />
+                                                </div>
+                                                {touched.city && errors.city && (
+                                                    <span style={styles.errorText}>{errors.city}</span>
+                                                )}
+                                            </div>
+
+                                            <div style={styles.formGroup}>
+                                                <label style={styles.formLabel}>
+                                                    State <span style={styles.required}>*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    name="state"
+                                                    value={formData.state}
+                                                    onChange={handleChange}
+                                                    onBlur={handleBlur}
+                                                    style={{
+                                                        ...styles.formInput,
+                                                        ...(touched.state && errors.state ? styles.inputError : {})
+                                                    }}
+                                                    placeholder="Tamil Nadu"
+                                                />
+                                                {touched.state && errors.state && (
+                                                    <span style={styles.errorText}>{errors.state}</span>
+                                                )}
+                                            </div>
+
+                                            <div style={styles.formGroup}>
+                                                <label style={styles.formLabel}>
+                                                    Country <span style={styles.required}>*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    name="country"
+                                                    value={formData.country}
+                                                    onChange={handleChange}
+                                                    onBlur={handleBlur}
+                                                    style={styles.formInput}
+                                                    placeholder="India"
+                                                    readOnly
+                                                />
+                                            </div>
+
+                                            <div style={styles.formGroup}>
+                                                <label style={styles.formLabel}>
+                                                    Pincode <span style={styles.required}>*</span>
+                                                </label>
+                                                <div style={styles.inputWithIcon}>
+                                                    <FaMapPin style={styles.inputIcon} size={14} color="#94a3b8" />
+                                                    <input
+                                                        type="text"
+                                                        name="pincode"
+                                                        value={formData.pincode}
+                                                        onChange={handleChange}
+                                                        onBlur={handleBlur}
+                                                        style={{
+                                                            ...styles.formInputWithIcon,
+                                                            ...(touched.pincode && errors.pincode ? styles.inputError : {})
+                                                        }}
+                                                        placeholder="600040"
+                                                        maxLength="6"
+                                                    />
+                                                </div>
+                                                {touched.pincode && errors.pincode && (
+                                                    <span style={styles.errorText}>{errors.pincode}</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Identity Documents Section */}
+                                    <div style={styles.formSection}>
+                                        <div style={styles.sectionHeader}>
+                                            <FaIdCard size={16} color="#4361ee" />
+                                            <h4 style={styles.sectionTitle}>Identity Documents</h4>
+                                        </div>
+                                        <div style={styles.infoGrid}>
+                                            <div style={styles.formGroup}>
+                                                <label style={styles.formLabel}>
+                                                    PAN Card <span style={styles.required}>*</span>
+                                                </label>
+                                                <div style={styles.inputWithIcon}>
+                                                    <FaIdCard style={styles.inputIcon} size={14} color="#94a3b8" />
+                                                    <input
+                                                        type="text"
+                                                        name="pancard"
+                                                        value={formData.pancard}
+                                                        onChange={handleChange}
+                                                        onBlur={handleBlur}
+                                                        style={{
+                                                            ...styles.formInputWithIcon,
+                                                            ...(touched.pancard && errors.pancard ? styles.inputError : {})
+                                                        }}
+                                                        placeholder="ABCDE1234F"
+                                                        maxLength="10"
+                                                    />
+                                                </div>
+                                                {touched.pancard && errors.pancard && (
+                                                    <span style={styles.errorText}>{errors.pancard}</span>
+                                                )}
+                                            </div>
+
+                                            <div style={styles.formGroup}>
+                                                <label style={styles.formLabel}>
+                                                    Aadhar Number <span style={styles.required}>*</span>
+                                                </label>
+                                                <div style={styles.inputWithIcon}>
+                                                    <FaAddressCard style={styles.inputIcon} size={14} color="#94a3b8" />
+                                                    <input
+                                                        type="text"
+                                                        name="aadhar"
+                                                        value={formData.aadhar}
+                                                        onChange={handleChange}
+                                                        onBlur={handleBlur}
+                                                        style={{
+                                                            ...styles.formInputWithIcon,
+                                                            ...(touched.aadhar && errors.aadhar ? styles.inputError : {})
+                                                        }}
+                                                        placeholder="123456789876"
+                                                        maxLength="12"
+                                                    />
+                                                </div>
+                                                {touched.aadhar && errors.aadhar && (
+                                                    <span style={styles.errorText}>{errors.aadhar}</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Account/Branch Information Section */}
+                            <div style={styles.formSection}>
+                                <div style={styles.sectionHeader}>
+                                    <FaBuilding size={16} color="#4361ee" />
+                                    <h4 style={styles.sectionTitle}>
+                                        {userType === "customer" ? "Account Information" : "Branch Information"}
+                                    </h4>
+                                </div>
+                                <div style={styles.infoGrid}>
+                                    {userType === "customer" && (
+                                        <>
+                                            <div style={styles.formGroup}>
+                                                <label style={styles.formLabel}>
+                                                    Account Type <span style={styles.required}>*</span>
+                                                </label>
+                                                <select
+                                                    name="accountTypeId"
+                                                    value={formData.accountTypeId}
+                                                    onChange={handleChange}
+                                                    onBlur={handleBlur}
+                                                    style={{
+                                                        ...styles.formSelect,
+                                                        ...(touched.accountTypeId && errors.accountTypeId ? styles.inputError : {})
+                                                    }}
+                                                >
+                                                    <option value="">Select account type</option>
+                                                    <option value="1">Savings Account</option>
+                                                    <option value="2">Current Account</option>
+                                                    <option value="3">Salary Account</option>
+                                                    <option value="4">Fixed Deposit</option>
+                                                </select>
+                                                {touched.accountTypeId && errors.accountTypeId && (
+                                                    <span style={styles.errorText}>{errors.accountTypeId}</span>
+                                                )}
+                                            </div>
+
+                                            <div style={styles.formGroup}>
+                                                <label style={styles.formLabel}>
+                                                    Initial Balance <span style={styles.required}>*</span>
+                                                </label>
+                                                <div style={styles.inputWithIcon}>
+                                                    {/* <FaIndianRupeeSign style={styles.inputIcon} size={14} color="#94a3b8" /> */}
+                                                    <input
+                                                        type="number"
+                                                        name="initialBalance"
+                                                        value={formData.initialBalance}
+                                                        onChange={handleChange}
+                                                        onBlur={handleBlur}
+                                                        style={{
+                                                            ...styles.formInputWithIcon,
+                                                            ...(touched.initialBalance && errors.initialBalance ? styles.inputError : {})
+                                                        }}
+                                                        placeholder="5000"
+                                                        min="500"
+                                                        step="100"
+                                                    />
+                                                </div>
+                                                {touched.initialBalance && errors.initialBalance && (
+                                                    <span style={styles.errorText}>{errors.initialBalance}</span>
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
+
+                                    <div style={styles.formGroup}>
+                                        <label style={styles.formLabel}>
+                                            {userType === "customer" ? "Branch Name" : "Branch Location"} <span style={styles.required}>*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="branchName"
+                                            value={formData.branchName}
+                                            onChange={handleChange}
+                                            onBlur={handleBlur}
+                                            style={{
+                                                ...styles.formInput,
+                                                ...(touched.branchName && errors.branchName ? styles.inputError : {})
+                                            }}
+                                            placeholder={userType === "customer" ? "Chennai Main Branch" : "Enter branch location"}
+                                        />
+                                        {touched.branchName && errors.branchName && (
+                                            <span style={styles.errorText}>{errors.branchName}</span>
+                                        )}
+                                    </div>
+
+                                    <div style={styles.formGroup}>
+                                        <label style={styles.formLabel}>
+                                            {userType === "customer" ? "Branch Code" : "Department"} <span style={styles.required}>*</span>
+                                        </label>
+                                        {userType === "customer" ? (
+                                            <>
+                                                <input
+                                                    type="text"
+                                                    name="branchCode"
+                                                    value={formData.branchCode}
+                                                    onChange={handleChange}
+                                                    onBlur={handleBlur}
+                                                    style={{
+                                                        ...styles.formInput,
+                                                        ...(touched.branchCode && errors.branchCode ? styles.inputError : {})
+                                                    }}
+                                                    placeholder="CHN001"
+                                                />
+                                                {touched.branchCode && errors.branchCode && (
+                                                    <span style={styles.errorText}>{errors.branchCode}</span>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <select
+                                                    name="department"
+                                                    value={formData.department}
+                                                    onChange={handleChange}
+                                                    onBlur={handleBlur}
+                                                    style={{
+                                                        ...styles.formSelect,
+                                                        ...(touched.department && errors.department ? styles.inputError : {})
+                                                    }}
+                                                >
+                                                    <option value="">Select department</option>
+                                                    <option value="retail">Retail Banking</option>
+                                                    <option value="credit">Credit Cards</option>
+                                                    <option value="loans">Loans</option>
+                                                    <option value="it">IT</option>
+                                                    <option value="risk">Risk Management</option>
+                                                    <option value="operations">Operations</option>
+                                                    <option value="compliance">Compliance</option>
+                                                </select>
+                                                {touched.department && errors.department && (
+                                                    <span style={styles.errorText}>{errors.department}</span>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+
+                                    <div style={styles.formGroup}>
+                                        <label style={styles.formLabel}>
+                                            Role <span style={styles.required}>*</span>
+                                        </label>
+                                        <select
+                                            name="roleId"
+                                            value={formData.roleId}
+                                            onChange={handleChange}
+                                            onBlur={handleBlur}
+                                            style={{
+                                                ...styles.formSelect,
+                                                ...(touched.roleId && errors.roleId ? styles.inputError : {})
+                                            }}
+                                        >
+                                            <option value="">Select role</option>
+                                            {userType === "customer" ? (
+                                                <>
+                                                    <option value="2">Customer</option>
+                                                    <option value="3">Premium Customer</option>
+                                                    <option value="4">Business Customer</option>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <option value="5">Teller</option>
+                                                    <option value="6">Customer Service</option>
+                                                    <option value="7">Branch Manager</option>
+                                                    <option value="8">Admin</option>
+                                                    <option value="9">Super Admin</option>
+                                                </>
+                                            )}
+                                        </select>
+                                        {touched.roleId && errors.roleId && (
+                                            <span style={styles.errorText}>{errors.roleId}</span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Form Actions */}
+                            <div style={styles.modalActions}>
+                                <button 
+                                    type="submit" 
+                                    style={{
+                                        ...styles.approveBtn,
+                                        opacity: isSubmitting ? 0.7 : 1,
+                                        cursor: isSubmitting ? 'not-allowed' : 'pointer'
+                                    }}
+                                    disabled={isSubmitting}
+                                >
+                                    {isSubmitting ? (
+                                        <>
+                                            <div style={{
+                                                width: '16px',
+                                                height: '16px',
+                                                border: '2px solid #ffffff',
+                                                borderTop: '2px solid transparent',
+                                                borderRadius: '50%',
+                                                animation: 'spin 1s linear infinite',
+                                                marginRight: '8px'
+                                            }}></div>
+                                            Creating...
                                         </>
                                     ) : (
                                         <>
-                                            <option>Retail Banking</option>
-                                            <option>Credit Cards</option>
-                                            <option>Loans</option>
-                                            <option>IT</option>
-                                            <option>Risk Management</option>
+                                            <FaCheckCircle size={16} />
+                                            Create {userType === "customer" ? "Customer" : "Admin"}
                                         </>
                                     )}
-                                </select>
-                            </div>
-                            <div style={styles.formGroup}>
-                                <label style={styles.formLabel}>Address/Branch</label>
-                                <input
-                                    type="text"
-                                    style={styles.formInput}
-                                    placeholder={type === "customer" ? "Enter address" : "Enter branch location"}
-                                />
-                            </div>
-                            <div style={styles.formGroup}>
-                                <label style={styles.formLabel}>Date of Birth/Joining</label>
-                                <input
-                                    type="date"
-                                    style={styles.formInput}
-                                />
+                                </button>
+                                <button type="button" style={styles.rejectBtn} onClick={onClose}>
+                                    <FaTimesCircle size={16} />
+                                    Cancel
+                                </button>
                             </div>
                         </div>
-
-                        <div style={{ ...styles.modalActions, marginTop: "32px" }}>
-                            <button style={styles.approveBtn}>
-                                <FaCheckCircle size={14} />
-                                Create {type === "customer" ? "Customer" : "Admin"}
-                            </button>
-                            <button style={styles.rejectBtn} onClick={onClose}>
-                                <FaTimesCircle size={14} />
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
+                    </form>
                 </div>
             </div>
         );
@@ -1080,11 +1830,49 @@ const CustomerAdminManagement = () => {
                 <CreateUserModal
                     type={activeTab}
                     onClose={() => setShowCreateModal(false)}
+                    showSnackbar={showSnackbar}
                 />
             )}
         </div>
     );
 };
+
+// Add global animations
+const styleSheet = document.createElement("style");
+styleSheet.textContent = `
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .info-grid {
+            grid-template-columns: 1fr !important;
+        }
+        
+        .modal-content {
+            max-width: 100% !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+            max-height: 100vh !important;
+        }
+        
+        .modal-actions {
+            flex-direction: column !important;
+        }
+        
+        .user-type-toggle {
+            flex-direction: column !important;
+        }
+    }
+`;
+document.head.appendChild(styleSheet);
 
 // ============ STYLES - EXACT MATCH WITH YOUR DESIGN SYSTEM ============
 const styles = {
@@ -1606,6 +2394,266 @@ const styles = {
         outline: "none",
         transition: "all 0.2s ease",
         background: "#FFFFFF",
+    },
+    modalOverlay: {
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0,0,0,0.5)",
+        backdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 9999,
+        padding: "20px",
+    },
+    modalContent: {
+        width: "100%",
+        maxWidth: "900px",
+        maxHeight: "90vh",
+        overflowY: "auto",
+        backgroundColor: "#ffffff",
+        borderRadius: "24px",
+        boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)",
+        animation: "slideIn 0.3s ease",
+    },
+    modalHeader: {
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "space-between",
+        padding: "24px",
+        borderBottom: "1px solid #e2e8f0",
+        position: "sticky",
+        top: 0,
+        background: "#ffffff",
+        zIndex: 10,
+        borderTopLeftRadius: "24px",
+        borderTopRightRadius: "24px",
+    },
+    modalTitleGroup: {
+        display: "flex",
+        alignItems: "center",
+        gap: "16px",
+    },
+    modalIcon: {
+        width: "48px",
+        height: "48px",
+        borderRadius: "14px",
+        background: "linear-gradient(135deg, #f59e0b20, #f9731620)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    modalTitle: {
+        fontSize: "20px",
+        fontWeight: "700",
+        color: "#0f172a",
+        margin: "0 0 4px 0",
+    },
+    modalSubtitle: {
+        fontSize: "14px",
+        color: "#64748b",
+        margin: 0,
+    },
+    closeBtn: {
+        width: "36px",
+        height: "36px",
+        borderRadius: "10px",
+        border: "1px solid #e2e8f0",
+        background: "#ffffff",
+        fontSize: "24px",
+        color: "#64748b",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        transition: "all 0.2s",
+    },
+    modalBody: {
+        padding: "24px",
+    },
+    userTypeSection: {
+        marginBottom: "24px",
+        padding: "20px",
+        background: "#f8fafc",
+        borderRadius: "16px",
+    },
+    sectionLabel: {
+        display: "block",
+        fontSize: "14px",
+        fontWeight: "600",
+        color: "#0f172a",
+        marginBottom: "12px",
+    },
+    userTypeToggle: {
+        display: "flex",
+        gap: "12px",
+    },
+    userTypeBtn: {
+        flex: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "8px",
+        padding: "12px 20px",
+        background: "#ffffff",
+        border: "1px solid #e2e8f0",
+        borderRadius: "12px",
+        fontSize: "15px",
+        fontWeight: "600",
+        color: "#475569",
+        cursor: "pointer",
+        transition: "all 0.2s",
+    },
+    userTypeBtnActive: {
+        background: "#4361ee",
+        color: "#ffffff",
+        borderColor: "#4361ee",
+    },
+    formSection: {
+        marginBottom: "32px",
+        padding: "20px",
+        background: "#ffffff",
+        border: "1px solid #e2e8f0",
+        borderRadius: "16px",
+    },
+    sectionHeader: {
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        marginBottom: "20px",
+        paddingBottom: "12px",
+        borderBottom: "1px solid #e2e8f0",
+    },
+    sectionTitle: {
+        fontSize: "16px",
+        fontWeight: "600",
+        color: "#0f172a",
+        margin: 0,
+    },
+    infoGrid: {
+        display: "grid",
+        gridTemplateColumns: "repeat(2, 1fr)",
+        gap: "20px",
+    },
+    formGroup: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px",
+    },
+    formLabel: {
+        fontSize: "13px",
+        fontWeight: "600",
+        color: "#1e293b",
+    },
+    required: {
+        color: "#ef4444",
+    },
+    formInput: {
+        width: "100%",
+        padding: "12px 16px",
+        border: "1px solid #e2e8f0",
+        borderRadius: "12px",
+        fontSize: "14px",
+        color: "#0f172a",
+        transition: "all 0.2s",
+        outline: "none",
+        ":focus": {
+            borderColor: "#4361ee",
+            boxShadow: "0 0 0 3px #4361ee20",
+        },
+    },
+    formInputWithIcon: {
+        width: "100%",
+        padding: "12px 16px 12px 40px",
+        border: "1px solid #e2e8f0",
+        borderRadius: "12px",
+        fontSize: "14px",
+        color: "#0f172a",
+        transition: "all 0.2s",
+        outline: "none",
+    },
+    inputWithIcon: {
+        position: "relative",
+        display: "flex",
+        alignItems: "center",
+    },
+    inputIcon: {
+        position: "absolute",
+        left: "16px",
+        color: "#94a3b8",
+    },
+    formSelect: {
+        width: "100%",
+        padding: "12px 16px",
+        border: "1px solid #e2e8f0",
+        borderRadius: "12px",
+        fontSize: "14px",
+        color: "#0f172a",
+        backgroundColor: "#ffffff",
+        cursor: "pointer",
+        outline: "none",
+    },
+    formTextarea: {
+        width: "100%",
+        padding: "12px 16px",
+        border: "1px solid #e2e8f0",
+        borderRadius: "12px",
+        fontSize: "14px",
+        color: "#0f172a",
+        resize: "vertical",
+        fontFamily: "inherit",
+        outline: "none",
+    },
+    inputError: {
+        borderColor: "#ef4444",
+        backgroundColor: "#fef2f2",
+    },
+    errorText: {
+        fontSize: "12px",
+        color: "#ef4444",
+        marginTop: "4px",
+    },
+    modalActions: {
+        display: "flex",
+        gap: "12px",
+        marginTop: "32px",
+        paddingTop: "24px",
+        borderTop: "1px solid #e2e8f0",
+    },
+    approveBtn: {
+        flex: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "10px",
+        padding: "14px 24px",
+        background: "linear-gradient(135deg, #10b981, #059669)",
+        border: "none",
+        borderRadius: "14px",
+        color: "#ffffff",
+        fontSize: "15px",
+        fontWeight: "600",
+        cursor: "pointer",
+        transition: "all 0.2s",
+    },
+    rejectBtn: {
+        flex: 0.5,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "10px",
+        padding: "14px 24px",
+        background: "#f1f5f9",
+        border: "1px solid #e2e8f0",
+        borderRadius: "14px",
+        color: "#475569",
+        fontSize: "15px",
+        fontWeight: "600",
+        cursor: "pointer",
+        transition: "all 0.2s",
     },
 };
 

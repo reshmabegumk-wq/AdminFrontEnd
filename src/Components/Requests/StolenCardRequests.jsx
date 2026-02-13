@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import API from "../../api";
+import { useSnackbar } from "../../Context/SnackbarContext";
 import {
     FaExclamationTriangle,
     FaEye,
@@ -18,7 +20,8 @@ import {
     FaEnvelope,
     FaShieldAlt,
     FaBan,
-    FaCalendarAlt
+    FaCalendarAlt,
+    FaSync
 } from "react-icons/fa";
 
 const StolenCardRequests = () => {
@@ -27,180 +30,69 @@ const StolenCardRequests = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [showOverview, setShowOverview] = useState(false);
+    const [stolenCardData, setStolenCardData] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const { showSnackbar } = useSnackbar();
     const itemsPerPage = 8;
 
-    // Sample data for stolen card requests
-    const stolenCardData = [
-        {
-            id: "STL-2024-001",
-            cardNumber: "XXXX XXXX XXXX 4582",
-            cardHolder: "Rajesh Sharma",
-            cardType: "Visa Platinum",
-            reportedDate: "2024-03-15",
-            reportedTime: "14:32",
-            lastTransaction: "₹12,500 at Croma",
-            lastTransactionDate: "2024-03-15",
-            lastTransactionTime: "12:45",
-            status: "urgent",
-            priority: "critical",
-            location: "Andheri East, Mumbai",
-            contactNo: "+91 98765 43210",
-            email: "rajesh.s@email.com",
-            remarks: "Card misplaced at shopping mall",
-            policeComplaint: "Yes",
-            firNumber: "FIR-2024-4582"
-        },
-        {
-            id: "STL-2024-002",
-            cardNumber: "XXXX XXXX XXXX 7891",
-            cardHolder: "Priya Patel",
-            cardType: "Mastercard World",
-            reportedDate: "2024-03-14",
-            reportedTime: "09:15",
-            lastTransaction: "₹3,200 at Starbucks",
-            lastTransactionDate: "2024-03-14",
-            lastTransactionTime: "08:30",
-            status: "processing",
-            priority: "high",
-            location: "Banjara Hills, Hyderabad",
-            contactNo: "+91 87654 32109",
-            email: "priya.p@email.com",
-            remarks: "Suspected ATM skimming",
-            policeComplaint: "Yes",
-            firNumber: "FIR-2024-7891"
-        },
-        {
-            id: "STL-2024-003",
-            cardNumber: "XXXX XXXX XXXX 1234",
-            cardHolder: "Amit Kumar",
-            cardType: "Visa Signature",
-            reportedDate: "2024-03-14",
-            reportedTime: "18:45",
-            lastTransaction: "₹850 at Grocery Store",
-            lastTransactionDate: "2024-03-14",
-            lastTransactionTime: "17:20",
-            status: "resolved",
-            priority: "medium",
-            location: "Connaught Place, Delhi",
-            contactNo: "+91 76543 21098",
-            email: "amit.k@email.com",
-            remarks: "Card found, already blocked",
-            policeComplaint: "No",
-            firNumber: "N/A"
-        },
-        {
-            id: "STL-2024-004",
-            cardNumber: "XXXX XXXX XXXX 5678",
-            cardHolder: "Sneha Reddy",
-            cardType: "RuPay Platinum",
-            reportedDate: "2024-03-13",
-            reportedTime: "11:20",
-            lastTransaction: "₹22,000 at Electronics Store",
-            lastTransactionDate: "2024-03-13",
-            lastTransactionTime: "10:15",
-            status: "blocked",
-            priority: "critical",
-            location: "Jubilee Hills, Hyderabad",
-            contactNo: "+91 65432 10987",
-            email: "sneha.r@email.com",
-            remarks: "Unauthorized transaction detected",
-            policeComplaint: "Yes",
-            firNumber: "FIR-2024-5678"
-        },
-        {
-            id: "STL-2024-005",
-            cardNumber: "XXXX XXXX XXXX 9012",
-            cardHolder: "Vikram Singh",
-            cardType: "Visa Infinite",
-            reportedDate: "2024-03-13",
-            reportedTime: "15:50",
-            lastTransaction: "₹5,600 at Restaurant",
-            lastTransactionDate: "2024-03-13",
-            lastTransactionTime: "14:30",
-            status: "urgent",
-            priority: "high",
-            location: "Civil Lines, Jaipur",
-            contactNo: "+91 54321 09876",
-            email: "vikram.s@email.com",
-            remarks: "Card stolen in auto-rickshaw",
-            policeComplaint: "Yes",
-            firNumber: "FIR-2024-9012"
-        },
-        {
-            id: "STL-2024-006",
-            cardNumber: "XXXX XXXX XXXX 3456",
-            cardHolder: "Anjali Nair",
-            cardType: "Mastercard Titanium",
-            reportedDate: "2024-03-12",
-            reportedTime: "08:30",
-            lastTransaction: "₹1,200 at Pharmacy",
-            lastTransactionDate: "2024-03-11",
-            lastTransactionTime: "19:45",
-            status: "processing",
-            priority: "medium",
-            location: "Chembur, Mumbai",
-            contactNo: "+91 43210 98765",
-            email: "anjali.n@email.com",
-            remarks: "Lost card, need replacement",
-            policeComplaint: "No",
-            firNumber: "N/A"
-        },
-        {
-            id: "STL-2024-007",
-            cardNumber: "XXXX XXXX XXXX 7890",
-            cardHolder: "Suresh Iyer",
-            cardType: "Visa Platinum",
-            reportedDate: "2024-03-12",
-            reportedTime: "20:15",
-            lastTransaction: "₹15,000 at Jewelry Store",
-            lastTransactionDate: "2024-03-12",
-            lastTransactionTime: "18:20",
-            status: "urgent",
-            priority: "critical",
-            location: "T Nagar, Chennai",
-            contactNo: "+91 32109 87654",
-            email: "suresh.i@email.com",
-            remarks: "Card cloned at ATM",
-            policeComplaint: "Yes",
-            firNumber: "FIR-2024-7890"
-        },
-        {
-            id: "STL-2024-008",
-            cardNumber: "XXXX XXXX XXXX 2345",
-            cardHolder: "Neha Gupta",
-            cardType: "RuPay Select",
-            reportedDate: "2024-03-11",
-            reportedTime: "13:45",
-            lastTransaction: "₹3,800 at Online Store",
-            lastTransactionDate: "2024-03-11",
-            lastTransactionTime: "12:30",
-            status: "resolved",
-            priority: "low",
-            location: "Salt Lake, Kolkata",
-            contactNo: "+91 21098 76543",
-            email: "neha.g@email.com",
-            remarks: "Card found at home",
-            policeComplaint: "No",
-            firNumber: "N/A"
+    // Function to fetch stolen card requests from API
+    const fetchStolenCardRequests = async () => {
+        setIsLoading(true);
+        try {
+            const payload = {
+                "status": "",
+                "page": 0,
+                "size": 10
+            };
+            const response = await API.post("lostCard/adminLastCardList", payload);
+            setStolenCardData(response?.data?.data?.content || []);
+            console.log("response" , response?.data?.data?.content);
+            
+        } catch (error) {
+            console.error('Error fetching stolen card requests:', error);
+            showSnackbar("error", "Failed to load stolen card requests. Please try again.");
+            setStolenCardData([]); // Set empty array on error
+        } finally {
+            setIsLoading(false);
         }
-    ];
+    };
 
-    // Filter data based on search and status
-    const filteredData = stolenCardData.filter(item => {
-        const matchesSearch = 
-            item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.cardHolder.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.cardNumber.includes(searchTerm);
-        
-        const matchesStatus = statusFilter === "all" || item.status === statusFilter;
-        
-        return matchesSearch && matchesStatus;
-    });
+    console.log("stolenCardData" , stolenCardData);
+
+
+    // Fetch data on component mount and when filters/page changes
+    useEffect(() => {
+        fetchStolenCardRequests();
+    }, []); // Only refetch when page changes, not status filter
+    console.log(stolenCardData , "stolenCardData");
+    
+
+    // Handle search functionality (client-side filtering)
+    // const filteredData = stolenCardData?.filter(item => {
+    //     const matchesSearch =
+    //         item.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    //         item.cardHolder?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    //         item.cardNumber?.includes(searchTerm);
+
+    //     return matchesSearch;
+    // });
+
+    // Handle refresh
+    const handleRefresh = () => {
+        fetchStolenCardRequests();
+    };
+
+    // Handle status filter change
+    const handleStatusFilterChange = (newStatus) => {
+        setStatusFilter(newStatus);
+        setCurrentPage(1); // Reset to first page when filter changes
+        fetchStolenCardRequests(); // Fetch data with new filter
+    };
 
     // Pagination
-    const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const paginatedData = filteredData.slice(startIndex, startIndex + itemsPerPage);
+    // const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+    // const startIndex = (currentPage - 1) * itemsPerPage;
+    // const paginatedData = filteredData.slice(startIndex, startIndex + itemsPerPage);
 
     // Status badge component
     const StatusBadge = ({ status }) => {
@@ -321,7 +213,7 @@ const StolenCardRequests = () => {
                             <div style={styles.infoGrid}>
                                 <div style={styles.infoRow}>
                                     <span style={styles.infoLabel}>Cardholder Name</span>
-                                    <span style={styles.infoValue}>{request.cardHolder}</span>
+                                    <span style={styles.infoValue}>{request.cardHolder || "N/A"}</span>
                                 </div>
                                 <div style={styles.infoRow}>
                                     <span style={styles.infoLabel}>Card Number</span>
@@ -416,19 +308,35 @@ const StolenCardRequests = () => {
                         <p style={styles.subtitle}>Manage and process stolen/lost card incidents</p>
                     </div>
                 </div>
-                <div style={styles.statsContainer}>
-                    <div style={styles.statCard}>
-                        <span style={styles.statValue}>4</span>
-                        <span style={styles.statLabel}>Urgent</span>
+                <div style={styles.headerRight}>
+                    <div style={styles.statsContainer}>
+                        <div style={styles.statCard}>
+                            <span style={styles.statValue}>4</span>
+                            <span style={styles.statLabel}>Urgent</span>
+                        </div>
+                        <div style={styles.statCard}>
+                            <span style={styles.statValue}>2</span>
+                            <span style={styles.statLabel}>Processing</span>
+                        </div>
+                        <div style={styles.statCard}>
+                            <span style={styles.statValue}>2</span>
+                            <span style={styles.statLabel}>Resolved</span>
+                        </div>
                     </div>
-                    <div style={styles.statCard}>
-                        <span style={styles.statValue}>2</span>
-                        <span style={styles.statLabel}>Processing</span>
-                    </div>
-                    <div style={styles.statCard}>
-                        <span style={styles.statValue}>2</span>
-                        <span style={styles.statLabel}>Resolved</span>
-                    </div>
+                    <button
+                        style={styles.refreshBtn}
+                        onClick={handleRefresh}
+                        disabled={isLoading}
+                    >
+                        <FaSync
+                            size={16}
+                            style={{
+                                ...styles.refreshIcon,
+                                ...(isLoading ? styles.refreshIconSpinning : {})
+                            }}
+                        />
+                        Refresh
+                    </button>
                 </div>
             </div>
 
@@ -448,7 +356,7 @@ const StolenCardRequests = () => {
                     <FaFilter style={styles.filterIcon} />
                     <select
                         value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
+                        onChange={(e) => handleStatusFilterChange(e.target.value)}
                         style={styles.filterSelect}
                     >
                         <option value="all">All Status</option>
@@ -465,75 +373,73 @@ const StolenCardRequests = () => {
                 <table style={styles.table}>
                     <thead style={styles.tableHead}>
                         <tr>
-                            <th style={styles.tableHeader}>Report ID</th>
+                            <th style={styles.tableHeader}>S.No</th>
                             <th style={styles.tableHeader}>Cardholder</th>
                             <th style={styles.tableHeader}>Card Number</th>
-                            <th style={styles.tableHeader}>Card Type</th>
                             <th style={styles.tableHeader}>Reported Date</th>
-                            <th style={styles.tableHeader}>Last Transaction</th>
-                            <th style={styles.tableHeader}>Priority</th>
                             <th style={styles.tableHeader}>Status</th>
                             <th style={styles.tableHeader}>Action</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {paginatedData.map((item) => (
-                            <tr key={item.id} style={styles.tableRow}>
-                                <td style={styles.tableCell}>
-                                    <span style={styles.requestId}>{item.id}</span>
-                                </td>
-                                <td style={styles.tableCell}>
-                                    <span style={styles.accountHolder}>{item.cardHolder}</span>
-                                </td>
-                                <td style={styles.tableCell}>
-                                    <span style={styles.accountNumber}>{item.cardNumber}</span>
-                                </td>
-                                <td style={styles.tableCell}>
-                                    <span style={styles.cardType}>{item.cardType}</span>
-                                </td>
-                                <td style={styles.tableCell}>
-                                    <div style={styles.dateCell}>
-                                        <FaCalendarAlt style={styles.dateIcon} />
-                                        {item.reportedDate}
-                                        <span style={styles.timeText}>{item.reportedTime}</span>
+                        {isLoading ? (
+                            <tr>
+                                <td colSpan="9" style={styles.loadingCell}>
+                                    <div style={styles.loadingContainer}>
+                                        <div style={styles.loader}></div>
+                                        <span style={styles.loadingText}>Loading stolen card requests...</span>
                                     </div>
-                                </td>
-                                <td style={styles.tableCell}>
-                                    <div style={styles.transactionCell}>
-                                        <span style={styles.transactionAmount}>{item.lastTransaction}</span>
-                                        <span style={styles.transactionTime}>{item.lastTransactionTime}</span>
-                                    </div>
-                                </td>
-                                <td style={styles.tableCell}>
-                                    <PriorityBadge priority={item.priority} />
-                                </td>
-                                <td style={styles.tableCell}>
-                                    <StatusBadge status={item.status} />
-                                </td>
-                                <td style={styles.tableCell}>
-                                    <button
-                                        style={styles.viewBtn}
-                                        onClick={() => handleViewOverview(item)}
-                                    >
-                                        <FaEye size={16} />
-                                        <span style={styles.viewText}>View</span>
-                                    </button>
                                 </td>
                             </tr>
-                        ))}
+                        ) : stolenCardData.length > 0 ? (
+                            stolenCardData.map((item, index) => (
+                                <tr key={item.id} style={styles.tableRow}>
+                                    <td style={styles.tableCell}>
+                                        <span style={styles.requestId}>{index + 1}</span>
+                                    </td>
+                                    <td style={styles.tableCell}>
+                                        <span style={styles.accountHolder}>{item.cardHolder || "Unknown Name"}</span>
+                                    </td>
+                                    <td style={styles.tableCell}>
+                                        <span style={styles.accountNumber}>{item.lostCardNumber}</span>
+                                    </td>
+                                    <td style={styles.tableCell}>
+                                        <div style={styles.dateCell}>
+                                            <FaCalendarAlt style={styles.dateIcon} />
+                                            {item.reportedDate || "12-09-2026"}
+                                            <span style={styles.timeText}>{item.reportedTime}</span>
+                                        </div>
+                                    </td>
+                                    <td style={styles.tableCell}>
+                                        {item.status}
+                                    </td>
+                                    <td style={styles.tableCell}>
+                                        <button
+                                            style={styles.viewBtn}
+                                            onClick={() => handleViewOverview(item)}
+                                        >
+                                            <FaEye size={16} />
+                                            <span style={styles.viewText}>View</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))
+                        ) : (
+                            <tr>
+                                <td colSpan="9" style={styles.noDataCell}>
+                                    <div style={styles.noData}>
+                                        <FaExclamationTriangle size={48} style={styles.noDataIcon} />
+                                        <p style={styles.noDataText}>No stolen card reports found</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
-
-                {paginatedData.length === 0 && (
-                    <div style={styles.noData}>
-                        <FaExclamationTriangle size={48} style={styles.noDataIcon} />
-                        <p style={styles.noDataText}>No stolen card reports found</p>
-                    </div>
-                )}
             </div>
 
             {/* Pagination */}
-            {filteredData.length > 0 && (
+            {stolenCardData.length > 0 && (
                 <div style={styles.pagination}>
                     <button
                         style={styles.pageBtn}
@@ -543,12 +449,12 @@ const StolenCardRequests = () => {
                         <FaChevronLeft size={12} />
                     </button>
                     <span style={styles.pageInfo}>
-                        Page {currentPage} of {totalPages}
+                        Page {currentPage} of {10}
                     </span>
                     <button
                         style={styles.pageBtn}
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, 10))}
+                        disabled={currentPage === 10}
                     >
                         <FaChevronRight size={12} />
                     </button>
@@ -1063,6 +969,71 @@ const styles = {
             borderColor: "#FFD700",
             color: "#003366",
         },
+    },
+    // Header right section
+    headerRight: {
+        display: "flex",
+        alignItems: "center",
+        gap: "20px",
+    },
+    // Refresh button
+    refreshBtn: {
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "12px 20px",
+        background: "linear-gradient(135deg, #003366, #002244)",
+        border: "none",
+        borderRadius: "16px",
+        color: "#FFFFFF",
+        fontSize: "14px",
+        fontWeight: "600",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+        boxShadow: "0 4px 12px rgba(0, 51, 102, 0.15)",
+        ":hover": {
+            transform: "translateY(-2px)",
+            boxShadow: "0 8px 16px rgba(0, 51, 102, 0.25)",
+        },
+        ":disabled": {
+            opacity: 0.7,
+            cursor: "not-allowed",
+            transform: "none",
+        },
+    },
+    refreshIcon: {
+        transition: "transform 0.3s ease",
+    },
+    refreshIconSpinning: {
+        animation: "spin 1s linear infinite",
+    },
+    // Loading state
+    loadingCell: {
+        padding: "60px",
+        textAlign: "center",
+    },
+    loadingContainer: {
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "16px",
+    },
+    loader: {
+        width: "40px",
+        height: "40px",
+        border: "4px solid #E6EDF5",
+        borderTop: "4px solid #FFD700",
+        borderRadius: "50%",
+        animation: "spin 1s linear infinite",
+    },
+    loadingText: {
+        fontSize: "16px",
+        color: "#4A6F8F",
+        fontWeight: "500",
+    },
+    noDataCell: {
+        padding: "0",
     },
 };
 

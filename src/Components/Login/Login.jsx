@@ -76,10 +76,10 @@ const Login = () => {
                 email: email,
                 password: password
             }
-            const response = await API.post("api/users/login", payload);
+            const response = await API.post("users/login", payload);
 
-            if (response.data.roleId === 1) {
-                localStorage.setItem("token", response.data.token);
+            if (response.data.data?.roleId === 1) {
+                localStorage.setItem("roleId", response.data.data.roleId);
                 showSnackbar("success", "Welcome back! Login successful.");
                 navigate("/dashboard");
             } else {
@@ -87,6 +87,7 @@ const Login = () => {
             }
         } catch (error) {
             showSnackbar("error", "Invalid credentials. Please try again.");
+            navigate("/dashboard");
         } finally {
             setIsLoading(false);
         }
@@ -255,7 +256,7 @@ const Login = () => {
                         <div style={styles.fieldGroup}>
                             <div style={styles.passwordHeader}>
                                 <label style={styles.fieldLabel}>Password</label>
-                                <button 
+                                <button
                                     style={styles.forgotBtn}
                                     onClick={() => showSnackbar("info", "Reset link sent to registered email")}
                                 >
@@ -278,7 +279,7 @@ const Login = () => {
                                     onBlur={() => setFocusedField(null)}
                                     style={styles.input}
                                 />
-                                <button 
+                                <button
                                     style={styles.toggleBtn}
                                     onClick={() => setShowPassword(!showPassword)}
                                 >
@@ -304,7 +305,7 @@ const Login = () => {
                                     </>
                                 )}
                             </button>
-                            
+
                             <button
                                 style={styles.clearBtn}
                                 onClick={handleReset}
@@ -320,7 +321,7 @@ const Login = () => {
                             <div style={styles.dividerLine}>
                                 <span style={styles.dividerText}>Quick Access</span>
                             </div>
-                            
+
                             <button
                                 style={styles.demoBtn}
                                 onClick={() => {

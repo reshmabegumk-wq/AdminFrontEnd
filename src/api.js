@@ -3,7 +3,7 @@ import axios from "axios";
 // ================================
 // 🔥 Base URL (Your Backend)
 // ================================
-const BASE_URL = "http://localhost:8088/abcbank/";
+const BASE_URL = "http://localhost:8077/abcbank/api/";
 
 // ================================
 // 🚀 Axios Instance
@@ -66,6 +66,21 @@ const API = {
   post: (url, data = {}, config = {}) => api.post(url, data, config),
   put: (url, data = {}, config = {}) => api.put(url, data, config),
   delete: (url, config = {}) => api.delete(url, config),
+};
+
+// ================================
+// 👥 User Management APIs
+// ================================
+export const createUser = async (userData) => {
+  console.log("Hi");
+  
+  try {
+    const response = await API.post('users/save', userData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating user:', error);
+    throw error;
+  }
 };
 
 export default API;
