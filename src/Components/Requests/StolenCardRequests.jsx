@@ -665,12 +665,12 @@ const StolenCardRequests = () => {
                         <FaChevronLeft size={16} />
                     </button>
                     <span style={styles.pageInfo}>
-                        Page {currentPage} of {paginationData.totalPages} ({paginationData.totalElements} total)
+                        Page {currentPage} of {"3"} ({"3"} total)
                     </span>
                     <button
                         style={styles.pageBtn}
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, paginationData.totalPages))}
-                        disabled={currentPage === paginationData.totalPages}
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, 3))}
+                        disabled={currentPage === 3}
                     >
                         <FaChevronRight size={16} />
                     </button>
