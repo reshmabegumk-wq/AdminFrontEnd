@@ -82,12 +82,12 @@ const Login = () => {
                 localStorage.setItem("roleId", response.data.data.roleId);
                 showSnackbar("success", "Welcome back! Login successful.");
                 navigate("/dashboard");
+                localStorage.setItem("userId", response?.data?.data?.userId);
             } else {
                 showSnackbar("error", "Unauthorized access. Admin privileges required.");
             }
         } catch (error) {
             showSnackbar("error", "Invalid credentials. Please try again.");
-            navigate("/dashboard");
         } finally {
             setIsLoading(false);
         }
