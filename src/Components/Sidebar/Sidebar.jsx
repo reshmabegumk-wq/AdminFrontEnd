@@ -33,6 +33,7 @@ const Sidebar = () => {
 
     const handleLogout = () => {
         localStorage.removeItem("token");
+        localStorage.clear();
         navigate("/");
     };
 
@@ -40,15 +41,15 @@ const Sidebar = () => {
         <aside
             style={{
                 minWidth: "280px",
-                minHeight: "100vh",
+                height: "100vh",
                 background: "linear-gradient(180deg, #003366 0%, #002244 100%)",
                 color: "#fff",
                 padding: "28px 20px",
                 boxShadow: "8px 0 25px rgba(0, 51, 102, 0.15)",
                 display: "flex",
                 flexDirection: "column",
-                justifyContent: "space-between",
-                overflow: "hidden"
+                overflowY: "auto",
+                overflowX: "hidden"
             }}
         >
             {/* Premium Pattern Overlay */}
