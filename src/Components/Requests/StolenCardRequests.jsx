@@ -429,6 +429,7 @@ const StolenCardRequests = () => {
                         </div>
 
                         {/* Action Buttons */}
+                         {displayData.status === "Pending" && (
                         <div style={styles.modalActions}>
                             <button style={styles.blockBtn} onClick={handleRejectRequest}>
                                 <FaBan size={14} />
@@ -438,15 +439,8 @@ const StolenCardRequests = () => {
                                 <FaCheckCircle size={14} />
                                 Approve request
                             </button>
-                            {/* <button style={styles.printBtn}>
-                                <FaPrint size={14} />
-                                Print Report
-                            </button>
-                            <button style={styles.downloadBtn}>
-                                <FaDownload size={14} />
-                                Download
-                            </button> */}
                         </div>
+                         )}
 
                         {/* Rejection Reason Modal */}
                         {showRejectReason && (
@@ -620,7 +614,7 @@ const StolenCardRequests = () => {
                                     <td style={styles.tableCell}>
                                         <div style={styles.dateCell}>
                                             <FaCalendarAlt style={styles.dateIcon} />
-                                            {item.createdDate || "12-09-2026"}
+                                            {item.createdDate}
                                             <span style={styles.timeText}>{item.reportedTime}</span>
                                         </div>
                                     </td>
