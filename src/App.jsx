@@ -3,7 +3,7 @@ import Login from "./Components/Login/Login";
 import Layout from "./Components/Layout";
 import Dashboard from "./Components/Dashboard/Dashboard";
 import Profile from "./Components/Profile/Profile";
-import ChequeBookRequests from "./Components/Requests/ChequeBookRequests";
+import ChequeLeavesRequests from "./Components/Requests/ChequeLeavesRequests";
 import StolenCardRequests from "./Components/Requests/StolenCardRequests";
 import IncreaseLimitRequests from "./Components/Requests/IncreaseLimitRequests";
 import CustomerQueries from "./Components/Requests/CustomerQueries";
@@ -40,7 +40,7 @@ const App = () => {
           path="/cheque-book"
           element={
             <Layout>
-              <ChequeBookRequests />
+              <ChequeLeavesRequests />
             </Layout>
           }
         />

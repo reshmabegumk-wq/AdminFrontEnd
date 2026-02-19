@@ -5,23 +5,17 @@ import {
     FaExclamationTriangle,
     FaEye,
     FaCheckCircle,
-    FaTimesCircle,
+    FaBan,
     FaClock,
-    FaDownload,
-    FaPrint,
+    FaSync,
     FaFilter,
     FaSearch,
     FaChevronLeft,
     FaChevronRight,
-    FaCreditCard,
     FaUserTie,
-    FaMapMarkerAlt,
-    FaPhone,
-    FaEnvelope,
-    FaShieldAlt,
-    FaBan,
     FaCalendarAlt,
-    FaSync
+    FaShieldAlt,
+    FaCreditCard
 } from "react-icons/fa";
 
 const StolenCardRequests = () => {
@@ -76,8 +70,42 @@ const StolenCardRequests = () => {
 
     // Fetch data on component mount and when filters/page changes
     useEffect(() => {
-        fetchStolenCardRequests(currentPage - 1); // Convert to 0-based indexing
-    }, [currentPage, statusFilter]); // Refetch when page or status filter changes
+        fetchStolenCardRequests(currentPage - 1);
+    }, [currentPage, statusFilter]);
+
+    // Calculate statistics from the data
+    const calculateStats = () => {
+        if (!stolenCardData || stolenCardData.length === 0) {
+            return {
+                total: 0,
+                approved: 0,
+                rejected: 0,
+                pending: 0
+            };
+        }
+
+        const approved = stolenCardData.filter(item =>
+            item.status?.toLowerCase() === 'approved'
+        ).length;
+
+        const rejected = stolenCardData.filter(item =>
+            item.status?.toLowerCase() === 'rejected'
+        ).length;
+
+        const pending = stolenCardData.filter(item =>
+            item.status?.toLowerCase() === 'pending'
+        ).length;
+
+        return {
+            total: stolenCardData.length,
+            approved,
+            rejected,
+            pending
+        };
+    };
+
+    const stats = calculateStats();
+
     // Handle search functionality (client-side filtering by cardholder name only)
     const filteredData = stolenCardData?.filter(item => {
         const matchesSearch = item.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -94,14 +122,8 @@ const StolenCardRequests = () => {
     // Handle status filter change
     const handleStatusFilterChange = (newStatus) => {
         setStatusFilter(newStatus);
-        setCurrentPage(1); // Reset to first page when filter changes
-        // Data will be fetched by useEffect due to statusFilter change
+        setCurrentPage(1);
     };
-
-    // Pagination
-    // const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-    // const startIndex = (currentPage - 1) * itemsPerPage;
-    // const paginatedData = filteredData.slice(startIndex, startIndex + itemsPerPage);
 
     // Status badge component
     const StatusBadge = ({ status }) => {
@@ -112,7 +134,6 @@ const StolenCardRequests = () => {
             Rejected: { color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)", icon: FaBan, text: "Rejected" },
             Pending: { color: "#F97316", bg: "rgba(249, 115, 22, 0.1)", icon: FaClock, text: "Pending" },
             pending: { color: "#F97316", bg: "rgba(249, 115, 22, 0.1)", icon: FaClock, text: "Pending" },
-            // Fallback for other statuses
             processing: { color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)", icon: FaClock, text: "Processing" },
             urgent: { color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)", icon: FaExclamationTriangle, text: "Urgent" },
             resolved: { color: "#10B981", bg: "rgba(16, 185, 129, 0.1)", icon: FaCheckCircle, text: "Resolved" },
@@ -140,28 +161,24 @@ const StolenCardRequests = () => {
         );
     };
 
-    // Priority badge
-    const PriorityBadge = ({ priority }) => {
-        const priorityConfig = {
-            critical: { color: "#DC2626", bg: "rgba(220, 38, 38, 0.1)", text: "Critical" },
-            high: { color: "#F59E0B", bg: "rgba(245, 158, 11, 0.1)", text: "High" },
-            medium: { color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)", text: "Medium" },
-            low: { color: "#10B981", bg: "rgba(16, 185, 129, 0.1)", text: "Low" }
-        };
-
-        const config = priorityConfig[priority] || priorityConfig.medium;
-
+    // Card Type badge component
+    const CardTypeBadge = ({ type }) => {
+        const isDebit = type?.toLowerCase() === 'debit';
         return (
-            <span style={{
-                padding: "4px 10px",
-                background: config.bg,
-                color: config.color,
-                borderRadius: "20px",
-                fontSize: "11px",
+            <div style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "4px 12px",
+                background: isDebit ? "rgba(16, 185, 129, 0.1)" : "rgba(59, 130, 246, 0.1)",
+                color: isDebit ? "#10B981" : "#3B82F6",
+                borderRadius: "30px",
+                fontSize: "12px",
                 fontWeight: "600"
             }}>
-                {config.text}
-            </span>
+                <FaCreditCard size={12} />
+                {type || "N/A"}
+            </div>
         );
     };
 
@@ -169,7 +186,6 @@ const StolenCardRequests = () => {
     const fetchCardDetails = async (id) => {
         try {
             const res = await API.get(`/lostCard/lostCardBy/${id}`);
-            // Store the detailed data in state based on backend response structure
             if (res.data && res.data.status && res.data.data) {
                 setCardDetails(res.data.data);
                 return res.data.data;
@@ -192,18 +208,14 @@ const StolenCardRequests = () => {
             const res = await API.post(`/lostCard/lostCardUpdateAdmin/${id}`, payload);
             console.log("Card update response:", res.data);
 
-            // Handle different response structures
             if (res.data) {
-                // If response has status and data structure
                 if (res.data.status && res.data.data) {
                     setCardDetails(res.data.data);
                     return res.data.data;
                 }
-                // If response is just a success object
                 if (res.data.status === true || res.data.success === true) {
                     return res.data;
                 }
-                // Return the response data directly
                 return res.data;
             }
             return null;
@@ -214,12 +226,10 @@ const StolenCardRequests = () => {
         }
     };
 
-    // Handle view overview - separate from API
+    // Handle view overview
     const handleViewOverview = async (item) => {
         setSelectedRequest(item);
         setShowOverview(true);
-
-        // Fetch detailed data and store in state
         await fetchCardDetails(item.lostCardId);
     };
 
@@ -241,7 +251,6 @@ const StolenCardRequests = () => {
             if (result) {
                 showSnackbar("success", "Request approved successfully");
                 closeOverview();
-                // Refresh the data
                 fetchStolenCardRequests();
             } else {
                 console.log("No result returned from API");
@@ -283,7 +292,6 @@ const StolenCardRequests = () => {
                 setShowRejectReason(false);
                 setRejectReason("");
                 closeOverview();
-                // Refresh the data
                 fetchStolenCardRequests();
             } else {
                 console.log("No result returned from reject API");
@@ -314,7 +322,6 @@ const StolenCardRequests = () => {
     const StolenCardModal = ({ request, onClose }) => {
         if (!request) return null;
 
-        // Use detailed data from API if available, otherwise use basic request data
         const displayData = cardDetails || request;
 
         return (
@@ -337,7 +344,7 @@ const StolenCardRequests = () => {
                         {/* Status Bar */}
                         <div style={styles.statusBar}>
                             <StatusBadge status={displayData.status} />
-                            <PriorityBadge priority={request.priority} />
+                            <CardTypeBadge type={displayData.cardType || "Debit"} />
                             {request.policeComplaint === "Yes" && (
                                 <span style={{
                                     padding: "4px 12px",
@@ -370,6 +377,12 @@ const StolenCardRequests = () => {
                                 <div style={styles.infoRow}>
                                     <span style={styles.infoLabel}>Card Number</span>
                                     <span style={styles.infoValue}>{displayData.lostCardNumber || request.cardNumber || "N/A"}</span>
+                                </div>
+                                <div style={styles.infoRow}>
+                                    <span style={styles.infoLabel}>Card Type</span>
+                                    <span style={styles.infoValue}>
+                                        <CardTypeBadge type={displayData.cardType || "Debit"} />
+                                    </span>
                                 </div>
                                 <div style={styles.infoRow}>
                                     <span style={styles.infoLabel}>Account Number</span>
@@ -417,30 +430,30 @@ const StolenCardRequests = () => {
                                     <span style={styles.infoLabel}>Remarks</span>
                                     <span style={styles.infoValue}>{displayData.remarks || "N/A"}</span>
                                 </div>
-                                    <div style={styles.infoRow}>
-                                        <span style={styles.infoLabel}>Updated Date</span>
-                                        <span style={styles.infoValue}>{displayData.approvedDate || "N/A"}</span>
-                                    </div>
-                                    <div style={styles.infoRow}>
-                                        <span style={styles.infoLabel}>Updated By</span>
-                                        <span style={styles.infoValue}>{displayData.approvedByName || "N/A"}</span>
-                                    </div>
+                                <div style={styles.infoRow}>
+                                    <span style={styles.infoLabel}>Updated Date</span>
+                                    <span style={styles.infoValue}>{displayData.approvedDate || "N/A"}</span>
+                                </div>
+                                <div style={styles.infoRow}>
+                                    <span style={styles.infoLabel}>Updated By</span>
+                                    <span style={styles.infoValue}>{displayData.approvedByName || "N/A"}</span>
+                                </div>
                             </div>
                         </div>
 
                         {/* Action Buttons */}
-                         {displayData.status === "Pending" && (
-                        <div style={styles.modalActions}>
-                            <button style={styles.blockBtn} onClick={handleRejectRequest}>
-                                <FaBan size={14} />
-                                Reject Request
-                            </button>
-                            <button style={styles.approveBtn} onClick={handleApproveRequest}>
-                                <FaCheckCircle size={14} />
-                                Approve request
-                            </button>
-                        </div>
-                         )}
+                        {displayData.status === "Pending" && (
+                            <div style={styles.modalActions}>
+                                <button style={styles.blockBtn} onClick={handleRejectRequest}>
+                                    <FaBan size={14} />
+                                    Reject Request
+                                </button>
+                                <button style={styles.approveBtn} onClick={handleApproveRequest}>
+                                    <FaCheckCircle size={14} />
+                                    Approve request
+                                </button>
+                            </div>
+                        )}
 
                         {/* Rejection Reason Modal */}
                         {showRejectReason && (
@@ -515,19 +528,19 @@ const StolenCardRequests = () => {
                 <div style={styles.headerRight}>
                     <div style={styles.statsContainer}>
                         <div style={styles.statCard}>
-                            <span style={styles.statValue}>6</span>
+                            <span style={styles.statValue}>{stats.total}</span>
                             <span style={styles.statLabel}>Total</span>
                         </div>
                         <div style={styles.statCard}>
-                            <span style={styles.statValue}>2</span>
+                            <span style={styles.statValue}>{stats.approved}</span>
                             <span style={styles.statLabel}>Approved</span>
                         </div>
                         <div style={styles.statCard}>
-                            <span style={styles.statValue}>2</span>
+                            <span style={styles.statValue}>{stats.rejected}</span>
                             <span style={styles.statLabel}>Rejected</span>
                         </div>
                         <div style={styles.statCard}>
-                            <span style={styles.statValue}>2</span>
+                            <span style={styles.statValue}>{stats.pending}</span>
                             <span style={styles.statLabel}>Pending</span>
                         </div>
                     </div>
@@ -567,7 +580,7 @@ const StolenCardRequests = () => {
                         onChange={(e) => handleStatusFilterChange(e.target.value)}
                         style={styles.filterSelect}
                     >
-                        <option value="">All status</option>
+                        <option value="all">All status</option>
                         <option value="Approved">Approved</option>
                         <option value="Rejected">Rejected</option>
                         <option value="Pending">Pending</option>
@@ -583,6 +596,7 @@ const StolenCardRequests = () => {
                             <th style={styles.tableHeader}>S.No</th>
                             <th style={styles.tableHeader}>Cardholder</th>
                             <th style={styles.tableHeader}>Card Number</th>
+                            <th style={styles.tableHeader}>Card Type</th>
                             <th style={styles.tableHeader}>Reported Date</th>
                             <th style={styles.tableHeader}>Updated By</th>
                             <th style={styles.tableHeader}>Status</th>
@@ -592,7 +606,7 @@ const StolenCardRequests = () => {
                     <tbody>
                         {isLoading ? (
                             <tr>
-                                <td colSpan="9" style={styles.loadingCell}>
+                                <td colSpan="8" style={styles.loadingCell}>
                                     <div style={styles.loadingContainer}>
                                         <div style={styles.loader}></div>
                                         <span style={styles.loadingText}>Loading stolen card requests...</span>
@@ -601,7 +615,7 @@ const StolenCardRequests = () => {
                             </tr>
                         ) : filteredData.length > 0 ? (
                             filteredData.map((item, index) => (
-                                <tr key={item.id} style={styles.tableRow}>
+                                <tr key={item.lostCardId || index} style={styles.tableRow}>
                                     <td style={styles.tableCell}>
                                         <span style={styles.requestId}>{index + 1}</span>
                                     </td>
@@ -612,14 +626,16 @@ const StolenCardRequests = () => {
                                         <span style={styles.accountNumber}>{item.lostCardNumber}</span>
                                     </td>
                                     <td style={styles.tableCell}>
+                                        <CardTypeBadge type={item.cardType || "Debit"} />
+                                    </td>
+                                    <td style={styles.tableCell}>
                                         <div style={styles.dateCell}>
                                             <FaCalendarAlt style={styles.dateIcon} />
                                             {item.createdDate}
-                                            <span style={styles.timeText}>{item.reportedTime}</span>
                                         </div>
                                     </td>
                                     <td style={styles.tableCell}>
-                                        <span style={styles.accountNumber}>{item.approvedByName}</span>
+                                        <span style={styles.accountNumber}>{item.approvedByName || "-"}</span>
                                     </td>
                                     <td style={styles.tableCell}>
                                         <StatusBadge status={item.status} />
@@ -637,7 +653,7 @@ const StolenCardRequests = () => {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="9" style={styles.noDataCell}>
+                                <td colSpan="8" style={styles.noDataCell}>
                                     <div style={styles.noData}>
                                         <FaExclamationTriangle size={48} style={styles.noDataIcon} />
                                         <p style={styles.noDataText}>No stolen card reports found</p>
@@ -650,6 +666,7 @@ const StolenCardRequests = () => {
             </div>
 
             {/* Pagination */}
+            {paginationData && paginationData.totalPages > 0 && (
                 <div style={styles.pagination}>
                     <button
                         style={styles.pageBtn}
@@ -659,16 +676,17 @@ const StolenCardRequests = () => {
                         <FaChevronLeft size={16} />
                     </button>
                     <span style={styles.pageInfo}>
-                        Page {currentPage} of {"3"} ({"3"} total)
+                        Page {currentPage} of {paginationData.totalPages} ({paginationData.totalElements} total)
                     </span>
                     <button
                         style={styles.pageBtn}
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, 3))}
-                        disabled={currentPage === 3}
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, paginationData.totalPages))}
+                        disabled={currentPage === paginationData.totalPages}
                     >
                         <FaChevronRight size={16} />
                     </button>
                 </div>
+            )}
 
             {/* Overview Modal */}
             {showOverview && selectedRequest && (
@@ -743,6 +761,41 @@ const styles = {
         fontSize: "12px",
         color: "#4A6F8F",
         marginTop: "4px",
+    },
+    headerRight: {
+        display: "flex",
+        alignItems: "center",
+        gap: "20px",
+    },
+    refreshBtn: {
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "12px 20px",
+        background: "linear-gradient(135deg, #003366, #002244)",
+        border: "none",
+        borderRadius: "16px",
+        color: "#FFFFFF",
+        fontSize: "14px",
+        fontWeight: "600",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+        boxShadow: "0 4px 12px rgba(0, 51, 102, 0.15)",
+        ":hover": {
+            transform: "translateY(-2px)",
+            boxShadow: "0 8px 16px rgba(0, 51, 102, 0.25)",
+        },
+        ":disabled": {
+            opacity: 0.7,
+            cursor: "not-allowed",
+            transform: "none",
+        },
+    },
+    refreshIcon: {
+        transition: "transform 0.3s ease",
+    },
+    refreshIconSpinning: {
+        animation: "spin 1s linear infinite",
     },
     filtersContainer: {
         display: "flex",
@@ -853,14 +906,6 @@ const styles = {
         fontFamily: "monospace",
         color: "#4A6F8F",
     },
-    cardType: {
-        padding: "4px 10px",
-        background: "#F0F7FF",
-        borderRadius: "20px",
-        fontSize: "12px",
-        color: "#0052A5",
-        fontWeight: "500",
-    },
     dateCell: {
         display: "flex",
         alignItems: "center",
@@ -871,24 +916,6 @@ const styles = {
     dateIcon: {
         color: "#FFD700",
         fontSize: "12px",
-    },
-    timeText: {
-        fontSize: "11px",
-        color: "#6B8BA4",
-        marginLeft: "4px",
-    },
-    transactionCell: {
-        display: "flex",
-        flexDirection: "column",
-        gap: "2px",
-    },
-    transactionAmount: {
-        fontWeight: "600",
-        color: "#1E293B",
-    },
-    transactionTime: {
-        fontSize: "11px",
-        color: "#6B8BA4",
     },
     viewBtn: {
         display: "flex",
@@ -930,6 +957,9 @@ const styles = {
         color: "#4A6F8F",
         margin: 0,
     },
+    noDataCell: {
+        padding: "0",
+    },
     pagination: {
         display: "flex",
         justifyContent: "center",
@@ -961,6 +991,30 @@ const styles = {
     },
     pageInfo: {
         fontSize: "14px",
+        color: "#4A6F8F",
+        fontWeight: "500",
+    },
+    loadingCell: {
+        padding: "60px",
+        textAlign: "center",
+    },
+    loadingContainer: {
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "16px",
+    },
+    loader: {
+        width: "40px",
+        height: "40px",
+        border: "4px solid #E6EDF5",
+        borderTop: "4px solid #FFD700",
+        borderRadius: "50%",
+        animation: "spin 1s linear infinite",
+    },
+    loadingText: {
+        fontSize: "16px",
         color: "#4A6F8F",
         fontWeight: "500",
     },
@@ -1141,109 +1195,6 @@ const styles = {
             boxShadow: "0 12px 20px rgba(16, 185, 129, 0.25)",
         },
     },
-    printBtn: {
-        padding: "14px 20px",
-        background: "#FFFFFF",
-        border: "2px solid #E6EDF5",
-        borderRadius: "14px",
-        color: "#4A6F8F",
-        fontSize: "14px",
-        fontWeight: "600",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "8px",
-        cursor: "pointer",
-        transition: "all 0.2s ease",
-        ":hover": {
-            borderColor: "#FFD700",
-            color: "#003366",
-        },
-    },
-    downloadBtn: {
-        padding: "14px 20px",
-        background: "#FFFFFF",
-        border: "2px solid #E6EDF5",
-        borderRadius: "14px",
-        color: "#4A6F8F",
-        fontSize: "14px",
-        fontWeight: "600",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "8px",
-        cursor: "pointer",
-        transition: "all 0.2s ease",
-        ":hover": {
-            borderColor: "#FFD700",
-            color: "#003366",
-        },
-    },
-    // Header right section
-    headerRight: {
-        display: "flex",
-        alignItems: "center",
-        gap: "20px",
-    },
-    // Refresh button
-    refreshBtn: {
-        display: "flex",
-        alignItems: "center",
-        gap: "8px",
-        padding: "12px 20px",
-        background: "linear-gradient(135deg, #003366, #002244)",
-        border: "none",
-        borderRadius: "16px",
-        color: "#FFFFFF",
-        fontSize: "14px",
-        fontWeight: "600",
-        cursor: "pointer",
-        transition: "all 0.2s ease",
-        boxShadow: "0 4px 12px rgba(0, 51, 102, 0.15)",
-        ":hover": {
-            transform: "translateY(-2px)",
-            boxShadow: "0 8px 16px rgba(0, 51, 102, 0.25)",
-        },
-        ":disabled": {
-            opacity: 0.7,
-            cursor: "not-allowed",
-            transform: "none",
-        },
-    },
-    refreshIcon: {
-        transition: "transform 0.3s ease",
-    },
-    refreshIconSpinning: {
-        animation: "spin 1s linear infinite",
-    },
-    // Loading state
-    loadingCell: {
-        padding: "60px",
-        textAlign: "center",
-    },
-    loadingContainer: {
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "16px",
-    },
-    loader: {
-        width: "40px",
-        height: "40px",
-        border: "4px solid #E6EDF5",
-        borderTop: "4px solid #FFD700",
-        borderRadius: "50%",
-        animation: "spin 1s linear infinite",
-    },
-    loadingText: {
-        fontSize: "16px",
-        color: "#4A6F8F",
-        fontWeight: "500",
-    },
-    noDataCell: {
-        padding: "0",
-    },
     // Rejection Modal Styles
     rejectModalOverlay: {
         position: "fixed",
@@ -1396,5 +1347,15 @@ const styles = {
         },
     },
 };
+
+// Add keyframes for spin animation
+const styleSheet = document.createElement("style");
+styleSheet.textContent = `
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+`;
+document.head.appendChild(styleSheet);
 
 export default StolenCardRequests;

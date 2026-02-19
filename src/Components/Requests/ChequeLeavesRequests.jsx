@@ -18,7 +18,7 @@ import {
     FaUser
 } from "react-icons/fa";
 
-const ChequeBookRequests = () => {
+const ChequeLeavesRequests = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
     const [currentPage, setCurrentPage] = useState(0);
@@ -57,9 +57,9 @@ const ChequeBookRequests = () => {
                 "page": page,
                 "size": itemsPerPage
             };
-            
+
             console.log("Fetching with payload:", payload);
-            
+
             // Check if API is properly configured
             if (!API || !API.defaults) {
                 console.error("API not properly configured");
@@ -108,7 +108,7 @@ const ChequeBookRequests = () => {
                 console.log('Error:', error.message);
                 showSnackbar("error", "Failed to load cheque book requests. Please try again.");
             }
-            
+
             setChequeRequests([]);
             setPaginationData(null);
         } finally {
@@ -150,10 +150,10 @@ const ChequeBookRequests = () => {
         const accountNumber = item.accountNumber?.toString() || "";
         const fullName = item.fullName?.toLowerCase() || "";
         const searchLower = searchTerm.toLowerCase();
-        
-        return requestId.includes(searchLower) || 
-               accountNumber.includes(searchLower) ||
-               fullName.includes(searchLower);
+
+        return requestId.includes(searchLower) ||
+            accountNumber.includes(searchLower) ||
+            fullName.includes(searchLower);
     });
 
     const handleRefresh = () => {
@@ -203,9 +203,9 @@ const ChequeBookRequests = () => {
             const res = await API.post(`chequeRequest/chequeUpdateAdmin/${id}`, payload, {
                 timeout: 30000
             });
-            
+
             console.log("Update response:", res.data);
-            
+
             if (res.data && res.data.status === true) {
                 return res.data;
             }
@@ -236,7 +236,7 @@ const ChequeBookRequests = () => {
                 "APPROVE",
                 ""
             );
-            
+
             if (result) {
                 showSnackbar("success", "Request approved successfully");
                 closeOverview();
@@ -273,7 +273,7 @@ const ChequeBookRequests = () => {
                 "REJECT",
                 rejectReason
             );
-            
+
             if (result) {
                 showSnackbar("success", "Request rejected successfully");
                 setShowRejectReason(false);
@@ -311,11 +311,11 @@ const ChequeBookRequests = () => {
             Processing: { color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)", icon: FaClock, text: "Processing" }
         };
 
-        const config = statusConfig[status] || { 
-            color: "#6B7280", 
-            bg: "rgba(107, 114, 128, 0.1)", 
-            icon: FaClock, 
-            text: status 
+        const config = statusConfig[status] || {
+            color: "#6B7280",
+            bg: "rgba(107, 114, 128, 0.1)",
+            icon: FaClock,
+            text: status
         };
         const Icon = config.icon;
 
@@ -452,17 +452,6 @@ const ChequeBookRequests = () => {
                                 </button>
                             </div>
                         )}
-
-                        {/* <div style={styles.modalActions}>
-                            <button style={styles.printBtn}>
-                                <FaPrint size={14} />
-                                Print
-                            </button>
-                            <button style={styles.downloadBtn}>
-                                <FaDownload size={14} />
-                                Download
-                            </button>
-                        </div> */}
                     </div>
                 </div>
             </div>
@@ -490,14 +479,14 @@ const ChequeBookRequests = () => {
                         <div style={styles.rejectFieldGroup}>
                             <label style={styles.rejectLabel}>Rejection Reason *</label>
                             <input
-                                                key="reject-input"
-                                                type="text"
-                                                style={styles.rejectInput}
-                                                placeholder="Please provide a detailed reason for rejecting this request..."
-                                                value={rejectReason}
-                                                onChange={(e) => setRejectReason(e.target.value)}
-                                                autoFocus={showRejectReason}
-                                            />
+                                key="reject-input"
+                                type="text"
+                                style={styles.rejectInput}
+                                placeholder="Please provide a detailed reason for rejecting this request..."
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                                autoFocus={showRejectReason}
+                            />
                             <div style={styles.rejectCharCount}>
                                 {rejectReason.length}/500
                             </div>
@@ -540,7 +529,7 @@ const ChequeBookRequests = () => {
                         <FaMoneyCheck size={24} color="#FFD700" />
                     </div>
                     <div>
-                        <h1 style={styles.title}>Cheque Book Requests</h1>
+                        <h1 style={styles.title}>Cheque Leaves Requests</h1>
                         <p style={styles.subtitle}>Manage and process customer cheque book requests</p>
                     </div>
                 </div>
@@ -930,6 +919,7 @@ const styles = {
         fontSize: "12px",
         color: "#0052A5",
         fontWeight: "500",
+        display: "inline-block",
     },
     dateCell: {
         display: "flex",
@@ -1409,4 +1399,4 @@ const styles = {
     },
 };
 
-export default ChequeBookRequests;
+export default ChequeLeavesRequests;

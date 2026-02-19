@@ -127,7 +127,7 @@ const Login = () => {
                             </h1>
                             <div style={styles.bankBadge}>
                                 <FaUserShield style={styles.badgeIcon} />
-                                <span style={styles.badgeText}>EST. 1985</span>
+                                <span style={styles.badgeText}>EST. 2024</span>
                             </div>
                         </div>
                     </div>
