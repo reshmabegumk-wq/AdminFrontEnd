@@ -1,262 +1,396 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import API from "../../api";
+import { useSnackbar } from "../../Context/SnackbarContext";
 import {
     FaQuestionCircle,
     FaEye,
     FaCheckCircle,
     FaTimesCircle,
     FaClock,
-    FaDownload,
-    FaPrint,
     FaFilter,
     FaSearch,
     FaChevronLeft,
     FaChevronRight,
-    FaUserTie,
-    FaEnvelope,
-    FaPhone,
-    FaTag,
+    FaUser,
+    FaCalendarAlt,
+    FaSync,
+    FaFileAlt,
     FaReply,
-    FaCheckDouble,
-    FaExclamationTriangle,
-    FaShieldAlt,
-    FaArrowUp,
-    FaArrowDown,
-    FaPaperclip,
-    FaCalendarAlt
+    FaBan,
+    FaEdit
 } from "react-icons/fa";
 
 const CustomerQueries = () => {
     const [searchTerm, setSearchTerm] = useState("");
-    const [statusFilter, setStatusFilter] = useState("all");
-    const [categoryFilter, setCategoryFilter] = useState("all");
-    const [currentPage, setCurrentPage] = useState(1);
+    const [statusFilter, setStatusFilter] = useState("");
+    const [currentPage, setCurrentPage] = useState(0);
     const [selectedQuery, setSelectedQuery] = useState(null);
     const [showOverview, setShowOverview] = useState(false);
-    const itemsPerPage = 8;
+    const [queries, setQueries] = useState([]);
+    const [queryDetails, setQueryDetails] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [showRejectReason, setShowRejectReason] = useState(false);
+    const [rejectReason, setRejectReason] = useState("");
+    const [showResponseModal, setShowResponseModal] = useState(false);
+    const [responseText, setResponseText] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [paginationData, setPaginationData] = useState(null);
+    const [stats, setStats] = useState({
+        total: 0,
+        pending: 0,
+        approved: 0,
+        rejected: 0
+    });
+    const { showSnackbar } = useSnackbar();
+    const itemsPerPage = 5;
+    const abortControllerRef = useRef(null);
+    const inputRef = useRef(null);
+    const responseInputRef = useRef(null);
 
-    // Sample data for customer queries
-    const customerQueriesData = [
-        {
-            id: "QRY-2024-001",
-            customerName: "Rajesh Sharma",
-            customerId: "CUST-4582",
-            email: "rajesh.s@email.com",
-            phone: "+91 98765 43210",
-            category: "Account",
-            subCategory: "Account Statement",
-            subject: "Unable to download December 2023 statement",
-            description: "I've been trying to download my December 2023 account statement but keep getting an error message. Need assistance urgently.",
-            priority: "high",
-            status: "open",
-            createdDate: "2024-03-15",
-            createdTime: "09:30",
-            assignedTo: "Priya Sharma",
-            lastUpdated: "2024-03-15",
-            lastUpdatedTime: "11:45",
-            attachment: "Yes"
-        },
-        {
-            id: "QRY-2024-002",
-            customerName: "Priya Patel",
-            customerId: "CUST-7891",
-            email: "priya.p@email.com",
-            phone: "+91 87654 32109",
-            category: "Credit Card",
-            subCategory: "Transaction Dispute",
-            subject: "Unauthorized transaction on my credit card",
-            description: "There is an unauthorized transaction of ₹5,299 from an online merchant. I did not make this purchase.",
-            priority: "urgent",
-            status: "in-progress",
-            createdDate: "2024-03-14",
-            createdTime: "14:20",
-            assignedTo: "Amit Kumar",
-            lastUpdated: "2024-03-15",
-            lastUpdatedTime: "10:15",
-            attachment: "Yes"
-        },
-        {
-            id: "QRY-2024-003",
-            customerName: "Amit Kumar",
-            customerId: "CUST-1234",
-            email: "amit.k@email.com",
-            phone: "+91 76543 21098",
-            category: "Net Banking",
-            subCategory: "Login Issues",
-            subject: "Unable to login to net banking",
-            description: "I'm unable to login to my net banking account. It says 'Invalid credentials' even after resetting password.",
-            priority: "high",
-            status: "pending",
-            createdDate: "2024-03-14",
-            createdTime: "18:45",
-            assignedTo: "Unassigned",
-            lastUpdated: "2024-03-14",
-            lastUpdatedTime: "18:45",
-            attachment: "No"
-        },
-        {
-            id: "QRY-2024-004",
-            customerName: "Sneha Reddy",
-            customerId: "CUST-5678",
-            email: "sneha.r@email.com",
-            phone: "+91 65432 10987",
-            category: "Loan",
-            subCategory: "Home Loan",
-            subject: "Home loan interest rate query",
-            description: "I would like to know the current interest rates for home loan. I'm planning to apply for a loan of ₹35L.",
-            priority: "medium",
-            status: "resolved",
-            createdDate: "2024-03-13",
-            createdTime: "11:20",
-            assignedTo: "Neha Gupta",
-            lastUpdated: "2024-03-14",
-            lastUpdatedTime: "15:30",
-            attachment: "No"
-        },
-        {
-            id: "QRY-2024-005",
-            customerName: "Vikram Singh",
-            customerId: "CUST-9012",
-            email: "vikram.s@email.com",
-            phone: "+91 54321 09876",
-            category: "Credit Card",
-            subCategory: "Reward Points",
-            subject: "Reward points not credited",
-            description: "I made a transaction of ₹15,000 on March 10th but the reward points haven't been credited yet.",
-            priority: "low",
-            status: "open",
-            createdDate: "2024-03-13",
-            createdTime: "15:50",
-            assignedTo: "Rajesh Kumar",
-            lastUpdated: "2024-03-13",
-            lastUpdatedTime: "16:20",
-            attachment: "Yes"
-        },
-        {
-            id: "QRY-2024-006",
-            customerName: "Anjali Nair",
-            customerId: "CUST-3456",
-            email: "anjali.n@email.com",
-            phone: "+91 43210 98765",
-            category: "Debit Card",
-            subCategory: "Card Block",
-            subject: "Block my debit card",
-            description: "I've misplaced my debit card. Please block it immediately and guide me through replacement process.",
-            priority: "urgent",
-            status: "in-progress",
-            createdDate: "2024-03-12",
-            createdTime: "08:30",
-            assignedTo: "Suresh Iyer",
-            lastUpdated: "2024-03-12",
-            lastUpdatedTime: "14:15",
-            attachment: "No"
-        },
-        {
-            id: "QRY-2024-007",
-            customerName: "Suresh Iyer",
-            customerId: "CUST-7890",
-            email: "suresh.i@email.com",
-            phone: "+91 32109 87654",
-            category: "Mobile Banking",
-            subCategory: "App Issues",
-            subject: "App crashing on startup",
-            description: "The ABC Bank mobile app crashes immediately after opening. I've tried reinstalling but still same issue.",
-            priority: "high",
-            status: "pending",
-            createdDate: "2024-03-12",
-            createdTime: "20:15",
-            assignedTo: "Unassigned",
-            lastUpdated: "2024-03-12",
-            lastUpdatedTime: "20:15",
-            attachment: "No"
-        },
-        {
-            id: "QRY-2024-008",
-            customerName: "Neha Gupta",
-            customerId: "CUST-2345",
-            email: "neha.g@email.com",
-            phone: "+91 21098 76543",
-            category: "Fixed Deposit",
-            subCategory: "FD Maturity",
-            subject: "FD maturity proceeds not credited",
-            description: "My fixed deposit matured on March 10th but the amount hasn't been credited to my savings account.",
-            priority: "medium",
-            status: "resolved",
-            createdDate: "2024-03-11",
-            createdTime: "13:45",
-            assignedTo: "Priya Sharma",
-            lastUpdated: "2024-03-13",
-            lastUpdatedTime: "09:30",
-            attachment: "Yes"
-        },
-        {
-            id: "QRY-2024-009",
-            customerName: "Rahul Verma",
-            customerId: "CUST-6789",
-            email: "rahul.v@email.com",
-            phone: "+91 10987 65432",
-            category: "UPI",
-            subCategory: "Transaction Failed",
-            subject: "UPI transaction failed but amount debited",
-            description: "UPI transaction of ₹2,500 failed but amount was debited from my account. Transaction ID: UPI123456789",
-            priority: "high",
-            status: "open",
-            createdDate: "2024-03-11",
-            createdTime: "10:30",
-            assignedTo: "Amit Kumar",
-            lastUpdated: "2024-03-11",
-            lastUpdatedTime: "11:45",
-            attachment: "Yes"
-        },
-        {
-            id: "QRY-2024-010",
-            customerName: "Kavita Singh",
-            customerId: "CUST-4567",
-            email: "kavita.s@email.com",
-            phone: "+91 99887 76655",
-            category: "Account",
-            subCategory: "Address Change",
-            subject: "Update residential address",
-            description: "I need to update my residential address in your records. New address: B-201, Green Heights, Pune.",
-            priority: "low",
-            status: "pending",
-            createdDate: "2024-03-10",
-            createdTime: "16:20",
-            assignedTo: "Unassigned",
-            lastUpdated: "2024-03-10",
-            lastUpdatedTime: "16:20",
-            attachment: "Yes"
+    // Fetch customer queries from API
+    const fetchQueries = async (page = 0) => {
+        // Cancel previous request if exists
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
         }
-    ];
 
-    // Filter data based on search, status and category
-    const filteredData = customerQueriesData.filter(item => {
-        const matchesSearch = 
-            item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.customerId.includes(searchTerm);
-        
-        const matchesStatus = statusFilter === "all" || item.status === statusFilter;
-        const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
-        
-        return matchesSearch && matchesStatus && matchesCategory;
+        // Create new abort controller
+        abortControllerRef.current = new AbortController();
+
+        setIsLoading(true);
+        try {
+            const payload = {
+                "status": statusFilter,
+                "page": page,
+                "size": itemsPerPage
+            };
+
+            console.log("Fetching queries with payload:", payload);
+
+            // Check if API is properly configured
+            if (!API || !API.defaults) {
+                console.error("API not properly configured");
+                showSnackbar("error", "API configuration error. Please check your connection.");
+                setQueries([]);
+                setPaginationData(null);
+                setIsLoading(false);
+                return;
+            }
+
+            const response = await API.post("queriesResponse/adminQueriesList", payload, {
+                signal: abortControllerRef.current.signal,
+                timeout: 30000
+            });
+
+            console.log("API Response Status:", response.status);
+            console.log("API Response Data:", response.data);
+
+            if (response?.data?.status === true && response?.data?.data) {
+                // Check for duplicate keys and log warning
+                const content = response.data.data.content || [];
+                const uniqueIds = new Set();
+                const duplicates = [];
+
+                content.forEach(item => {
+                    if (uniqueIds.has(item.queriesId)) {
+                        duplicates.push(item.queriesId);
+                    }
+                    uniqueIds.add(item.queriesId);
+                });
+
+                if (duplicates.length > 0) {
+                    console.warn(`Found duplicate queriesId values: ${duplicates.join(', ')}`);
+                }
+
+                setQueries(content);
+                setPaginationData({
+                    pageNumber: response.data.data.pageNumber,
+                    pageSize: response.data.data.pageSize,
+                    totalElements: response.data.data.totalElements,
+                    totalPages: response.data.data.totalPages,
+                    last: response.data.data.last
+                });
+            } else {
+                setQueries([]);
+                setPaginationData(null);
+                console.error("API returned status: false", response.data);
+            }
+
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log('Request was cancelled');
+            } else if (error.code === 'ECONNABORTED') {
+                console.log('Request timeout');
+                showSnackbar("error", "Request timeout. The server is taking too long to respond.");
+            } else if (error.response) {
+                console.log('Error response:', error.response.status, error.response.data);
+                showSnackbar("error", `Server error: ${error.response.status}`);
+            } else if (error.request) {
+                console.log('No response received');
+                showSnackbar("error", "Cannot connect to server. Please check if the server is running.");
+            } else {
+                console.log('Error:', error.message);
+                showSnackbar("error", "Failed to load customer queries. Please try again.");
+            }
+
+            setQueries([]);
+            setPaginationData(null);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Fetch statistics
+    const fetchStats = async () => {
+        try {
+            const response = await API.get("queriesResponse/count", {
+                timeout: 30000
+            });
+            console.log("Stats response:", response.data);
+            if (response?.data?.status === true && response?.data?.data) {
+                setStats(response.data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching stats:', error);
+            // Don't show error for stats to avoid too many messages
+        }
+    };
+
+    useEffect(() => {
+        fetchQueries(currentPage);
+        fetchStats();
+
+        // Cleanup function to cancel requests on unmount
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
+    }, [currentPage, statusFilter]);
+
+    // Focus input when rejection modal opens
+    useEffect(() => {
+        if (showRejectReason && inputRef.current) {
+            setTimeout(() => {
+                inputRef.current.focus();
+            }, 100);
+        }
+    }, [showRejectReason]);
+
+    // Focus input when response modal opens
+    useEffect(() => {
+        if (showResponseModal && responseInputRef.current) {
+            setTimeout(() => {
+                responseInputRef.current.focus();
+            }, 100);
+        }
+    }, [showResponseModal]);
+
+    // Handle search functionality
+    const filteredData = queries?.filter(item => {
+        const queryId = `Q-${item.queriesId}`.toLowerCase();
+        const accountNumber = item.accountNumber?.toString() || "";
+        const fullName = item.fullName?.toLowerCase() || "";
+        const email = item.email?.toLowerCase() || "";
+        const customerQuery = item.customerQuery?.toLowerCase() || "";
+        const searchLower = searchTerm.toLowerCase();
+
+        return queryId.includes(searchLower) ||
+            accountNumber.includes(searchLower) ||
+            fullName.includes(searchLower) ||
+            email.includes(searchLower) ||
+            customerQuery.includes(searchLower);
     });
 
-    // Pagination
-    const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const paginatedData = filteredData.slice(startIndex, startIndex + itemsPerPage);
+    const handleRefresh = () => {
+        setCurrentPage(0);
+        fetchQueries(0);
+        fetchStats();
+    };
 
-    // Status badge component
+    const handleStatusFilterChange = (newStatus) => {
+        setStatusFilter(newStatus);
+        setCurrentPage(0);
+    };
+
+    const fetchQueryDetails = async (id) => {
+        try {
+            const res = await API.get(`queriesResponse/queryBy/${id}`, {
+                timeout: 30000
+            });
+            console.log("Details response:", res.data);
+            if (res.data && res.data.status === true && res.data.data) {
+                setQueryDetails(res.data.data);
+                return res.data.data;
+            }
+            return null;
+        } catch (error) {
+            console.log("Error fetching query details:", error);
+            showSnackbar("error", "Failed to fetch query details");
+            setQueryDetails(null);
+            return null;
+        }
+    };
+
+    const updateQueryStatus = async (id, action, remarks, response = "") => {
+        setIsSubmitting(true);
+        try {
+            const userId = localStorage.getItem("userId");
+            if (!userId) {
+                showSnackbar("error", "User not authenticated");
+                setIsSubmitting(false);
+                return null;
+            }
+
+            const payload = {
+                action: action,
+                approvedById: parseInt(userId),
+                remarks: remarks,
+                queryResponse: response || remarks // Use response if provided, otherwise use remarks
+            };
+
+            console.log("Update payload:", payload);
+
+            const res = await API.post(`queriesResponse/queryUpdateAdmin/${id}`, payload, {
+                timeout: 30000
+            });
+
+            console.log("Update response:", res.data);
+
+            if (res.data && res.data.status === true) {
+                showSnackbar("success", `Query ${action.toLowerCase()}d successfully with response`);
+                setIsSubmitting(false);
+                return res.data;
+            } else {
+                showSnackbar("error", res.data?.message || `Failed to ${action.toLowerCase()} query`);
+                setIsSubmitting(false);
+                return null;
+            }
+        } catch (error) {
+            console.log("Error updating query status:", error);
+            showSnackbar("error", "Failed to update query status");
+            setIsSubmitting(false);
+            return null;
+        }
+    };
+
+    const handleViewOverview = async (item) => {
+        setSelectedQuery(item);
+        setShowOverview(true);
+        await fetchQueryDetails(item.queriesId);
+    };
+
+    const handleApproveWithResponse = () => {
+        setShowResponseModal(true);
+        setResponseText("");
+    };
+
+    const handleSubmitApproveWithResponse = async () => {
+        if (!responseText.trim()) {
+            showSnackbar("error", "Please provide a response message");
+            return;
+        }
+
+        try {
+            const queryId = queryDetails?.queriesId || selectedQuery?.queriesId;
+            if (!queryId) {
+                showSnackbar("error", "Query ID not found");
+                return;
+            }
+
+            const result = await updateQueryStatus(
+                queryId,
+                "APPROVE",
+                responseText, // Using response text as remarks
+                responseText
+            );
+
+            if (result) {
+                setShowResponseModal(false);
+                setResponseText("");
+                closeOverview();
+                fetchQueries(currentPage);
+                fetchStats();
+            }
+        } catch (error) {
+            console.log("Error approving query with response:", error);
+            showSnackbar("error", "Failed to approve query");
+        }
+    };
+
+    const handleRejectWithResponse = () => {
+        setShowRejectReason(true);
+        setRejectReason("");
+    };
+
+    const handleSubmitRejection = async () => {
+        if (!rejectReason.trim()) {
+            showSnackbar("error", "Please provide a reason for rejection");
+            return;
+        }
+
+        try {
+            const queryId = queryDetails?.queriesId || selectedQuery?.queriesId;
+            if (!queryId) {
+                showSnackbar("error", "Query ID not found");
+                return;
+            }
+
+            const result = await updateQueryStatus(
+                queryId,
+                "REJECT",
+                rejectReason,
+                rejectReason
+            );
+
+            if (result) {
+                // Reset states after successful rejection
+                setShowRejectReason(false);
+                setRejectReason("");
+                closeOverview();
+                fetchQueries(currentPage);
+                fetchStats();
+            }
+        } catch (error) {
+            console.log("Error rejecting query:", error);
+            showSnackbar("error", "Failed to reject query");
+        }
+    };
+
+    const handleCancelRejection = () => {
+        setShowRejectReason(false);
+        setRejectReason("");
+    };
+
+    const handleCancelResponse = () => {
+        setShowResponseModal(false);
+        setResponseText("");
+    };
+
+    const closeOverview = () => {
+        setShowOverview(false);
+        setSelectedQuery(null);
+        setQueryDetails(null);
+        // Also ensure rejection modal is closed and reason is cleared
+        setShowRejectReason(false);
+        setRejectReason("");
+        setShowResponseModal(false);
+        setResponseText("");
+    };
+
     const StatusBadge = ({ status }) => {
         const statusConfig = {
-            open: { color: "#F59E0B", bg: "rgba(245, 158, 11, 0.1)", icon: FaQuestionCircle, text: "Open" },
-            "in-progress": { color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)", icon: FaCheckDouble, text: "In Progress" },
-            pending: { color: "#8B5CF6", bg: "rgba(139, 92, 246, 0.1)", icon: FaClock, text: "Pending" },
-            resolved: { color: "#10B981", bg: "rgba(16, 185, 129, 0.1)", icon: FaCheckCircle, text: "Resolved" }
+            APPROVED: { color: "#10B981", bg: "rgba(16, 185, 129, 0.1)", icon: FaCheckCircle, text: "Approved" },
+            REJECTED: { color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)", icon: FaBan, text: "Rejected" },
+            PENDING: { color: "#F97316", bg: "rgba(249, 115, 22, 0.1)", icon: FaClock, text: "Pending" }
         };
 
-        const config = statusConfig[status] || statusConfig.pending;
+        const config = statusConfig[status] || {
+            color: "#6B7280",
+            bg: "rgba(107, 114, 128, 0.1)",
+            icon: FaClock,
+            text: status
+        };
         const Icon = config.icon;
 
         return (
@@ -277,80 +411,26 @@ const CustomerQueries = () => {
         );
     };
 
-    // Priority badge
-    const PriorityBadge = ({ priority }) => {
-        const priorityConfig = {
-            urgent: { color: "#DC2626", bg: "rgba(220, 38, 38, 0.1)", icon: FaExclamationTriangle, text: "Urgent" },
-            high: { color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)", icon: FaArrowUp, text: "High" },
-            medium: { color: "#F59E0B", bg: "rgba(245, 158, 11, 0.1)", icon: FaClock, text: "Medium" },
-            low: { color: "#10B981", bg: "rgba(16, 185, 129, 0.1)", icon: FaArrowDown, text: "Low" }
-        };
-
-        const config = priorityConfig[priority] || priorityConfig.medium;
-        const Icon = config.icon;
-
-        return (
-            <span style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "4px",
-                padding: "4px 10px",
-                background: config.bg,
-                color: config.color,
-                borderRadius: "20px",
-                fontSize: "11px",
-                fontWeight: "600"
-            }}>
-                <Icon size={11} />
-                {config.text}
-            </span>
-        );
+    const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        try {
+            return new Date(dateString).toLocaleDateString('en-IN', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        } catch (e) {
+            return dateString;
+        }
     };
 
-    // Category badge
-    const CategoryBadge = ({ category }) => {
-        const categoryColors = {
-            "Account": { color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)" },
-            "Credit Card": { color: "#8B5CF6", bg: "rgba(139, 92, 246, 0.1)" },
-            "Debit Card": { color: "#EC4899", bg: "rgba(236, 72, 153, 0.1)" },
-            "Net Banking": { color: "#10B981", bg: "rgba(16, 185, 129, 0.1)" },
-            "Mobile Banking": { color: "#F59E0B", bg: "rgba(245, 158, 11, 0.1)" },
-            "Loan": { color: "#6366F1", bg: "rgba(99, 102, 241, 0.1)" },
-            "Fixed Deposit": { color: "#14B8A6", bg: "rgba(20, 184, 166, 0.1)" },
-            "UPI": { color: "#A855F7", bg: "rgba(168, 85, 247, 0.1)" }
-        };
-
-        const colors = categoryColors[category] || { color: "#64748B", bg: "rgba(100, 116, 139, 0.1)" };
-
-        return (
-            <span style={{
-                padding: "4px 10px",
-                background: colors.bg,
-                color: colors.color,
-                borderRadius: "20px",
-                fontSize: "11px",
-                fontWeight: "600"
-            }}>
-                {category}
-            </span>
-        );
-    };
-
-    // Handle view overview
-    const handleViewOverview = (query) => {
-        setSelectedQuery(query);
-        setShowOverview(true);
-    };
-
-    // Close overview modal
-    const closeOverview = () => {
-        setShowOverview(false);
-        setSelectedQuery(null);
-    };
-
-    // Overview Modal Component
-    const RequestOverview = ({ request, onClose }) => {
+    const QueryModal = ({ request, onClose }) => {
         if (!request) return null;
+
+        // Use the detailed data if available, otherwise use the request data from the table
+        const displayData = queryDetails || request;
+
+        console.log("Modal display data:", displayData); // Debug log
 
         return (
             <div style={styles.modalOverlay} onClick={onClose}>
@@ -362,7 +442,7 @@ const CustomerQueries = () => {
                             </div>
                             <div>
                                 <h3 style={styles.modalTitle}>Customer Query Details</h3>
-                                <p style={styles.modalSubtitle}>Query ID: {request.id}</p>
+                                <p style={styles.modalSubtitle}>Query ID: Q-{displayData.queriesId}</p>
                             </div>
                         </div>
                         <button style={styles.closeBtn} onClick={onClose}>×</button>
@@ -371,49 +451,35 @@ const CustomerQueries = () => {
                     <div style={styles.modalBody}>
                         {/* Status Bar */}
                         <div style={styles.statusBar}>
-                            <StatusBadge status={request.status} />
-                            <PriorityBadge priority={request.priority} />
-                            <CategoryBadge category={request.category} />
-                            {request.attachment === "Yes" && (
-                                <span style={{
-                                    padding: "4px 12px",
-                                    background: "rgba(139, 92, 246, 0.1)",
-                                    color: "#8B5CF6",
-                                    borderRadius: "30px",
-                                    fontSize: "12px",
-                                    fontWeight: "600",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "6px"
-                                }}>
-                                    <FaPaperclip size={12} />
-                                    Attachment
-                                </span>
-                            )}
+                            <StatusBadge status={displayData.status} />
                         </div>
 
                         {/* Customer Information */}
                         <div style={styles.infoSection}>
                             <h4 style={styles.sectionTitle}>
-                                <FaUserTie style={styles.sectionIcon} />
+                                <FaUser style={styles.sectionIcon} />
                                 Customer Information
                             </h4>
                             <div style={styles.infoGrid}>
                                 <div style={styles.infoRow}>
                                     <span style={styles.infoLabel}>Customer Name</span>
-                                    <span style={styles.infoValue}>{request.customerName}</span>
+                                    <span style={styles.infoValue}>{displayData.fullName || "N/A"}</span>
                                 </div>
                                 <div style={styles.infoRow}>
-                                    <span style={styles.infoLabel}>Customer ID</span>
-                                    <span style={styles.infoValue}>{request.customerId}</span>
+                                    <span style={styles.infoLabel}>Account Number</span>
+                                    <span style={styles.infoValue}>{displayData.accountNumber || "N/A"}</span>
                                 </div>
                                 <div style={styles.infoRow}>
-                                    <span style={styles.infoLabel}>Email Address</span>
-                                    <span style={styles.infoValue}>{request.email}</span>
+                                    <span style={styles.infoLabel}>Mobile Number</span>
+                                    <span style={styles.infoValue}>{displayData.mobileNumber || "N/A"}</span>
                                 </div>
                                 <div style={styles.infoRow}>
-                                    <span style={styles.infoLabel}>Contact Number</span>
-                                    <span style={styles.infoValue}>{request.phone}</span>
+                                    <span style={styles.infoLabel}>Email</span>
+                                    <span style={styles.infoValue}>{displayData.email || "N/A"}</span>
+                                </div>
+                                <div style={styles.infoRow}>
+                                    <span style={styles.infoLabel}>City</span>
+                                    <span style={styles.infoValue}>{displayData.city || "N/A"}</span>
                                 </div>
                             </div>
                         </div>
@@ -421,73 +487,228 @@ const CustomerQueries = () => {
                         {/* Query Details */}
                         <div style={styles.infoSection}>
                             <h4 style={styles.sectionTitle}>
-                                <FaQuestionCircle style={styles.sectionIcon} />
+                                <FaFileAlt style={styles.sectionIcon} />
                                 Query Details
                             </h4>
-                            <div style={styles.queryBox}>
-                                <div style={styles.queryHeader}>
-                                    <span style={styles.querySubject}>{request.subject}</span>
-                                    <span style={styles.queryCategory}>
-                                        {request.category} • {request.subCategory}
-                                    </span>
-                                </div>
-                                <p style={styles.queryDescription}>{request.description}</p>
-                            </div>
-                        </div>
-
-                        {/* Assignment Details */}
-                        <div style={styles.infoSection}>
-                            <h4 style={styles.sectionTitle}>
-                                <FaUserTie style={styles.sectionIcon} />
-                                Assignment Details
-                            </h4>
                             <div style={styles.infoGrid}>
+                                <div style={{ ...styles.infoRow, gridColumn: "span 2" }}>
+                                    <span style={styles.infoLabel}>Query</span>
+                                    <span style={styles.infoValue}>{displayData.customerQuery || "N/A"}</span>
+                                </div>
                                 <div style={styles.infoRow}>
-                                    <span style={styles.infoLabel}>Assigned To</span>
-                                    <span style={styles.infoValue}>
-                                        {request.assignedTo === "Unassigned" ? (
-                                            <span style={{ color: "#F59E0B" }}>Unassigned</span>
-                                        ) : (
-                                            request.assignedTo
+                                    <span style={styles.infoLabel}>Raised Date</span>
+                                    <span style={styles.infoValue}>{formatDate(displayData.queryRaisedDate) || "N/A"}</span>
+                                </div>
+                                <div style={styles.infoRow}>
+                                    <span style={styles.infoLabel}>Status</span>
+                                    <span style={styles.infoValue}>{displayData.status || "N/A"}</span>
+                                </div>
+
+                                {/* Response Section - Show for Approved/Rejected queries */}
+                                {(displayData.status === "APPROVED" || displayData.status === "REJECTED") && (
+                                    <>
+                                        {displayData.queryResponse && (
+                                            <div style={{ ...styles.infoRow, gridColumn: "span 2" }}>
+                                                <span style={styles.infoLabel}>
+                                                    {displayData.status === "APPROVED" ? "Approval Response" : "Rejection Reason"}
+                                                </span>
+                                                <span style={{
+                                                    ...styles.infoValue,
+                                                    background: displayData.status === "APPROVED" ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
+                                                    padding: "12px",
+                                                    borderRadius: "8px",
+                                                    color: displayData.status === "APPROVED" ? "#065F46" : "#991B1B",
+                                                    fontWeight: "500",
+                                                    lineHeight: "1.5",
+                                                    whiteSpace: "pre-wrap"
+                                                }}>
+                                                    {displayData.queryResponse}
+                                                </span>
+                                            </div>
                                         )}
-                                    </span>
-                                </div>
-                                <div style={styles.infoRow}>
-                                    <span style={styles.infoLabel}>Created Date</span>
-                                    <span style={styles.infoValue}>
-                                        {request.createdDate} at {request.createdTime}
-                                    </span>
-                                </div>
-                                <div style={styles.infoRow}>
-                                    <span style={styles.infoLabel}>Last Updated</span>
-                                    <span style={styles.infoValue}>
-                                        {request.lastUpdated} at {request.lastUpdatedTime}
-                                    </span>
-                                </div>
+                                        {displayData.remarks && displayData.remarks !== displayData.queryResponse && (
+                                            <div style={{ ...styles.infoRow, gridColumn: "span 2" }}>
+                                                <span style={styles.infoLabel}>Additional Remarks</span>
+                                                <span style={styles.infoValue}>{displayData.remarks}</span>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+
+                                {/* Show existing response for completed queries */}
+                                {displayData.queryResponse && displayData.status !== "APPROVED" && displayData.status !== "REJECTED" && (
+                                    <div style={{ ...styles.infoRow, gridColumn: "span 2" }}>
+                                        <span style={styles.infoLabel}>Response</span>
+                                        <span style={styles.infoValue}>{displayData.queryResponse}</span>
+                                    </div>
+                                )}
+
+                                {displayData.queryApprovedDate && (
+                                    <div style={styles.infoRow}>
+                                        <span style={styles.infoLabel}>Approved Date</span>
+                                        <span style={styles.infoValue}>{formatDate(displayData.queryApprovedDate)}</span>
+                                    </div>
+                                )}
+                                {displayData.approvedByName && (
+                                    <div style={styles.infoRow}>
+                                        <span style={styles.infoLabel}>Approved By</span>
+                                        <span style={styles.infoValue}>{displayData.approvedByName}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
-                        {/* Action Buttons */}
-                        <div style={styles.modalActions}>
-                            <button style={styles.replyBtn}>
-                                <FaReply size={14} />
-                                Reply to Customer
+                        {/* Action Buttons - Only show for pending requests */}
+                        {displayData.status === "PENDING" && !isSubmitting && (
+                            <div style={styles.modalActions}>
+                                <button
+                                    style={styles.rejectBtn}
+                                    onClick={handleRejectWithResponse}
+                                    disabled={isSubmitting}
+                                >
+                                    <FaBan size={14} />
+                                    Reject with Response
+                                </button>
+                                <button
+                                    style={styles.approveBtn}
+                                    onClick={handleApproveWithResponse}
+                                    disabled={isSubmitting}
+                                >
+                                    <FaCheckCircle size={14} />
+                                    Approve with Response
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // Rejection Modal - Separate component
+    const RejectionModal = () => {
+        if (!showRejectReason) return null;
+
+        return (
+            <div style={styles.rejectModalOverlay} onClick={handleCancelRejection}>
+                <div
+                    style={styles.rejectModalContent}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div style={styles.rejectModalHeader}>
+                        <h3 style={styles.rejectModalTitle}>
+                            <FaBan size={16} style={{ marginRight: "8px", color: "#DC2626" }} />
+                            Reject Request
+                        </h3>
+                        <button
+                            style={styles.rejectCloseBtn}
+                            onClick={handleCancelRejection}
+                            disabled={isSubmitting}
+                        >
+                            ×
+                        </button>
+                    </div>
+
+                    <div style={styles.rejectModalBody}>
+                        <div style={styles.rejectFieldGroup}>
+                            <label style={styles.rejectLabel}>Rejection Reason *</label>
+                            <input
+                                ref={inputRef}
+                                type="text"
+                                style={styles.rejectInput}
+                                placeholder="Please provide a reason for rejecting this request..."
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                                autoFocus
+                                disabled={isSubmitting}
+                                dir="ltr"
+                            />
+                            <div style={styles.rejectCharCount}>
+                                {rejectReason.length}/500
+                            </div>
+                        </div>
+
+                        <div style={styles.rejectModalActions}>
+                            <button
+                                style={styles.rejectCancelBtn}
+                                onClick={handleCancelRejection}
+                                disabled={isSubmitting}
+                            >
+                                Cancel
                             </button>
-                            <button style={styles.assignBtn}>
-                                <FaUserTie size={14} />
-                                Assign to Agent
+                            <button
+                                style={styles.rejectSubmitBtn}
+                                onClick={handleSubmitRejection}
+                                disabled={!rejectReason.trim() || isSubmitting}
+                            >
+                                <FaBan size={14} />
+                                {isSubmitting ? "Submitting..." : "Submit Rejection"}
                             </button>
-                            <button style={styles.resolveBtn}>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // Response Modal for Approvals
+    const ResponseModal = () => {
+        if (!showResponseModal) return null;
+
+        return (
+            <div style={styles.responseModalOverlay} onClick={handleCancelResponse}>
+                <div
+                    style={styles.responseModalContent}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div style={styles.responseModalHeader}>
+                        <h3 style={styles.responseModalTitle}>
+                            <FaCheckCircle size={16} style={{ marginRight: "8px", color: "#10B981" }} />
+                            Approve Request
+                        </h3>
+                        <button
+                            style={styles.responseCloseBtn}
+                            onClick={handleCancelResponse}
+                            disabled={isSubmitting}
+                        >
+                            ×
+                        </button>
+                    </div>
+
+                    <div style={styles.responseModalBody}>
+                        <div style={styles.responseFieldGroup}>
+                            <label style={styles.responseLabel}>Approval Response *</label>
+                            <input
+                                ref={responseInputRef}
+                                type="text"
+                                style={styles.responseInput}
+                                placeholder="Please provide a response to the customer's query..."
+                                value={responseText}
+                                onChange={(e) => setResponseText(e.target.value)}
+                                autoFocus
+                                disabled={isSubmitting}
+                                dir="ltr"
+                            />
+                            <div style={styles.responseCharCount}>
+                                {responseText.length}/500
+                            </div>
+                        </div>
+
+                        <div style={styles.responseModalActions}>
+                            <button
+                                style={styles.responseCancelBtn}
+                                onClick={handleCancelResponse}
+                                disabled={isSubmitting}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                style={styles.responseSubmitBtn}
+                                onClick={handleSubmitApproveWithResponse}
+                                disabled={!responseText.trim() || isSubmitting}
+                            >
                                 <FaCheckCircle size={14} />
-                                Mark as Resolved
-                            </button>
-                            <button style={styles.printBtn}>
-                                <FaPrint size={14} />
-                                Print
-                            </button>
-                            <button style={styles.downloadBtn}>
-                                <FaDownload size={14} />
-                                Download
+                                {isSubmitting ? "Submitting..." : "Submit Approval"}
                             </button>
                         </div>
                     </div>
@@ -505,23 +726,43 @@ const CustomerQueries = () => {
                         <FaQuestionCircle size={24} color="#FFD700" />
                     </div>
                     <div>
-                        <h1 style={styles.title}>Customer Queries</h1>
+                        <h1 style={styles.title}>Customer Queries Management</h1>
                         <p style={styles.subtitle}>Manage and respond to customer inquiries</p>
                     </div>
                 </div>
-                <div style={styles.statsContainer}>
-                    <div style={styles.statCard}>
-                        <span style={styles.statValue}>4</span>
-                        <span style={styles.statLabel}>Open</span>
+                <div style={styles.headerRight}>
+                    <div style={styles.statsContainer}>
+                        <div style={styles.statCard}>
+                            <span style={styles.statValue}>{stats.total}</span>
+                            <span style={styles.statLabel}>Total</span>
+                        </div>
+                        <div style={styles.statCard}>
+                            <span style={styles.statValue}>{stats.pending}</span>
+                            <span style={styles.statLabel}>Pending</span>
+                        </div>
+                        <div style={styles.statCard}>
+                            <span style={styles.statValue}>{stats.approved}</span>
+                            <span style={styles.statLabel}>Approved</span>
+                        </div>
+                        <div style={styles.statCard}>
+                            <span style={styles.statValue}>{stats.rejected}</span>
+                            <span style={styles.statLabel}>Rejected</span>
+                        </div>
                     </div>
-                    <div style={styles.statCard}>
-                        <span style={styles.statValue}>3</span>
-                        <span style={styles.statLabel}>In Progress</span>
-                    </div>
-                    <div style={styles.statCard}>
-                        <span style={styles.statValue}>3</span>
-                        <span style={styles.statLabel}>Pending</span>
-                    </div>
+                    <button
+                        style={styles.refreshBtn}
+                        onClick={handleRefresh}
+                        disabled={isLoading}
+                    >
+                        <FaSync
+                            size={16}
+                            style={{
+                                ...styles.refreshIcon,
+                                ...(isLoading ? styles.refreshIconSpinning : {})
+                            }}
+                        />
+                        Refresh
+                    </button>
                 </div>
             </div>
 
@@ -531,7 +772,7 @@ const CustomerQueries = () => {
                     <FaSearch style={styles.searchIcon} />
                     <input
                         type="text"
-                        placeholder="Search by ID, customer name or subject..."
+                        placeholder="Search by query ID, account number, customer name, email or query..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={styles.searchInput}
@@ -540,33 +781,14 @@ const CustomerQueries = () => {
                 <div style={styles.filterGroup}>
                     <FaFilter style={styles.filterIcon} />
                     <select
-                        value={categoryFilter}
-                        onChange={(e) => setCategoryFilter(e.target.value)}
-                        style={styles.filterSelect}
-                    >
-                        <option value="all">All Categories</option>
-                        <option value="Account">Account</option>
-                        <option value="Credit Card">Credit Card</option>
-                        <option value="Debit Card">Debit Card</option>
-                        <option value="Net Banking">Net Banking</option>
-                        <option value="Mobile Banking">Mobile Banking</option>
-                        <option value="Loan">Loan</option>
-                        <option value="Fixed Deposit">Fixed Deposit</option>
-                        <option value="UPI">UPI</option>
-                    </select>
-                </div>
-                <div style={styles.filterGroup}>
-                    <FaFilter style={styles.filterIcon} />
-                    <select
                         value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
+                        onChange={(e) => handleStatusFilterChange(e.target.value)}
                         style={styles.filterSelect}
                     >
-                        <option value="all">All Status</option>
-                        <option value="open">Open</option>
-                        <option value="in-progress">In Progress</option>
-                        <option value="pending">Pending</option>
-                        <option value="resolved">Resolved</option>
+                        <option value="">All Status</option>
+                        <option value="PENDING">Pending</option>
+                        <option value="APPROVED">Approved</option>
+                        <option value="REJECTED">Rejected</option>
                     </select>
                 </div>
             </div>
@@ -576,107 +798,125 @@ const CustomerQueries = () => {
                 <table style={styles.table}>
                     <thead style={styles.tableHead}>
                         <tr>
-                            <th style={styles.tableHeader}>Query ID</th>
-                            <th style={styles.tableHeader}>Customer</th>
-                            <th style={styles.tableHeader}>Category</th>
-                            <th style={styles.tableHeader}>Subject</th>
-                            <th style={styles.tableHeader}>Created Date</th>
-                            <th style={styles.tableHeader}>Priority</th>
-                            <th style={styles.tableHeader}>Status</th>
-                            <th style={styles.tableHeader}>Assigned To</th>
-                            <th style={styles.tableHeader}>Action</th>
+                            <th style={styles.tableHeader}>S.No</th>
+                            <th style={styles.tableHeader}>QUERY ID</th>
+                            <th style={styles.tableHeader}>CUSTOMER</th>
+                            <th style={styles.tableHeader}>ACCOUNT NO.</th>
+                            <th style={styles.tableHeader}>QUERY</th>
+                            <th style={styles.tableHeader}>RAISED DATE</th>
+                            <th style={styles.tableHeader}>STATUS</th>
+                            <th style={styles.tableHeader}>ACTION</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {paginatedData.map((item) => (
-                            <tr key={item.id} style={styles.tableRow}>
-                                <td style={styles.tableCell}>
-                                    <span style={styles.requestId}>{item.id}</span>
-                                </td>
-                                <td style={styles.tableCell}>
-                                    <div style={styles.customerInfo}>
-                                        <span style={styles.accountHolder}>{item.customerName}</span>
-                                        <span style={styles.customerId}>{item.customerId}</span>
+                        {isLoading ? (
+                            <tr>
+                                <td colSpan="8" style={styles.loadingCell}>
+                                    <div style={styles.loadingContainer}>
+                                        <div style={styles.loader}></div>
+                                        <span style={styles.loadingText}>Loading customer queries...</span>
                                     </div>
-                                </td>
-                                <td style={styles.tableCell}>
-                                    <CategoryBadge category={item.category} />
-                                </td>
-                                <td style={styles.tableCell}>
-                                    <span style={styles.subjectText}>{item.subject}</span>
-                                </td>
-                                <td style={styles.tableCell}>
-                                    <div style={styles.dateCell}>
-                                        <FaCalendarAlt style={styles.dateIcon} />
-                                        {item.createdDate}
-                                        <span style={styles.timeText}>{item.createdTime}</span>
-                                    </div>
-                                </td>
-                                <td style={styles.tableCell}>
-                                    <PriorityBadge priority={item.priority} />
-                                </td>
-                                <td style={styles.tableCell}>
-                                    <StatusBadge status={item.status} />
-                                </td>
-                                <td style={styles.tableCell}>
-                                    <span style={item.assignedTo === "Unassigned" ? styles.unassignedText : styles.assignedText}>
-                                        {item.assignedTo === "Unassigned" ? "—" : item.assignedTo.split(' ')[0]}
-                                    </span>
-                                </td>
-                                <td style={styles.tableCell}>
-                                    <button
-                                        style={styles.viewBtn}
-                                        onClick={() => handleViewOverview(item)}
-                                    >
-                                        <FaEye size={16} />
-                                        <span style={styles.viewText}>View</span>
-                                    </button>
                                 </td>
                             </tr>
-                        ))}
+                        ) : filteredData.length > 0 ? (
+                            filteredData.map((item, index) => (
+                                <tr key={`${item.queriesId}-${index}`} style={styles.tableRow}>
+                                    <td style={styles.tableCell}>
+                                        <span style={styles.serialNumber}>
+                                            {(currentPage * itemsPerPage) + index + 1}
+                                        </span>
+                                    </td>
+                                    <td style={styles.tableCell}>
+                                        <span style={styles.requestId}>Q-{item.queriesId}</span>
+                                    </td>
+                                    <td style={styles.tableCell}>
+                                        <div style={styles.customerInfo}>
+                                            <span style={styles.accountHolder}>{item.fullName || "N/A"}</span>
+                                            <span style={styles.customerEmail}>{item.email || "No email"}</span>
+                                        </div>
+                                    </td>
+                                    <td style={styles.tableCell}>
+                                        <span style={styles.accountNumber}>{item.accountNumber || "XXXX XXXX"}</span>
+                                    </td>
+                                    <td style={styles.tableCell}>
+                                        <span style={styles.queryText} title={item.customerQuery}>
+                                            {item.customerQuery?.substring(0, 40)}
+                                            {item.customerQuery?.length > 40 ? '...' : ''}
+                                        </span>
+                                    </td>
+                                    <td style={styles.tableCell}>
+                                        <div style={styles.dateCell}>
+                                            <FaCalendarAlt style={styles.dateIcon} />
+                                            {formatDate(item.queryRaisedDate)}
+                                        </div>
+                                    </td>
+                                    <td style={styles.tableCell}>
+                                        <StatusBadge status={item.status} />
+                                    </td>
+                                    <td style={styles.tableCell}>
+                                        <button
+                                            style={styles.viewBtn}
+                                            onClick={() => handleViewOverview(item)}
+                                            disabled={isSubmitting}
+                                        >
+                                            <FaEye size={16} />
+                                            <span style={styles.viewText}>View</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))
+                        ) : (
+                            <tr>
+                                <td colSpan="8" style={styles.noDataCell}>
+                                    <div style={styles.noData}>
+                                        <FaQuestionCircle size={48} style={styles.noDataIcon} />
+                                        <p style={styles.noDataText}>No customer queries found</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
-
-                {paginatedData.length === 0 && (
-                    <div style={styles.noData}>
-                        <FaQuestionCircle size={48} style={styles.noDataIcon} />
-                        <p style={styles.noDataText}>No customer queries found</p>
-                    </div>
-                )}
             </div>
 
             {/* Pagination */}
-            {filteredData.length > 0 && (
+            {paginationData && paginationData.totalPages > 0 && (
                 <div style={styles.pagination}>
                     <button
                         style={styles.pageBtn}
-                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 0))}
+                        disabled={currentPage === 0 || isSubmitting}
                     >
-                        <FaChevronLeft size={12} />
+                        <FaChevronLeft size={16} />
                     </button>
                     <span style={styles.pageInfo}>
-                        Page {currentPage} of {totalPages}
+                        Page {currentPage + 1} of {paginationData.totalPages} ({paginationData.totalElements} total)
                     </span>
                     <button
                         style={styles.pageBtn}
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, paginationData.totalPages - 1))}
+                        disabled={currentPage === paginationData.totalPages - 1 || isSubmitting}
                     >
-                        <FaChevronRight size={12} />
+                        <FaChevronRight size={16} />
                     </button>
                 </div>
             )}
 
             {/* Overview Modal */}
             {showOverview && selectedQuery && (
-                <RequestOverview request={selectedQuery} onClose={closeOverview} />
+                <QueryModal request={selectedQuery} onClose={closeOverview} />
             )}
+
+            {/* Rejection Modal */}
+            <RejectionModal />
+
+            {/* Response Modal for Approvals */}
+            <ResponseModal />
         </div>
     );
 };
 
-// ==================== COMPLETE STYLES OBJECT ====================
+// ==================== STYLES OBJECT ====================
 const styles = {
     container: {
         padding: "30px",
@@ -717,6 +957,11 @@ const styles = {
         margin: "6px 0 0",
         color: "#4A6F8F",
     },
+    headerRight: {
+        display: "flex",
+        alignItems: "center",
+        gap: "20px",
+    },
     statsContainer: {
         display: "flex",
         gap: "16px",
@@ -741,6 +986,36 @@ const styles = {
         fontSize: "12px",
         color: "#4A6F8F",
         marginTop: "4px",
+    },
+    refreshBtn: {
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "12px 20px",
+        background: "linear-gradient(135deg, #003366, #002244)",
+        border: "none",
+        borderRadius: "16px",
+        color: "#FFFFFF",
+        fontSize: "14px",
+        fontWeight: "600",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+        boxShadow: "0 4px 12px rgba(0, 51, 102, 0.15)",
+        ":hover": {
+            transform: "translateY(-2px)",
+            boxShadow: "0 8px 16px rgba(0, 51, 102, 0.25)",
+        },
+        ":disabled": {
+            opacity: 0.7,
+            cursor: "not-allowed",
+            transform: "none",
+        },
+    },
+    refreshIcon: {
+        transition: "transform 0.3s ease",
+    },
+    refreshIconSpinning: {
+        animation: "spin 1s linear infinite",
     },
     filtersContainer: {
         display: "flex",
@@ -838,29 +1113,52 @@ const styles = {
         fontSize: "14px",
         color: "#1E293B",
     },
+    serialNumber: {
+        fontWeight: "600",
+        color: "#003366",
+        fontFamily: "monospace",
+    },
     requestId: {
         fontWeight: "600",
         color: "#003366",
         fontFamily: "monospace",
     },
+    customerInfo: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "4px",
+    },
     accountHolder: {
         fontWeight: "500",
         color: "#1E293B",
+    },
+    customerEmail: {
+        fontSize: "11px",
+        color: "#6B8BA4",
+    },
+    accountNumber: {
+        fontFamily: "monospace",
+        color: "#4A6F8F",
+    },
+    queryText: {
+        maxWidth: "200px",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        color: "#1E293B",
+        fontSize: "13px",
+        cursor: "pointer",
     },
     dateCell: {
         display: "flex",
         alignItems: "center",
         gap: "8px",
         color: "#4A6F8F",
+        flexWrap: "wrap",
     },
     dateIcon: {
         color: "#FFD700",
         fontSize: "12px",
-    },
-    timeText: {
-        fontSize: "11px",
-        color: "#6B8BA4",
-        marginLeft: "4px",
     },
     viewBtn: {
         display: "flex",
@@ -879,6 +1177,10 @@ const styles = {
         ":hover": {
             transform: "translateY(-2px)",
             boxShadow: "0 8px 16px rgba(0, 51, 102, 0.25)",
+        },
+        ":disabled": {
+            opacity: 0.5,
+            cursor: "not-allowed",
         },
     },
     viewText: {
@@ -902,6 +1204,33 @@ const styles = {
         color: "#4A6F8F",
         margin: 0,
     },
+    noDataCell: {
+        padding: "0",
+    },
+    loadingCell: {
+        padding: "60px",
+        textAlign: "center",
+    },
+    loadingContainer: {
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "16px",
+    },
+    loader: {
+        width: "40px",
+        height: "40px",
+        border: "4px solid #E6EDF5",
+        borderTop: "4px solid #FFD700",
+        borderRadius: "50%",
+        animation: "spin 1s linear infinite",
+    },
+    loadingText: {
+        fontSize: "16px",
+        color: "#4A6F8F",
+        fontWeight: "500",
+    },
     pagination: {
         display: "flex",
         justifyContent: "center",
@@ -910,7 +1239,7 @@ const styles = {
         marginTop: "24px",
     },
     pageBtn: {
-        width: "40px",
+        width: "80px",
         height: "40px",
         borderRadius: "12px",
         background: "#FFFFFF",
@@ -1071,69 +1400,10 @@ const styles = {
         borderTop: "1px solid #E6EDF5",
         flexWrap: "wrap",
     },
-    // Additional styles for Customer Queries
-    customerInfo: {
-        display: "flex",
-        flexDirection: "column",
-        gap: "4px",
-    },
-    customerId: {
-        fontSize: "11px",
-        color: "#6B8BA4",
-        fontFamily: "monospace",
-    },
-    subjectText: {
-        maxWidth: "200px",
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        color: "#1E293B",
-        fontSize: "13px",
-    },
-    unassignedText: {
-        color: "#F59E0B",
-        fontSize: "13px",
-        fontWeight: "500",
-    },
-    assignedText: {
-        color: "#0052A5",
-        fontSize: "13px",
-        fontWeight: "500",
-    },
-    queryBox: {
-        background: "#F8FBFF",
-        borderRadius: "16px",
-        padding: "20px",
-        border: "1px solid #E6EDF5",
-    },
-    queryHeader: {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: "12px",
-        flexWrap: "wrap",
-        gap: "10px",
-    },
-    querySubject: {
-        fontSize: "16px",
-        fontWeight: "600",
-        color: "#003366",
-    },
-    queryCategory: {
-        fontSize: "12px",
-        color: "#6B8BA4",
-        fontWeight: "500",
-    },
-    queryDescription: {
-        fontSize: "14px",
-        lineHeight: "1.6",
-        color: "#1E293B",
-        margin: 0,
-    },
-    replyBtn: {
-        flex: 2,
+    rejectBtn: {
+        flex: 1,
         padding: "14px 20px",
-        background: "linear-gradient(135deg, #003366, #002244)",
+        background: "linear-gradient(135deg, #DC2626, #B91C1C)",
         border: "none",
         borderRadius: "14px",
         color: "#FFFFFF",
@@ -1145,19 +1415,23 @@ const styles = {
         gap: "8px",
         cursor: "pointer",
         transition: "all 0.2s ease",
-        boxShadow: "0 8px 16px rgba(0, 51, 102, 0.15)",
+        boxShadow: "0 8px 16px rgba(220, 38, 38, 0.15)",
         ":hover": {
             transform: "translateY(-2px)",
-            boxShadow: "0 12px 20px rgba(0, 51, 102, 0.25)",
+            boxShadow: "0 12px 20px rgba(220, 38, 38, 0.25)",
+        },
+        ":disabled": {
+            opacity: 0.6,
+            cursor: "not-allowed",
         },
     },
-    assignBtn: {
+    approveBtn: {
         flex: 1,
         padding: "14px 20px",
-        background: "#FFFFFF",
-        border: "2px solid #8B5CF6",
+        background: "linear-gradient(135deg, #10B981, #059669)",
+        border: "none",
         borderRadius: "14px",
-        color: "#8B5CF6",
+        color: "#FFFFFF",
         fontSize: "14px",
         fontWeight: "600",
         display: "flex",
@@ -1166,69 +1440,324 @@ const styles = {
         gap: "8px",
         cursor: "pointer",
         transition: "all 0.2s ease",
+        boxShadow: "0 8px 16px rgba(16, 185, 129, 0.15)",
         ":hover": {
-            background: "#F5F3FF",
-            borderColor: "#7C3AED",
+            transform: "translateY(-2px)",
+            boxShadow: "0 12px 20px rgba(16, 185, 129, 0.25)",
+        },
+        ":disabled": {
+            opacity: 0.6,
+            cursor: "not-allowed",
         },
     },
-    resolveBtn: {
-        flex: 1,
-        padding: "14px 20px",
+    // Rejection Modal Styles
+    rejectModalOverlay: {
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "rgba(0, 0, 0, 0.6)",
+        backdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 2000,
+    },
+    rejectModalContent: {
         background: "#FFFFFF",
-        border: "2px solid #10B981",
-        borderRadius: "14px",
+        borderRadius: "20px",
+        padding: "0",
+        width: "90%",
+        maxWidth: "500px",
+        boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+        border: "1px solid rgba(220, 38, 38, 0.2)",
+        position: "relative",
+    },
+    rejectModalHeader: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "24px 28px",
+        borderBottom: "1px solid #E6EDF5",
+        background: "linear-gradient(135deg, #FEF2F2, #FFFFFF)",
+        borderRadius: "20px 20px 0 0",
+    },
+    rejectModalTitle: {
+        display: "flex",
+        alignItems: "center",
+        fontSize: "18px",
+        fontWeight: "700",
+        color: "#DC2626",
+        margin: 0,
+    },
+    rejectCloseBtn: {
+        width: "36px",
+        height: "36px",
+        borderRadius: "50%",
+        border: "2px solid #E6EDF5",
+        background: "#FFFFFF",
+        fontSize: "20px",
+        fontWeight: "500",
+        color: "#6B8BA4",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        transition: "all 0.2s ease",
+        ":hover": {
+            borderColor: "#DC2626",
+            color: "#DC2626",
+            background: "#FEF2F2",
+        },
+        ":disabled": {
+            opacity: 0.6,
+            cursor: "not-allowed",
+        },
+    },
+    rejectModalBody: {
+        padding: "28px",
+    },
+    rejectFieldGroup: {
+        marginBottom: "24px",
+    },
+    rejectLabel: {
+        display: "block",
+        fontSize: "14px",
+        fontWeight: "600",
+        color: "#1E293B",
+        marginBottom: "8px",
+    },
+    rejectInput: {
+        width: "100%",
+        padding: "14px 16px",
+        border: "2px solid #E6EDF5",
+        borderRadius: "12px",
+        fontSize: "14px",
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        outline: "none",
+        transition: "all 0.2s ease",
+        ":focus": {
+            borderColor: "#DC2626",
+            boxShadow: "0 0 0 3px rgba(220, 38, 38, 0.1)",
+        },
+    },
+    rejectCharCount: {
+        textAlign: "right",
+        fontSize: "12px",
+        color: "#6B8BA4",
+        marginTop: "6px",
+        fontWeight: "500",
+    },
+    rejectModalActions: {
+        display: "flex",
+        gap: "12px",
+        justifyContent: "flex-end",
+        paddingTop: "8px",
+    },
+    rejectCancelBtn: {
+        padding: "12px 24px",
+        background: "#F8FBFF",
+        border: "2px solid #E6EDF5",
+        borderRadius: "10px",
+        color: "#4A6F8F",
+        fontSize: "14px",
+        fontWeight: "600",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+        ":hover": {
+            background: "#E6F0FF",
+            borderColor: "#CCE5FF",
+        },
+        ":disabled": {
+            opacity: 0.6,
+            cursor: "not-allowed",
+        },
+    },
+    rejectSubmitBtn: {
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "12px 24px",
+        background: "linear-gradient(135deg, #DC2626, #B91C1C)",
+        border: "none",
+        borderRadius: "10px",
+        color: "#FFFFFF",
+        fontSize: "14px",
+        fontWeight: "600",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+        boxShadow: "0 4px 12px rgba(220, 38, 38, 0.15)",
+        ":hover": {
+            transform: "translateY(-2px)",
+            boxShadow: "0 8px 20px rgba(220, 38, 38, 0.25)",
+        },
+        ":disabled": {
+            opacity: 0.6,
+            cursor: "not-allowed",
+            transform: "none",
+            boxShadow: "none",
+        },
+    },
+    // Response Modal Styles (for Approvals)
+    responseModalOverlay: {
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "rgba(0, 0, 0, 0.6)",
+        backdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 2000,
+    },
+    responseModalContent: {
+        background: "#FFFFFF",
+        borderRadius: "20px",
+        padding: "0",
+        width: "90%",
+        maxWidth: "500px",
+        boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+        border: "1px solid rgba(16, 185, 129, 0.2)",
+        position: "relative",
+    },
+    responseModalHeader: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "24px 28px",
+        borderBottom: "1px solid #E6EDF5",
+        background: "linear-gradient(135deg, #F0FDF4, #FFFFFF)",
+        borderRadius: "20px 20px 0 0",
+    },
+    responseModalTitle: {
+        display: "flex",
+        alignItems: "center",
+        fontSize: "18px",
+        fontWeight: "700",
         color: "#10B981",
-        fontSize: "14px",
-        fontWeight: "600",
+        margin: 0,
+    },
+    responseCloseBtn: {
+        width: "36px",
+        height: "36px",
+        borderRadius: "50%",
+        border: "2px solid #E6EDF5",
+        background: "#FFFFFF",
+        fontSize: "20px",
+        fontWeight: "500",
+        color: "#6B8BA4",
+        cursor: "pointer",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        gap: "8px",
-        cursor: "pointer",
         transition: "all 0.2s ease",
         ":hover": {
-            background: "#F0FDF9",
-            borderColor: "#059669",
+            borderColor: "#10B981",
+            color: "#10B981",
+            background: "#F0FDF4",
+        },
+        ":disabled": {
+            opacity: 0.6,
+            cursor: "not-allowed",
         },
     },
-    printBtn: {
-        padding: "14px 20px",
-        background: "#FFFFFF",
+    responseModalBody: {
+        padding: "28px",
+    },
+    responseFieldGroup: {
+        marginBottom: "24px",
+    },
+    responseLabel: {
+        display: "block",
+        fontSize: "14px",
+        fontWeight: "600",
+        color: "#1E293B",
+        marginBottom: "8px",
+    },
+    responseInput: {
+        width: "100%",
+        padding: "14px 16px",
         border: "2px solid #E6EDF5",
-        borderRadius: "14px",
+        borderRadius: "12px",
+        fontSize: "14px",
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        outline: "none",
+        transition: "all 0.2s ease",
+        ":focus": {
+            borderColor: "#10B981",
+            boxShadow: "0 0 0 3px rgba(16, 185, 129, 0.1)",
+        },
+    },
+    responseCharCount: {
+        textAlign: "right",
+        fontSize: "12px",
+        color: "#6B8BA4",
+        marginTop: "6px",
+        fontWeight: "500",
+    },
+    responseModalActions: {
+        display: "flex",
+        gap: "12px",
+        justifyContent: "flex-end",
+        paddingTop: "8px",
+    },
+    responseCancelBtn: {
+        padding: "12px 24px",
+        background: "#F8FBFF",
+        border: "2px solid #E6EDF5",
+        borderRadius: "10px",
         color: "#4A6F8F",
         fontSize: "14px",
         fontWeight: "600",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "8px",
         cursor: "pointer",
         transition: "all 0.2s ease",
         ":hover": {
-            borderColor: "#FFD700",
-            color: "#003366",
+            background: "#E6F0FF",
+            borderColor: "#CCE5FF",
+        },
+        ":disabled": {
+            opacity: 0.6,
+            cursor: "not-allowed",
         },
     },
-    downloadBtn: {
-        padding: "14px 20px",
-        background: "#FFFFFF",
-        border: "2px solid #E6EDF5",
-        borderRadius: "14px",
-        color: "#4A6F8F",
-        fontSize: "14px",
-        fontWeight: "600",
+    responseSubmitBtn: {
         display: "flex",
         alignItems: "center",
-        justifyContent: "center",
         gap: "8px",
+        padding: "12px 24px",
+        background: "linear-gradient(135deg, #10B981, #059669)",
+        border: "none",
+        borderRadius: "10px",
+        color: "#FFFFFF",
+        fontSize: "14px",
+        fontWeight: "600",
         cursor: "pointer",
         transition: "all 0.2s ease",
+        boxShadow: "0 4px 12px rgba(16, 185, 129, 0.15)",
         ":hover": {
-            borderColor: "#FFD700",
-            color: "#003366",
+            transform: "translateY(-2px)",
+            boxShadow: "0 8px 20px rgba(16, 185, 129, 0.25)",
+        },
+        ":disabled": {
+            opacity: 0.6,
+            cursor: "not-allowed",
+            transform: "none",
+            boxShadow: "none",
         },
     },
 };
+
+// Add global keyframes for spinner animation
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+`;
+document.head.appendChild(style);
 
 export default CustomerQueries;

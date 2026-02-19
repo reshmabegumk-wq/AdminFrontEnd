@@ -199,13 +199,13 @@ const Sidebar = () => {
                                     {[
                                         {
                                             icon: FaFileInvoiceDollar,
-                                            name: "Cheque Book",
+                                            name: "Cheque Leaves",
                                             path: "/cheque-book",
-                                            id: "chequeBook"
+                                            id: "chequeLeaves"
                                         },
                                         {
                                             icon: FaExclamationTriangle,
-                                            name: "Report Stolen Card",
+                                            name: "Reissue Stolen/Lost Card",
                                             path: "/stolen-card",
                                             id: "stolenCard"
                                         },
@@ -329,7 +329,7 @@ const Sidebar = () => {
             {/* BOTTOM SECTION - User Profile & Logout */}
             <div style={{ position: "relative", zIndex: 2 }}>
                 {/* Admin Profile Card */}
-                <div
+                {/* <div
                     style={{
                         display: "flex",
                         alignItems: "center",
@@ -362,7 +362,7 @@ const Sidebar = () => {
                             Employee
                         </p>
                     </div>
-                </div>
+                </div> */}
 
                 {/* Logout Button */}
                 <div

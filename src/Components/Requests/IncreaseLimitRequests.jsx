@@ -15,7 +15,9 @@ import {
     FaSync,
     FaArrowUp,
     FaMoneyBillWave,
-    FaFilter
+    FaFilter,
+    FaCreditCard,
+    FaIdCard
 } from "react-icons/fa";
 
 const IncreaseLimitRequests = () => {
@@ -30,10 +32,66 @@ const IncreaseLimitRequests = () => {
     const [showRejectReason, setShowRejectReason] = useState(false);
     const [rejectReason, setRejectReason] = useState("");
     const [paginationData, setPaginationData] = useState(null);
+    const [stats, setStats] = useState({
+        total: 0,
+        pending: 0,
+        approved: 0,
+        rejected: 0
+    });
     const { showSnackbar } = useSnackbar();
     const itemsPerPage = 5;
 
-    // Function to fetch credit limit increase requests from API
+    // Function to fetch card details for an account
+    const fetchCardDetails = async (accountNumber) => {
+        try {
+            const response = await API.get(`/cards/account/${accountNumber}`);
+            if (response?.data?.status && response?.data?.data) {
+                // Find the credit card from the list
+                const creditCard = response.data.data.find(card =>
+                    card.cardTypeName?.toLowerCase() === 'credit'
+                );
+                return creditCard || null;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error fetching card details:', error);
+            return null;
+        }
+    };
+
+    // Function to fetch statistics
+    const fetchStats = async () => {
+        try {
+            // Fetch all requests to get counts
+            const payload = {
+                "status": "",
+                "page": 0,
+                "size": 1000 // Get enough records to count
+            };
+            const response = await API.post("creditLimit/adminCreditLimitList", payload);
+
+            if (response?.data?.status && response?.data?.data) {
+                const requests = response.data.data.content || [];
+
+                // Calculate counts
+                const total = requests.length;
+                const approved = requests.filter(r => r.status?.toLowerCase() === 'approved').length;
+                const rejected = requests.filter(r => r.status?.toLowerCase() === 'rejected').length;
+                const pending = requests.filter(r => r.status?.toLowerCase() === 'pending').length;
+
+                setStats({
+                    total,
+                    approved,
+                    rejected,
+                    pending
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching stats:', error);
+        }
+    };
+
+    // Function to fetch credit limit increase requests with card details
     const fetchLimitRequests = async (page = 0) => {
         setIsLoading(true);
         try {
@@ -45,7 +103,34 @@ const IncreaseLimitRequests = () => {
             const response = await API.post("creditLimit/adminCreditLimitList", payload);
 
             if (response?.data?.status && response?.data?.data) {
-                setLimitRequests(response.data.data.content || []);
+                const requests = response.data.data.content || [];
+
+                // Fetch card details for each request
+                const requestsWithCardDetails = await Promise.all(
+                    requests.map(async (request) => {
+                        if (request.accountNumber) {
+                            const cardDetails = await fetchCardDetails(request.accountNumber);
+                            if (cardDetails) {
+                                return {
+                                    ...request,
+                                    currentLimit: cardDetails.currentLimit,
+                                    maxLimit: cardDetails.maxLimit,
+                                    cardType: cardDetails.cardTypeName || "Credit Card",
+                                    cardNumber: cardDetails.cardNumber
+                                };
+                            }
+                        }
+                        return {
+                            ...request,
+                            currentLimit: null,
+                            maxLimit: null,
+                            cardType: "Credit Card",
+                            cardNumber: null
+                        };
+                    })
+                );
+
+                setLimitRequests(requestsWithCardDetails);
                 setPaginationData({
                     pageNumber: response.data.data.pageNumber,
                     pageSize: response.data.data.pageSize,
@@ -71,6 +156,7 @@ const IncreaseLimitRequests = () => {
     // Fetch data on component mount and when filters/page changes
     useEffect(() => {
         fetchLimitRequests(currentPage - 1);
+        fetchStats();
     }, [currentPage, statusFilter]);
 
     // Handle search functionality (client-side filtering by cardholder name only)
@@ -83,6 +169,7 @@ const IncreaseLimitRequests = () => {
     const handleRefresh = () => {
         setCurrentPage(1);
         fetchLimitRequests(0);
+        fetchStats();
     };
 
     // Handle status filter change
@@ -91,7 +178,7 @@ const IncreaseLimitRequests = () => {
         setCurrentPage(1);
     };
 
-    // Status badge component matching the Stolen Card Reports style
+    // Status badge component
     const StatusBadge = ({ status }) => {
         const statusConfig = {
             Approved: { color: "#10B981", bg: "rgba(16, 185, 129, 0.1)", icon: FaCheckCircle, text: "Approved" },
@@ -123,13 +210,81 @@ const IncreaseLimitRequests = () => {
         );
     };
 
-    // API function to fetch request details
-    const fetchRequestDetails = async (id) => {
+    // Card Number Badge component (replacing Card Type Badge)
+    const CardNumberBadge = ({ cardNumber }) => {
+        const formatCardNumber = (number) => {
+            if (!number) return "Not Available";
+            // Format as XXXX XXXX XXXX XXXX if it's a 16-digit number
+            const str = number.toString().replace(/\s/g, '');
+            if (str.length === 16) {
+                return str.match(/.{1,4}/g).join(' ');
+            }
+            return str;
+        };
+
+        return (
+            <span style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "4px 12px",
+                background: "rgba(0, 51, 102, 0.05)",
+                color: "#003366",
+                borderRadius: "30px",
+                fontSize: "12px",
+                fontWeight: "600",
+                fontFamily: "monospace"
+            }}>
+                <FaIdCard size={12} color="#FFD700" />
+                {formatCardNumber(cardNumber)}
+            </span>
+        );
+    };
+
+    // API function to fetch request details with card information
+    const fetchRequestDetails = async (id, accountNumber) => {
         try {
+            // Fetch the limit request details
             const res = await API.get(`/creditLimit/creditLimitBy/${id}`);
+
             if (res.data && res.data.status && res.data.data) {
-                setRequestDetails(res.data.data);
-                return res.data.data;
+                const requestData = res.data.data;
+
+                // Fetch card details for this account
+                if (accountNumber) {
+                    const cardDetails = await fetchCardDetails(accountNumber);
+                    if (cardDetails) {
+                        setRequestDetails({
+                            ...requestData,
+                            currentLimit: cardDetails.currentLimit,
+                            maxLimit: cardDetails.maxLimit,
+                            cardType: cardDetails.cardTypeName,
+                            cardNumber: cardDetails.cardNumber
+                        });
+                        return {
+                            ...requestData,
+                            currentLimit: cardDetails.currentLimit,
+                            maxLimit: cardDetails.maxLimit,
+                            cardType: cardDetails.cardTypeName,
+                            cardNumber: cardDetails.cardNumber
+                        };
+                    }
+                }
+
+                setRequestDetails({
+                    ...requestData,
+                    currentLimit: null,
+                    maxLimit: null,
+                    cardType: "Credit Card",
+                    cardNumber: null
+                });
+                return {
+                    ...requestData,
+                    currentLimit: null,
+                    maxLimit: null,
+                    cardType: "Credit Card",
+                    cardNumber: null
+                };
             }
             return null;
         } catch (error) {
@@ -163,7 +318,7 @@ const IncreaseLimitRequests = () => {
     const handleViewOverview = async (item) => {
         setSelectedRequest(item);
         setShowOverview(true);
-        await fetchRequestDetails(item.increaseCreditLimitId);
+        await fetchRequestDetails(item.increaseCreditLimitId, item.accountNumber);
     };
 
     // Handle approve request
@@ -185,6 +340,7 @@ const IncreaseLimitRequests = () => {
                 showSnackbar("success", "Request approved successfully");
                 closeOverview();
                 fetchLimitRequests(currentPage - 1);
+                fetchStats();
             } else {
                 showSnackbar("error", result?.message || "Failed to approve request");
             }
@@ -225,6 +381,7 @@ const IncreaseLimitRequests = () => {
                 setRejectReason("");
                 closeOverview();
                 fetchLimitRequests(currentPage - 1);
+                fetchStats();
             } else {
                 showSnackbar("error", result?.message || "Failed to reject request");
             }
@@ -251,6 +408,7 @@ const IncreaseLimitRequests = () => {
 
     // Format currency
     const formatCurrency = (amount) => {
+        if (!amount && amount !== 0) return "N/A";
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',
@@ -259,15 +417,25 @@ const IncreaseLimitRequests = () => {
         }).format(amount);
     };
 
-    // Format date to match the stolen card reports format (YYYY-MM-DD)
+    // Format date
     const formatDate = (dateString) => {
         if (!dateString) return "N/A";
         return dateString;
     };
 
+    // Format card number for display
+    const formatCardNumber = (cardNumber) => {
+        if (!cardNumber) return "N/A";
+        const str = cardNumber.toString().replace(/\s/g, '');
+        if (str.length === 16) {
+            return str.match(/.{1,4}/g).join(' ');
+        }
+        return str;
+    };
+
     return (
         <div style={styles.container}>
-            {/* Header Section - Matching Stolen Card Reports */}
+            {/* Header Section */}
             <div style={styles.header}>
                 <div style={styles.headerLeft}>
                     <div style={styles.headerIcon}>
@@ -278,9 +446,45 @@ const IncreaseLimitRequests = () => {
                         <p style={styles.subtitle}>Review and process credit card limit enhancement requests</p>
                     </div>
                 </div>
+
+                {/* Stats Cards and Refresh Button - White background like ChequeBookRequests */}
+                <div style={styles.headerRight}>
+                    <div style={styles.statsContainer}>
+                        <div style={styles.statCard}>
+                            <span style={styles.statValue}>{stats.total}</span>
+                            <span style={styles.statLabel}>Total</span>
+                        </div>
+                        <div style={styles.statCard}>
+                            <span style={styles.statValue}>{stats.approved}</span>
+                            <span style={styles.statLabel}>Approved</span>
+                        </div>
+                        <div style={styles.statCard}>
+                            <span style={styles.statValue}>{stats.rejected}</span>
+                            <span style={styles.statLabel}>Rejected</span>
+                        </div>
+                        <div style={styles.statCard}>
+                            <span style={styles.statValue}>{stats.pending}</span>
+                            <span style={styles.statLabel}>Pending</span>
+                        </div>
+                    </div>
+                    <button
+                        style={styles.refreshBtn}
+                        onClick={handleRefresh}
+                        disabled={isLoading}
+                    >
+                        <FaSync
+                            size={16}
+                            style={{
+                                ...styles.refreshIcon,
+                                ...(isLoading ? styles.refreshIconSpinning : {})
+                            }}
+                        />
+                        Refresh
+                    </button>
+                </div>
             </div>
 
-            {/* Filters Section - Matching Stolen Card Reports */}
+            {/* Filters Section */}
             <div style={styles.filtersContainer}>
                 <div style={styles.searchBox}>
                     <FaSearch style={styles.searchIcon} />
@@ -305,23 +509,9 @@ const IncreaseLimitRequests = () => {
                         <option value="Pending">Pending</option>
                     </select>
                 </div>
-                <button
-                    style={styles.refreshBtn}
-                    onClick={handleRefresh}
-                    disabled={isLoading}
-                >
-                    <FaSync
-                        size={16}
-                        style={{
-                            ...styles.refreshIcon,
-                            ...(isLoading ? styles.refreshIconSpinning : {})
-                        }}
-                    />
-                    Refresh
-                </button>
             </div>
 
-            {/* Table Section - Matching Stolen Card Reports */}
+            {/* Table Section */}
             <div style={styles.tableContainer}>
                 <table style={styles.table}>
                     <thead style={styles.tableHead}>
@@ -329,7 +519,10 @@ const IncreaseLimitRequests = () => {
                             <th style={styles.tableHeader}>S.NO</th>
                             <th style={styles.tableHeader}>CARDHOLDER</th>
                             <th style={styles.tableHeader}>ACCOUNT NUMBER</th>
+                            <th style={styles.tableHeader}>CARD NUMBER</th> {/* Changed from CARD TYPE */}
+                            <th style={styles.tableHeader}>CURRENT LIMIT</th>
                             <th style={styles.tableHeader}>REQUESTED LIMIT</th>
+                            <th style={styles.tableHeader}>MAXIMUM LIMIT</th>
                             <th style={styles.tableHeader}>REQUEST DATE</th>
                             <th style={styles.tableHeader}>UPDATED BY</th>
                             <th style={styles.tableHeader}>STATUS</th>
@@ -339,7 +532,7 @@ const IncreaseLimitRequests = () => {
                     <tbody>
                         {isLoading ? (
                             <tr>
-                                <td colSpan="8" style={styles.loadingCell}>
+                                <td colSpan="11" style={styles.loadingCell}>
                                     <div style={styles.loadingContainer}>
                                         <div style={styles.loader}></div>
                                         <span style={styles.loadingText}>Loading limit increase requests...</span>
@@ -359,8 +552,21 @@ const IncreaseLimitRequests = () => {
                                         <span style={styles.accountNumber}>{item.accountNumber || "N/A"}</span>
                                     </td>
                                     <td style={styles.tableCell}>
+                                        <CardNumberBadge cardNumber={item.cardNumber} /> {/* New column */}
+                                    </td>
+                                    <td style={styles.tableCell}>
+                                        <span style={styles.currentLimit}>
+                                            {formatCurrency(item.currentLimit)}
+                                        </span>
+                                    </td>
+                                    <td style={styles.tableCell}>
                                         <span style={styles.requestedLimit}>
                                             {formatCurrency(item.requestedLimit)}
+                                        </span>
+                                    </td>
+                                    <td style={styles.tableCell}>
+                                        <span style={styles.maximumLimit}>
+                                            {formatCurrency(item.maxLimit)}
                                         </span>
                                     </td>
                                     <td style={styles.tableCell}>
@@ -388,7 +594,7 @@ const IncreaseLimitRequests = () => {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="8" style={styles.noDataCell}>
+                                <td colSpan="11" style={styles.noDataCell}>
                                     <div style={styles.noData}>
                                         <FaExclamationTriangle size={48} style={styles.noDataIcon} />
                                         <p style={styles.noDataText}>No limit increase requests found</p>
@@ -400,7 +606,7 @@ const IncreaseLimitRequests = () => {
                 </table>
             </div>
 
-            {/* Pagination - Matching Stolen Card Reports */}
+            {/* Pagination */}
             {paginationData && paginationData.totalPages > 0 && (
                 <div style={styles.pagination}>
                     <button
@@ -444,6 +650,9 @@ const IncreaseLimitRequests = () => {
                             {/* Status Bar */}
                             <div style={styles.statusBar}>
                                 <StatusBadge status={requestDetails.status} />
+                                {requestDetails.cardNumber && (
+                                    <CardNumberBadge cardNumber={requestDetails.cardNumber} />
+                                )}
                             </div>
 
                             {/* Cardholder Information */}
@@ -460,6 +669,16 @@ const IncreaseLimitRequests = () => {
                                     <div style={styles.infoRow}>
                                         <span style={styles.infoLabel}>Account Number</span>
                                         <span style={styles.infoValue}>{requestDetails.accountNumber || "N/A"}</span>
+                                    </div>
+                                    <div style={styles.infoRow}>
+                                        <span style={styles.infoLabel}>Card Number</span>
+                                        <span style={{
+                                            ...styles.infoValue,
+                                            fontFamily: "monospace",
+                                            fontSize: "14px"
+                                        }}>
+                                            {formatCardNumber(requestDetails.cardNumber) || "N/A"}
+                                        </span>
                                     </div>
                                     <div style={styles.infoRow}>
                                         <span style={styles.infoLabel}>Contact Number</span>
@@ -488,8 +707,24 @@ const IncreaseLimitRequests = () => {
                                         <span style={styles.infoValue}>{requestDetails.increaseCreditLimitId || "N/A"}</span>
                                     </div>
                                     <div style={styles.infoRow}>
+                                        <span style={styles.infoLabel}>Card Type</span>
+                                        <span style={styles.infoValue}>{requestDetails.cardType || "Credit Card"}</span>
+                                    </div>
+                                    <div style={styles.infoRow}>
+                                        <span style={styles.infoLabel}>Current Limit</span>
+                                        <span style={styles.infoValue}>
+                                            {formatCurrency(requestDetails.currentLimit)}
+                                        </span>
+                                    </div>
+                                    <div style={styles.infoRow}>
                                         <span style={styles.infoLabel}>Requested Limit</span>
                                         <span style={styles.infoValue}>{formatCurrency(requestDetails.requestedLimit)}</span>
+                                    </div>
+                                    <div style={styles.infoRow}>
+                                        <span style={styles.infoLabel}>Maximum Allowed Limit</span>
+                                        <span style={styles.infoValue}>
+                                            {formatCurrency(requestDetails.maxLimit)}
+                                        </span>
                                     </div>
                                     <div style={styles.infoRow}>
                                         <span style={styles.infoLabel}>Request Date</span>
@@ -520,7 +755,7 @@ const IncreaseLimitRequests = () => {
                                 </div>
                             </div>
 
-                            {/* Action Buttons - Only show for pending requests */}
+                            {/* Action Buttons */}
                             {requestDetails.status?.toLowerCase() === "pending" && (
                                 <div style={styles.modalActions}>
                                     <button style={styles.rejectBtn} onClick={handleRejectRequest}>
@@ -591,7 +826,7 @@ const IncreaseLimitRequests = () => {
     );
 };
 
-// ==================== STYLES OBJECT - Matching Stolen Card Reports exactly ====================
+// ==================== STYLES ====================
 const styles = {
     container: {
         padding: "30px",
@@ -604,6 +839,8 @@ const styles = {
         justifyContent: "space-between",
         alignItems: "center",
         marginBottom: "30px",
+        flexWrap: "wrap",
+        gap: "20px",
     },
     headerLeft: {
         display: "flex",
@@ -631,6 +868,68 @@ const styles = {
         fontSize: "14px",
         margin: "6px 0 0",
         color: "#4A6F8F",
+    },
+    headerRight: {
+        display: "flex",
+        alignItems: "center",
+        gap: "20px",
+        flexWrap: "wrap",
+    },
+    statsContainer: {
+        display: "flex",
+        gap: "16px",
+        flexWrap: "wrap",
+    },
+    statCard: {
+        background: "#FFFFFF",
+        padding: "12px 24px",
+        borderRadius: "16px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        boxShadow: "0 4px 12px rgba(0, 51, 102, 0.05)",
+        border: "1px solid rgba(255, 215, 0, 0.15)",
+        minWidth: "80px",
+    },
+    statValue: {
+        fontSize: "24px",
+        fontWeight: "700",
+        color: "#003366",
+    },
+    statLabel: {
+        fontSize: "12px",
+        color: "#4A6F8F",
+        marginTop: "4px",
+    },
+    refreshBtn: {
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "12px 20px",
+        background: "linear-gradient(135deg, #003366, #002244)",
+        border: "none",
+        borderRadius: "16px",
+        color: "#FFFFFF",
+        fontSize: "14px",
+        fontWeight: "600",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+        boxShadow: "0 4px 12px rgba(0, 51, 102, 0.15)",
+        ":hover": {
+            transform: "translateY(-2px)",
+            boxShadow: "0 8px 16px rgba(0, 51, 102, 0.25)",
+        },
+        ":disabled": {
+            opacity: 0.7,
+            cursor: "not-allowed",
+            transform: "none",
+        },
+    },
+    refreshIcon: {
+        transition: "transform 0.3s ease",
+    },
+    refreshIconSpinning: {
+        animation: "spin 1s linear infinite",
     },
     filtersContainer: {
         display: "flex",
@@ -663,9 +962,6 @@ const styles = {
         fontSize: "14px",
         color: "#003366",
         background: "transparent",
-        "::placeholder": {
-            color: "#8DA6C0",
-        },
     },
     filterGroup: {
         display: "flex",
@@ -690,36 +986,6 @@ const styles = {
         fontWeight: "500",
         background: "transparent",
         cursor: "pointer",
-    },
-    refreshBtn: {
-        display: "flex",
-        alignItems: "center",
-        gap: "8px",
-        padding: "12px 20px",
-        background: "linear-gradient(135deg, #003366, #002244)",
-        border: "none",
-        borderRadius: "16px",
-        color: "#FFFFFF",
-        fontSize: "14px",
-        fontWeight: "600",
-        cursor: "pointer",
-        transition: "all 0.2s ease",
-        boxShadow: "0 4px 12px rgba(0, 51, 102, 0.15)",
-        ":hover": {
-            transform: "translateY(-2px)",
-            boxShadow: "0 8px 16px rgba(0, 51, 102, 0.25)",
-        },
-        ":disabled": {
-            opacity: 0.7,
-            cursor: "not-allowed",
-            transform: "none",
-        },
-    },
-    refreshIcon: {
-        transition: "transform 0.3s ease",
-    },
-    refreshIconSpinning: {
-        animation: "spin 1s linear infinite",
     },
     tableContainer: {
         background: "#FFFFFF",
@@ -771,6 +1037,15 @@ const styles = {
         fontFamily: "monospace",
         color: "#4A6F8F",
     },
+    currentLimit: {
+        fontWeight: "500",
+        color: "#003366",
+        background: "rgba(0, 51, 102, 0.05)",
+        padding: "4px 8px",
+        borderRadius: "6px",
+        display: "inline-block",
+        fontFamily: "monospace",
+    },
     requestedLimit: {
         fontWeight: "600",
         color: "#10B981",
@@ -778,6 +1053,15 @@ const styles = {
         padding: "4px 8px",
         borderRadius: "6px",
         display: "inline-block",
+    },
+    maximumLimit: {
+        fontWeight: "500",
+        color: "#8B5CF6",
+        background: "rgba(139, 92, 246, 0.1)",
+        padding: "4px 8px",
+        borderRadius: "6px",
+        display: "inline-block",
+        fontFamily: "monospace",
     },
     dateCell: {
         display: "flex",
@@ -894,7 +1178,6 @@ const styles = {
         color: "#4A6F8F",
         fontWeight: "500",
     },
-    // Modal Styles
     modalOverlay: {
         position: "fixed",
         top: 0,
@@ -1071,7 +1354,6 @@ const styles = {
             boxShadow: "0 12px 20px rgba(16, 185, 129, 0.25)",
         },
     },
-    // Rejection Modal Styles
     rejectModalOverlay: {
         position: "fixed",
         top: 0,
@@ -1159,9 +1441,6 @@ const styles = {
             borderColor: "#DC2626",
             boxShadow: "0 0 0 3px rgba(220, 38, 38, 0.1)",
         },
-        "::placeholder": {
-            color: "#8DA6C0",
-        },
     },
     rejectCharCount: {
         textAlign: "right",
@@ -1229,5 +1508,3 @@ style.textContent = `
 document.head.appendChild(style);
 
 export default IncreaseLimitRequests;
-
-
