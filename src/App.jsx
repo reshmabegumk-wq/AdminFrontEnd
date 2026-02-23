@@ -8,7 +8,10 @@ import StolenCardRequests from "./Components/Requests/StolenCardRequests";
 import IncreaseLimitRequests from "./Components/Requests/IncreaseLimitRequests";
 import CustomerQueries from "./Components/Requests/CustomerQueries";
 import CustomerAdminManagement from "./Components/Users/CustomerAdminManagement";
-
+import AllRequests from "./Components/AllRequests/AllRequests";
+import PendingActions from "./Components/PendingActions/PendingActions";
+import ResolvedRequests from "./Components/ResolvedRequests/ResolvedRequests";
+import ResponseRate from "./Components/ResponseRate/ResponseRate";
 
 
 const App = () => {
@@ -17,6 +20,14 @@ const App = () => {
       <Routes>
 
         <Route path="/" element={<Login />} />
+
+        <Route path="/all-requests" element={<AllRequests />} />
+
+        <Route path="/pending-actions" element={<PendingActions />} />
+
+        <Route path="/resolved-requests" element={<ResolvedRequests />} />
+
+        <Route path="/response-rate" element={<ResponseRate />} />
 
         <Route
           path="/dashboard"

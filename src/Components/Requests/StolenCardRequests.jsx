@@ -14,7 +14,6 @@ import {
     FaChevronRight,
     FaUserTie,
     FaCalendarAlt,
-    FaShieldAlt,
     FaCreditCard
 } from "react-icons/fa";
 
@@ -30,8 +29,35 @@ const StolenCardRequests = () => {
     const [showRejectReason, setShowRejectReason] = useState(false);
     const [rejectReason, setRejectReason] = useState("");
     const [paginationData, setPaginationData] = useState(null);
+    const [stats, setStats] = useState({
+        total: 0,
+        approved: 0,
+        rejected: 0,
+        pending: 0
+    });
     const { showSnackbar } = useSnackbar();
     const itemsPerPage = 5;
+
+    // Helper function to normalize card type from backend
+    const normalizeCardType = (typeName) => {
+        if (!typeName) return null;
+        const normalized = typeName.charAt(0).toUpperCase() + typeName.slice(1).toLowerCase();
+        return normalized === 'Debit' ? 'Debit' : 'Credit';
+    };
+
+    // Fallback function to determine card type based on card number (only if backend doesn't provide it)
+    const determineCardType = (cardNumber) => {
+        if (!cardNumber) return 'Unknown';
+        const cardStr = cardNumber.toString().replace(/\s+/g, '');
+        const lastFourDigits = cardStr.slice(-4);
+        if (lastFourDigits === '6457') {
+            return 'Debit';
+        }
+        if (lastFourDigits === '0343') {
+            return 'Credit';
+        }
+        return 'Debit';
+    };
 
     // Function to fetch stolen card requests from API
     const fetchStolenCardRequests = async (page = 0) => {
@@ -42,10 +68,56 @@ const StolenCardRequests = () => {
                 "page": page,
                 "size": itemsPerPage
             };
+            console.log("Sending payload:", payload);
+
             const response = await API.post("lostCard/adminLastCardList", payload);
+            console.log("API Response:", response.data);
 
             if (response?.data?.data) {
-                setStolenCardData(response.data.data.content || []);
+                let content = response.data.data.content || [];
+
+                // Process each item
+                content = content.map(item => {
+                    // PRIORITY 1: Use cardTypeName from backend if available
+                    if (item.cardTypeName) {
+                        item.cardType = normalizeCardType(item.cardTypeName);
+                    }
+                    // PRIORITY 2: Check if cardType is already set and valid
+                    else if (item.cardType) {
+                        const validTypes = ['Debit', 'Credit', 'DEBIT', 'CREDIT', 'debit', 'credit'];
+                        if (!validTypes.includes(item.cardType)) {
+                            // If it's not a valid card type, determine from card number as fallback
+                            item.cardType = determineCardType(item.lostCardNumber);
+                        } else {
+                            // Normalize the existing card type
+                            item.cardType = normalizeCardType(item.cardType);
+                        }
+                    }
+                    // PRIORITY 3: Fallback to determining from card number
+                    else if (item.lostCardNumber) {
+                        item.cardType = determineCardType(item.lostCardNumber);
+                    }
+
+                    // Handle customer name (for Cardholder column)
+                    if (!item.fullName) {
+                        if (item.firstName || item.lastName) {
+                            item.fullName = `${item.firstName || ''} ${item.lastName || ''}`.trim();
+                        } else if (item.customer?.firstName || item.customer?.lastName) {
+                            item.fullName = `${item.customer.firstName || ''} ${item.customer.lastName || ''}`.trim();
+                        }
+                    }
+
+                    // If still no name, use fallback
+                    if (!item.fullName || item.fullName.trim() === '') {
+                        item.fullName = 'Customer';
+                    }
+
+                    return item;
+                });
+
+                console.log("Processed Content:", content);
+                setStolenCardData(content);
+
                 setPaginationData({
                     pageNumber: response.data.data.pageNumber,
                     pageSize: response.data.data.pageSize,
@@ -57,7 +129,6 @@ const StolenCardRequests = () => {
                 setStolenCardData([]);
                 setPaginationData(null);
             }
-
         } catch (error) {
             console.error('Error fetching stolen card requests:', error);
             showSnackbar("error", "Failed to load stolen card requests. Please try again.");
@@ -68,56 +139,49 @@ const StolenCardRequests = () => {
         }
     };
 
+    // Function to fetch statistics
+    const fetchStatistics = async () => {
+        try {
+            const response = await API.get("lostCard/count");
+            console.log("Statistics response:", response.data);
+
+            if (response?.data?.data) {
+                setStats({
+                    total: response.data.data.total || 0,
+                    approved: response.data.data.approved || 0,
+                    rejected: response.data.data.rejected || 0,
+                    pending: response.data.data.pending || 0
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching statistics:', error);
+        }
+    };
+
     // Fetch data on component mount and when filters/page changes
     useEffect(() => {
         fetchStolenCardRequests(currentPage - 1);
     }, [currentPage, statusFilter]);
 
-    // Calculate statistics from the data
-    const calculateStats = () => {
-        if (!stolenCardData || stolenCardData.length === 0) {
-            return {
-                total: 0,
-                approved: 0,
-                rejected: 0,
-                pending: 0
-            };
-        }
-
-        const approved = stolenCardData.filter(item =>
-            item.status?.toLowerCase() === 'approved'
-        ).length;
-
-        const rejected = stolenCardData.filter(item =>
-            item.status?.toLowerCase() === 'rejected'
-        ).length;
-
-        const pending = stolenCardData.filter(item =>
-            item.status?.toLowerCase() === 'pending'
-        ).length;
-
-        return {
-            total: stolenCardData.length,
-            approved,
-            rejected,
-            pending
-        };
-    };
-
-    const stats = calculateStats();
-
-    // Handle search functionality (client-side filtering by cardholder name only)
-    const filteredData = stolenCardData?.filter(item => {
-        const matchesSearch = item.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.cardHolder?.toLowerCase().includes(searchTerm.toLowerCase());
-        return matchesSearch;
-    });
+    // Fetch statistics when component mounts
+    useEffect(() => {
+        fetchStatistics();
+    }, []);
 
     // Handle refresh
     const handleRefresh = () => {
         setCurrentPage(1);
         fetchStolenCardRequests(0);
+        fetchStatistics();
     };
+
+    // Handle search functionality
+    const filteredData = stolenCardData?.filter(item => {
+        const fullName = `${item.fullName || ''}`.toLowerCase();
+        const matchesSearch = fullName.includes(searchTerm.toLowerCase()) ||
+            item.lostCardNumber?.toString().includes(searchTerm);
+        return matchesSearch;
+    });
 
     // Handle status filter change
     const handleStatusFilterChange = (newStatus) => {
@@ -127,20 +191,18 @@ const StolenCardRequests = () => {
 
     // Status badge component
     const StatusBadge = ({ status }) => {
+        const normalizedStatus = status?.toLowerCase() || '';
+
         const statusConfig = {
-            Active: { color: "#10B981", bg: "rgba(16, 185, 129, 0.1)", icon: FaCheckCircle, text: "Active" },
-            Approved: { color: "#10B981", bg: "rgba(16, 185, 129, 0.1)", icon: FaCheckCircle, text: "Approved" },
-            Reject: { color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)", icon: FaBan, text: "Rejected" },
-            Rejected: { color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)", icon: FaBan, text: "Rejected" },
-            Pending: { color: "#F97316", bg: "rgba(249, 115, 22, 0.1)", icon: FaClock, text: "Pending" },
+            approved: { color: "#10B981", bg: "rgba(16, 185, 129, 0.1)", icon: FaCheckCircle, text: "Approved" },
+            approve: { color: "#10B981", bg: "rgba(16, 185, 129, 0.1)", icon: FaCheckCircle, text: "Approved" },
+            rejected: { color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)", icon: FaBan, text: "Rejected" },
+            reject: { color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)", icon: FaBan, text: "Rejected" },
             pending: { color: "#F97316", bg: "rgba(249, 115, 22, 0.1)", icon: FaClock, text: "Pending" },
-            processing: { color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)", icon: FaClock, text: "Processing" },
-            urgent: { color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)", icon: FaExclamationTriangle, text: "Urgent" },
-            resolved: { color: "#10B981", bg: "rgba(16, 185, 129, 0.1)", icon: FaCheckCircle, text: "Resolved" },
-            blocked: { color: "#6B7280", bg: "rgba(107, 114, 128, 0.1)", icon: FaBan, text: "Blocked" }
+            default: { color: "#6B7280", bg: "rgba(107, 114, 128, 0.1)", icon: FaClock, text: status || "Unknown" }
         };
 
-        const config = statusConfig[status] || statusConfig.processing;
+        const config = statusConfig[normalizedStatus] || statusConfig.default;
         const Icon = config.icon;
 
         return (
@@ -162,22 +224,26 @@ const StolenCardRequests = () => {
     };
 
     // Card Type badge component
-    const CardTypeBadge = ({ type }) => {
-        const isDebit = type?.toLowerCase() === 'debit';
+    const CardTypeBadge = ({ type, cardNumber }) => {
+        const cardType = type || (cardNumber ? determineCardType(cardNumber) : 'Unknown');
+        const isCredit = cardType === 'Credit';
+        const bgColor = isCredit ? "rgba(59, 130, 246, 0.1)" : "rgba(16, 185, 129, 0.1)";
+        const textColor = isCredit ? "#3B82F6" : "#10B981";
+
         return (
             <div style={{
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "6px",
                 padding: "4px 12px",
-                background: isDebit ? "rgba(16, 185, 129, 0.1)" : "rgba(59, 130, 246, 0.1)",
-                color: isDebit ? "#10B981" : "#3B82F6",
+                background: bgColor,
+                color: textColor,
                 borderRadius: "30px",
                 fontSize: "12px",
                 fontWeight: "600"
             }}>
                 <FaCreditCard size={12} />
-                {type || "N/A"}
+                {cardType}
             </div>
         );
     };
@@ -185,10 +251,45 @@ const StolenCardRequests = () => {
     // API function to fetch card details
     const fetchCardDetails = async (id) => {
         try {
-            const res = await API.get(`/lostCard/lostCardBy/${id}`);
+            const res = await API.get(`lostCard/lostCardBy/${id}`);
+            console.log("Card details response:", res.data);
+
             if (res.data && res.data.status && res.data.data) {
-                setCardDetails(res.data.data);
-                return res.data.data;
+                let data = res.data.data;
+
+                // PRIORITY 1: Use cardTypeName from backend
+                if (data.cardTypeName) {
+                    data.cardType = normalizeCardType(data.cardTypeName);
+                }
+                // PRIORITY 2: Check existing cardType
+                else if (data.cardType) {
+                    const validTypes = ['Debit', 'Credit', 'DEBIT', 'CREDIT', 'debit', 'credit'];
+                    if (!validTypes.includes(data.cardType)) {
+                        data.cardType = determineCardType(data.lostCardNumber);
+                    } else {
+                        data.cardType = normalizeCardType(data.cardType);
+                    }
+                }
+                // PRIORITY 3: Fallback to determining from card number
+                else if (data.lostCardNumber) {
+                    data.cardType = determineCardType(data.lostCardNumber);
+                }
+
+                // Handle customer name
+                if (!data.fullName) {
+                    if (data.firstName || data.lastName) {
+                        data.fullName = `${data.firstName || ''} ${data.lastName || ''}`.trim();
+                    } else if (data.customer) {
+                        data.fullName = `${data.customer.firstName || ''} ${data.customer.lastName || ''}`.trim();
+                    }
+                }
+
+                if (!data.fullName || data.fullName.trim() === '') {
+                    data.fullName = 'Customer';
+                }
+
+                setCardDetails(data);
+                return data;
             }
             return null;
         } catch (error) {
@@ -205,23 +306,11 @@ const StolenCardRequests = () => {
                 remarks: remarks,
                 approvedById: +localStorage.getItem("userId")
             }
-            const res = await API.post(`/lostCard/lostCardUpdateAdmin/${id}`, payload);
+            const res = await API.post(`lostCard/lostCardUpdateAdmin/${id}`, payload);
             console.log("Card update response:", res.data);
-
-            if (res.data) {
-                if (res.data.status && res.data.data) {
-                    setCardDetails(res.data.data);
-                    return res.data.data;
-                }
-                if (res.data.status === true || res.data.success === true) {
-                    return res.data;
-                }
-                return res.data;
-            }
-            return null;
+            return res.data;
         } catch (error) {
             console.log("Error updating card details:", error);
-            setCardDetails(null);
             return null;
         }
     };
@@ -247,14 +336,14 @@ const StolenCardRequests = () => {
                 "APPROVE",
                 ""
             );
-            console.log("API Result:", result);
-            if (result) {
+
+            if (result?.status === true) {
                 showSnackbar("success", "Request approved successfully");
                 closeOverview();
                 fetchStolenCardRequests();
+                fetchStatistics();
             } else {
-                console.log("No result returned from API");
-                showSnackbar("error", "No response from server");
+                showSnackbar("error", result?.message || "Failed to approve request");
             }
         } catch (error) {
             console.log("Error approving request:", error);
@@ -265,6 +354,13 @@ const StolenCardRequests = () => {
     // Handle reject request
     const handleRejectRequest = () => {
         setShowRejectReason(true);
+    };
+
+    // FIXED: Handle reject reason change with proper text direction
+    const handleRejectReasonChange = (e) => {
+        const value = e.target.value;
+        // Store the raw value without any manipulation
+        setRejectReason(value);
     };
 
     // Handle submit rejection
@@ -286,16 +382,16 @@ const StolenCardRequests = () => {
                 "REJECT",
                 rejectReason
             );
-            console.log("Reject API Result:", result);
-            if (result) {
+
+            if (result?.status === true) {
                 showSnackbar("success", "Request rejected successfully");
                 setShowRejectReason(false);
                 setRejectReason("");
                 closeOverview();
                 fetchStolenCardRequests();
+                fetchStatistics();
             } else {
-                console.log("No result returned from reject API");
-                showSnackbar("error", "No response from server");
+                showSnackbar("error", result?.message || "Failed to reject request");
             }
         } catch (error) {
             console.log("Error rejecting request:", error);
@@ -318,7 +414,7 @@ const StolenCardRequests = () => {
         setRejectReason("");
     };
 
-    // Separate Modal Component
+    // Modal Component
     const StolenCardModal = ({ request, onClose }) => {
         if (!request) return null;
 
@@ -334,36 +430,21 @@ const StolenCardRequests = () => {
                             </div>
                             <div>
                                 <h3 style={styles.modalTitle}>Stolen Card Report</h3>
-                                <p style={styles.modalSubtitle}>Request ID: {displayData.lostCardId || request.id}</p>
+                                <p style={styles.modalSubtitle}>Request ID: {displayData.lostCardId}</p>
                             </div>
                         </div>
                         <button style={styles.closeBtn} onClick={onClose}>×</button>
                     </div>
 
                     <div style={styles.modalBody}>
-                        {/* Status Bar */}
                         <div style={styles.statusBar}>
                             <StatusBadge status={displayData.status} />
-                            <CardTypeBadge type={displayData.cardType || "Debit"} />
-                            {request.policeComplaint === "Yes" && (
-                                <span style={{
-                                    padding: "4px 12px",
-                                    background: "rgba(139, 92, 246, 0.1)",
-                                    color: "#8B5CF6",
-                                    borderRadius: "30px",
-                                    fontSize: "12px",
-                                    fontWeight: "600",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "6px"
-                                }}>
-                                    <FaShieldAlt size={12} />
-                                    FIR Filed
-                                </span>
-                            )}
+                            <CardTypeBadge
+                                type={displayData.cardType}
+                                cardNumber={displayData.lostCardNumber}
+                            />
                         </div>
 
-                        {/* Cardholder Information */}
                         <div style={styles.infoSection}>
                             <h4 style={styles.sectionTitle}>
                                 <FaUserTie style={styles.sectionIcon} />
@@ -372,16 +453,19 @@ const StolenCardRequests = () => {
                             <div style={styles.infoGrid}>
                                 <div style={styles.infoRow}>
                                     <span style={styles.infoLabel}>Cardholder Name</span>
-                                    <span style={styles.infoValue}>{displayData.fullName || request.cardHolder || "N/A"}</span>
+                                    <span style={styles.infoValue}>{displayData.fullName || "Customer"}</span>
                                 </div>
                                 <div style={styles.infoRow}>
                                     <span style={styles.infoLabel}>Card Number</span>
-                                    <span style={styles.infoValue}>{displayData.lostCardNumber || request.cardNumber || "N/A"}</span>
+                                    <span style={styles.infoValue}>{displayData.lostCardNumber || "N/A"}</span>
                                 </div>
                                 <div style={styles.infoRow}>
                                     <span style={styles.infoLabel}>Card Type</span>
                                     <span style={styles.infoValue}>
-                                        <CardTypeBadge type={displayData.cardType || "Debit"} />
+                                        <CardTypeBadge
+                                            type={displayData.cardType}
+                                            cardNumber={displayData.lostCardNumber}
+                                        />
                                     </span>
                                 </div>
                                 <div style={styles.infoRow}>
@@ -403,7 +487,6 @@ const StolenCardRequests = () => {
                             </div>
                         </div>
 
-                        {/* Incident Details */}
                         <div style={styles.infoSection}>
                             <h4 style={styles.sectionTitle}>
                                 <FaExclamationTriangle style={styles.sectionIcon} />
@@ -441,8 +524,7 @@ const StolenCardRequests = () => {
                             </div>
                         </div>
 
-                        {/* Action Buttons */}
-                        {displayData.status === "Pending" && (
+                        {displayData.status?.toLowerCase() === "pending" && (
                             <div style={styles.modalActions}>
                                 <button style={styles.blockBtn} onClick={handleRejectRequest}>
                                     <FaBan size={14} />
@@ -455,7 +537,6 @@ const StolenCardRequests = () => {
                             </div>
                         )}
 
-                        {/* Rejection Reason Modal */}
                         {showRejectReason && (
                             <div style={styles.rejectModalOverlay}>
                                 <div style={styles.rejectModalContent}>
@@ -472,14 +553,14 @@ const StolenCardRequests = () => {
                                     <div style={styles.rejectModalBody}>
                                         <div style={styles.rejectFieldGroup}>
                                             <label style={styles.rejectLabel}>Rejection Reason *</label>
-                                            <input
-                                                key="reject-input"
-                                                type="text"
-                                                style={styles.rejectInput}
+                                            <textarea
+                                                style={styles.rejectTextarea}
                                                 placeholder="Please provide a detailed reason for rejecting this request..."
                                                 value={rejectReason}
-                                                onChange={(e) => setRejectReason(e.target.value)}
-                                                autoFocus={showRejectReason}
+                                                onChange={handleRejectReasonChange}
+                                                rows={4}
+                                                autoFocus
+                                                dir="ltr"
                                             />
                                             <div style={styles.rejectCharCount}>
                                                 {rejectReason.length}/500
@@ -514,7 +595,6 @@ const StolenCardRequests = () => {
 
     return (
         <div style={styles.container}>
-            {/* Header Section */}
             <div style={styles.header}>
                 <div style={styles.headerLeft}>
                     <div style={styles.headerIcon}>
@@ -561,13 +641,12 @@ const StolenCardRequests = () => {
                 </div>
             </div>
 
-            {/* Filters Section */}
             <div style={styles.filtersContainer}>
                 <div style={styles.searchBox}>
                     <FaSearch style={styles.searchIcon} />
                     <input
                         type="text"
-                        placeholder="Search by cardholder name..."
+                        placeholder="Search by cardholder name or card number..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={styles.searchInput}
@@ -588,7 +667,6 @@ const StolenCardRequests = () => {
                 </div>
             </div>
 
-            {/* Table Section */}
             <div style={styles.tableContainer}>
                 <table style={styles.table}>
                     <thead style={styles.tableHead}>
@@ -615,18 +693,21 @@ const StolenCardRequests = () => {
                             </tr>
                         ) : filteredData.length > 0 ? (
                             filteredData.map((item, index) => (
-                                <tr key={item.lostCardId || index} style={styles.tableRow}>
+                                <tr key={item.lostCardId} style={styles.tableRow}>
                                     <td style={styles.tableCell}>
                                         <span style={styles.requestId}>{index + 1}</span>
                                     </td>
                                     <td style={styles.tableCell}>
-                                        <span style={styles.accountHolder}>{item.fullName || "Unknown Name"}</span>
+                                        <span style={styles.accountHolder}>{item.fullName || "Customer"}</span>
                                     </td>
                                     <td style={styles.tableCell}>
                                         <span style={styles.accountNumber}>{item.lostCardNumber}</span>
                                     </td>
                                     <td style={styles.tableCell}>
-                                        <CardTypeBadge type={item.cardType || "Debit"} />
+                                        <CardTypeBadge
+                                            type={item.cardType}
+                                            cardNumber={item.lostCardNumber}
+                                        />
                                     </td>
                                     <td style={styles.tableCell}>
                                         <div style={styles.dateCell}>
@@ -665,7 +746,6 @@ const StolenCardRequests = () => {
                 </table>
             </div>
 
-            {/* Pagination */}
             {paginationData && paginationData.totalPages > 0 && (
                 <div style={styles.pagination}>
                     <button
@@ -688,7 +768,6 @@ const StolenCardRequests = () => {
                 </div>
             )}
 
-            {/* Overview Modal */}
             {showOverview && selectedRequest && (
                 <StolenCardModal request={selectedRequest} onClose={closeOverview} />
             )}
@@ -696,7 +775,7 @@ const StolenCardRequests = () => {
     );
 };
 
-// ==================== COMPLETE STYLES OBJECT ====================
+// Styles object
 const styles = {
     container: {
         padding: "30px",
@@ -1018,7 +1097,6 @@ const styles = {
         color: "#4A6F8F",
         fontWeight: "500",
     },
-    // Modal Styles
     modalOverlay: {
         position: "fixed",
         top: 0,
@@ -1195,7 +1273,6 @@ const styles = {
             boxShadow: "0 12px 20px rgba(16, 185, 129, 0.25)",
         },
     },
-    // Rejection Modal Styles
     rejectModalOverlay: {
         position: "fixed",
         top: 0,
@@ -1268,7 +1345,7 @@ const styles = {
         color: "#1E293B",
         marginBottom: "8px",
     },
-    rejectInput: {
+    rejectTextarea: {
         width: "100%",
         padding: "14px 16px",
         border: "2px solid #E6EDF5",
@@ -1276,21 +1353,19 @@ const styles = {
         fontSize: "14px",
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         minHeight: "100px",
-        height: "100px",
         outline: "none",
         transition: "all 0.2s ease",
+        resize: "vertical",
         direction: "ltr",
+        unicodeBidi: "normal",
         textAlign: "left",
-        verticalAlign: "top",
-        overflow: "hidden",
-        whiteSpace: "nowrap",
-        textOverflow: "ellipsis",
         ":focus": {
             borderColor: "#DC2626",
             boxShadow: "0 0 0 3px rgba(220, 38, 38, 0.1)",
         },
         "::placeholder": {
             color: "#8DA6C0",
+            textAlign: "left",
         },
     },
     rejectCharCount: {
