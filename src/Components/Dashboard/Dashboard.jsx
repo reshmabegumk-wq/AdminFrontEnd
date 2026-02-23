@@ -23,7 +23,12 @@ import {
     FaCheckDouble,
     FaHourglassHalf,
     FaArrowRight,
-    FaCog
+    FaCog,
+    FaInfoCircle,
+    FaBook,
+    FaCreditCard,
+    FaShieldAlt,
+    FaUserCircle
 } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import {
@@ -51,6 +56,7 @@ const Dashboard = () => {
     const [selectedMonth, setSelectedMonth] = useState("feb");
     const [selectedYear, setSelectedYear] = useState("2026");
     const [timeRange, setTimeRange] = useState("feb-2026");
+    const [isFutureMonth, setIsFutureMonth] = useState(false);
     const [dashboardData, setDashboardData] = useState({
         summary: {
             totalRequests: 0,
@@ -59,10 +65,50 @@ const Dashboard = () => {
             responseRate: 0
         },
         modules: [
-            { name: "Cheque Books", total: 0, pending: 0, approved: 0, rejected: 0, icon: FaMoneyCheck, color: "#003366", link: "/cheque-book-requests", endpoint: "chequeRequest" },
-            { name: "Customer Queries", total: 0, pending: 0, approved: 0, rejected: 0, icon: FaQuestionCircle, color: "#FFD700", link: "/customer-queries", endpoint: "queriesResponse" },
-            { name: "Limit Requests", total: 0, pending: 0, approved: 0, rejected: 0, icon: FaArrowUp, color: "#10B981", link: "/increase-limit-requests", endpoint: "creditLimit" },
-            { name: "Stolen Cards", total: 0, pending: 0, approved: 0, rejected: 0, icon: FaExclamationTriangle, color: "#EF4444", link: "/stolen-card-requests", endpoint: "lostCard" }
+            { 
+                name: "Cheque Leaves", 
+                total: 0, 
+                pending: 0, 
+                approved: 0, 
+                rejected: 0, 
+                icon: FaBook, 
+                color: "#003366", 
+                link: "/cheque-book", // Correct route from App.jsx
+                endpoint: "chequeRequest" 
+            },
+            { 
+                name: "Customer Queries", 
+                total: 0, 
+                pending: 0, 
+                approved: 0, 
+                rejected: 0, 
+                icon: FaQuestionCircle, 
+                color: "#FFD700", 
+                link: "/customer-queries", // Correct route from App.jsx
+                endpoint: "queriesResponse" 
+            },
+            { 
+                name: "Limit Requests", 
+                total: 0, 
+                pending: 0, 
+                approved: 0, 
+                rejected: 0, 
+                icon: FaArrowUp, 
+                color: "#10B981", 
+                link: "/increase-limit", // Correct route from App.jsx
+                endpoint: "creditLimit" 
+            },
+            { 
+                name: "Stolen Cards", 
+                total: 0, 
+                pending: 0, 
+                approved: 0, 
+                rejected: 0, 
+                icon: FaShieldAlt, 
+                color: "#EF4444", 
+                link: "/stolen-card", // Correct route from App.jsx
+                endpoint: "lostCard" 
+            }
         ],
         weeklyTrend: [],
         statusDistribution: [],
@@ -75,12 +121,35 @@ const Dashboard = () => {
         pending: "#F97316",
         rejected: "#EF4444",
         primary: "#003366",
-        secondary: "#FFD700"
+        secondary: "#FFD700",
+        success: "#10B981",
+        info: "#3B82F6",
+        warning: "#F59E0B",
+        green: "#10B981"
     };
 
     useEffect(() => {
+        checkIfFutureDate();
         fetchDashboardData();
     }, [timeRange]);
+
+    const checkIfFutureDate = () => {
+        const currentDate = new Date();
+        const currentYear = currentDate.getFullYear();
+        const currentMonth = currentDate.getMonth();
+        
+        const selectedMonthNum = getMonthNumber(selectedMonth);
+        const selectedYearNum = parseInt(selectedYear);
+        
+        const isFuture = (selectedYearNum > currentYear) || 
+                        (selectedYearNum === currentYear && selectedMonthNum > currentMonth);
+        
+        setIsFutureMonth(isFuture);
+        
+        if (isFuture) {
+            showSnackbar("info", `Showing preview for ${getFormattedMonthYear()} (no actual data available yet)`);
+        }
+    };
 
     const handleMonthChange = (e) => {
         const month = e.target.value;
@@ -143,10 +212,165 @@ const Dashboard = () => {
         }).length;
     };
 
+    // Generate mock data for future months or when no data exists
+    const generateMockDataForMonth = () => {
+        const monthNum = getMonthNumber(selectedMonth);
+        const year = parseInt(selectedYear);
+        
+        // Generate different patterns based on month
+        const seed = (monthNum + 1) * (year - 2020);
+        
+        // Use seed to make data consistent for the same month/year
+        Math.seed = seed;
+        const mockRandom = () => {
+            const x = Math.sin(seed++) * 10000;
+            return x - Math.floor(x);
+        };
+        
+        const baseTotal = Math.floor(mockRandom() * 40) + 30; // 30-70 requests
+        const pendingPercent = mockRandom() * 0.3 + 0.2; // 20-50% pending
+        const approvedPercent = mockRandom() * 0.3 + 0.4; // 40-70% approved
+        const rejectedPercent = 1 - pendingPercent - approvedPercent;
+        
+        const mockModules = [
+            { 
+                ...dashboardData.modules[0],
+                total: Math.floor(mockRandom() * 15) + 5,
+                pending: 0,
+                approved: 0,
+                rejected: 0
+            },
+            { 
+                ...dashboardData.modules[1],
+                total: Math.floor(mockRandom() * 20) + 10,
+                pending: 0,
+                approved: 0,
+                rejected: 0
+            },
+            { 
+                ...dashboardData.modules[2],
+                total: Math.floor(mockRandom() * 10) + 3,
+                pending: 0,
+                approved: 0,
+                rejected: 0
+            },
+            { 
+                ...dashboardData.modules[3],
+                total: Math.floor(mockRandom() * 8) + 2,
+                pending: 0,
+                approved: 0,
+                rejected: 0
+            }
+        ];
+        
+        // Calculate totals from modules
+        const totalRequests = mockModules.reduce((sum, m) => sum + m.total, 0);
+        const pendingActions = Math.floor(totalRequests * pendingPercent);
+        const resolvedToday = Math.floor(totalRequests * approvedPercent);
+        const responseRate = totalRequests > 0 ? Math.round((resolvedToday / totalRequests) * 100) : 0;
+        
+        // Distribute pending/approved/rejected across modules
+        mockModules.forEach(module => {
+            const moduleTotal = module.total;
+            module.pending = Math.floor(moduleTotal * pendingPercent);
+            module.approved = Math.floor(moduleTotal * approvedPercent);
+            module.rejected = moduleTotal - module.pending - module.approved;
+        });
+        
+        return {
+            summary: {
+                totalRequests,
+                pendingActions,
+                resolvedToday,
+                responseRate
+            },
+            modules: mockModules,
+            weeklyTrend: generateMockWeeklyData(totalRequests, resolvedToday),
+            statusDistribution: [
+                { name: 'Approved', value: resolvedToday, color: COLORS.approved, percentage: responseRate },
+                { name: 'Pending', value: pendingActions, color: COLORS.pending, percentage: Math.round(pendingActions / totalRequests * 100) },
+                { name: 'Rejected', value: totalRequests - resolvedToday - pendingActions, color: COLORS.rejected, percentage: Math.round((totalRequests - resolvedToday - pendingActions) / totalRequests * 100) }
+            ].filter(item => item.value > 0),
+            recentActivities: generateMockActivities(),
+            topCustomers: generateMockCustomers()
+        };
+    };
+
+    const generateMockWeeklyData = (totalRequests, totalResolved) => {
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const requestsPerDay = Math.floor(totalRequests / 7);
+        const resolvedPerDay = Math.floor(totalResolved / 7);
+        
+        return days.map((day, index) => ({
+            day,
+            requests: index < totalRequests % 7 ? requestsPerDay + 1 : requestsPerDay,
+            resolved: index < totalResolved % 7 ? resolvedPerDay + 1 : resolvedPerDay
+        }));
+    };
+
+    const generateMockActivities = () => {
+        const activities = [];
+        const customers = ['John Smith', 'Sarah Johnson', 'Mike Wilson', 'Emma Brown', 'David Lee'];
+        const modules = [
+            { name: 'Cheque Leaves', icon: FaBook, color: '#003366' },
+            { name: 'Customer Queries', icon: FaQuestionCircle, color: '#FFD700' },
+            { name: 'Limit Requests', icon: FaArrowUp, color: '#10B981' },
+            { name: 'Stolen Cards', icon: FaShieldAlt, color: '#EF4444' }
+        ];
+        const statuses = ['Approved', 'Pending', 'Rejected'];
+        
+        for (let i = 0; i < 8; i++) {
+            const module = modules[Math.floor(Math.random() * modules.length)];
+            const status = statuses[Math.floor(Math.random() * statuses.length)];
+            const customer = customers[Math.floor(Math.random() * customers.length)];
+            
+            activities.push({
+                id: `mock-${i}`,
+                customer,
+                module: module.name,
+                moduleIcon: module.icon,
+                moduleColor: module.color,
+                status,
+                time: `${Math.floor(Math.random() * 24)} hours ago`,
+                timestamp: new Date().toISOString(),
+                description: `${module.name === 'Cheque Leaves' ? '50 leaves' : 
+                             module.name === 'Limit Requests' ? '₹50,000' : 
+                             module.name === 'Stolen Cards' ? 'Card blocked' : 
+                             'Query about account'}`,
+                accountNumber: `XXXXXX${Math.floor(Math.random() * 10000)}`
+            });
+        }
+        
+        return activities;
+    };
+
+    const generateMockCustomers = () => {
+        const customers = [
+            { name: 'John Smith', requests: 8, value: '₹1,50,000' },
+            { name: 'Sarah Johnson', requests: 6, value: '₹75,000' },
+            { name: 'Mike Wilson', requests: 5, value: '50 leaves' },
+            { name: 'Emma Brown', requests: 4, value: '₹25,000' },
+            { name: 'David Lee', requests: 3, value: '₹30,000' }
+        ];
+        
+        return customers.sort((a, b) => b.requests - a.requests);
+    };
+
+    const generateEmptyWeeklyData = () => {
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        return days.map(day => ({
+            day,
+            requests: 0,
+            resolved: 0
+        }));
+    };
+
     // Navigation handlers for stat cards
     const handleTotalRequestsClick = () => {
-        // Navigate to a page that shows all requests for the selected month/year
-        // You can create a new page or use an existing one with filters
+        if (dashboardData.summary.totalRequests === 0) {
+            showSnackbar("info", `No requests available for ${getFormattedMonthYear()}`);
+            return;
+        }
         navigate('/all-requests', {
             state: {
                 month: selectedMonth,
@@ -157,42 +381,60 @@ const Dashboard = () => {
     };
 
     const handlePendingActionsClick = () => {
-        navigate('/all-requests', {
+        if (dashboardData.summary.pendingActions === 0) {
+            showSnackbar("info", `No pending actions for ${getFormattedMonthYear()}`);
+            return;
+        }
+        navigate('/pending-actions', {
             state: {
                 month: selectedMonth,
                 year: selectedYear,
-                filterType: 'pending',
-                status: 'pending'
+                filterType: 'pending'
             }
         });
     };
 
     const handleResolvedClick = () => {
-        navigate('/all-requests', {
+        if (dashboardData.summary.resolvedToday === 0) {
+            showSnackbar("info", `No resolved requests for ${getFormattedMonthYear()}`);
+            return;
+        }
+        navigate('/resolved-requests', {
             state: {
                 month: selectedMonth,
                 year: selectedYear,
-                filterType: 'resolved',
-                status: 'approved'
+                filterType: 'resolved'
             }
         });
     };
 
     const handleResponseRateClick = () => {
-        // Response rate might be a summary metric, you could navigate to analytics or keep as is
-        // For now, let's navigate to the same all requests page
-        navigate('/all-requests', {
-            state: {
-                month: selectedMonth,
-                year: selectedYear,
-                filterType: 'response-rate'
-            }
-        });
+        // Show success (green) snackbar with response rate
+        showSnackbar(
+            "success",
+            `Response rate for ${getFormattedMonthYear()}: ${dashboardData.summary.responseRate}%`
+        );
+        // Optional: navigate to detailed response rate page
+        // navigate('/response-rate', {
+        //     state: {
+        //         month: selectedMonth,
+        //         year: selectedYear
+        //     }
+        // });
     };
 
     const fetchDashboardData = async () => {
         setIsLoading(true);
         try {
+            // Check if it's a future month
+            if (isFutureMonth) {
+                // Generate mock data for future months
+                const mockData = generateMockDataForMonth();
+                setDashboardData(mockData);
+                setIsLoading(false);
+                return;
+            }
+
             // Fetch data from all modules in parallel
             const [
                 chequeStats,
@@ -336,12 +578,14 @@ const Dashboard = () => {
             ]);
 
             // Generate weekly trend based on filtered data
-            const weeklyTrend = generateWeeklyData([
-                ...filteredChequeItems,
-                ...filteredQueryItems,
-                ...filteredLimitItems,
-                ...filteredStolenItems
-            ]);
+            const weeklyTrend = totalRequests > 0 
+                ? generateWeeklyData([
+                    ...filteredChequeItems,
+                    ...filteredQueryItems,
+                    ...filteredLimitItems,
+                    ...filteredStolenItems
+                ])
+                : generateEmptyWeeklyData();
 
             // Generate status distribution based on filtered data
             const statusDistribution = generateStatusData(updatedModules);
@@ -360,9 +604,18 @@ const Dashboard = () => {
                 topCustomers: topCustomers.slice(0, 5)
             });
 
+            // Show message if no data for selected month
+            if (totalRequests === 0) {
+                showSnackbar("info", `No data available for ${getFormattedMonthYear()}`);
+            }
+
         } catch (error) {
             console.error("Error fetching dashboard data:", error);
             showSnackbar("error", "Failed to load dashboard data");
+            
+            // Fallback to mock data on error
+            const mockData = generateMockDataForMonth();
+            setDashboardData(mockData);
         } finally {
             setIsLoading(false);
         }
@@ -387,8 +640,8 @@ const Dashboard = () => {
         return items.map(item => ({
             id: `cheque-${item.chequeRequestId}`,
             customer: item.fullName || "Unknown",
-            module: "Cheque Books",
-            moduleIcon: FaMoneyCheck,
+            module: "Cheque Leaves",
+            moduleIcon: FaBook,
             moduleColor: "#003366",
             status: item.status || "Pending",
             time: formatTime(item.requestedDate || item.createdDate),
@@ -433,7 +686,7 @@ const Dashboard = () => {
             id: `stolen-${item.lostCardId}`,
             customer: item.fullName || item.cardHolder || "Unknown",
             module: "Stolen Cards",
-            moduleIcon: FaExclamationTriangle,
+            moduleIcon: FaShieldAlt,
             moduleColor: "#EF4444",
             status: item.status || "Pending",
             time: formatTime(item.createdDate),
@@ -535,8 +788,8 @@ const Dashboard = () => {
 
         return days.map(day => ({
             day,
-            requests: dayMap.get(day).requests || Math.floor(Math.random() * 5) + 1,
-            resolved: dayMap.get(day).resolved || Math.floor(Math.random() * 4) + 1
+            requests: dayMap.get(day).requests,
+            resolved: dayMap.get(day).resolved
         }));
     };
 
@@ -555,9 +808,14 @@ const Dashboard = () => {
         ].filter(item => item.value > 0);
     };
 
-    // Updated StatCard with onClick handler
+    // StatCard component
     const StatCard = ({ title, value, icon: Icon, color, subtitle, onClick }) => (
-        <div style={styles.statCard} onClick={onClick}>
+        <div 
+            style={styles.statCard} 
+            onClick={onClick}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+        >
             <div style={styles.statContent}>
                 <div style={styles.statLeft}>
                     <span style={styles.statValue}>{value}</span>
@@ -571,14 +829,25 @@ const Dashboard = () => {
         </div>
     );
 
+    // Module Card component with navigation
     const ModuleCard = ({ module }) => {
         const Icon = module.icon;
         const completionRate = module.total > 0
             ? Math.round(((module.approved + module.rejected) / module.total) * 100)
             : 0;
 
+        const handleModuleClick = () => {
+            // Navigate to the specific module page
+            navigate(module.link);
+        };
+
         return (
-            <div style={styles.moduleCard} onClick={() => navigate(module.link)}>
+            <div 
+                style={styles.moduleCard} 
+                onClick={handleModuleClick}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
                 <div style={styles.moduleHeader}>
                     <div style={styles.moduleIcon(module.color)}>
                         <Icon size={20} color="#FFFFFF" />
@@ -675,6 +944,19 @@ const Dashboard = () => {
         return null;
     };
 
+    const EmptyState = ({ type, message }) => (
+        <div style={styles.emptyState}>
+            {type === 'chart' && <FaChartLine size={48} color="#E6EDF5" />}
+            {type === 'pie' && <FaChartPie size={48} color="#E6EDF5" />}
+            {type === 'activity' && <FaClock size={48} color="#E6EDF5" />}
+            {type === 'customers' && <FaUsers size={48} color="#E6EDF5" />}
+            <p style={styles.emptyStateText}>{message}</p>
+            {isFutureMonth && (
+                <p style={styles.emptyStateSubtext}>This is a preview. Data will appear when available.</p>
+            )}
+        </div>
+    );
+
     // Format the selected month and year for display
     const getFormattedMonthYear = () => {
         const monthNames = {
@@ -738,6 +1020,7 @@ const Dashboard = () => {
                                 <option value="2024">2024</option>
                                 <option value="2025">2025</option>
                                 <option value="2026">2026</option>
+                              
                             </select>
                         </div>
                     </div>
@@ -748,7 +1031,15 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {/* Summary Stats - Now clickable */}
+            {/* Future Month Indicator */}
+            {isFutureMonth && (
+                <div style={styles.futureIndicator}>
+                    <FaInfoCircle size={16} color="#FFD700" />
+                    <span>You're viewing a preview for {getFormattedMonthYear()}. Actual data will appear when available.</span>
+                </div>
+            )}
+
+            {/* Summary Stats */}
             <div style={styles.statsGrid}>
                 <StatCard
                     title="Total Requests"
@@ -778,7 +1069,7 @@ const Dashboard = () => {
                     title="Response Rate"
                     value={`${dashboardData.summary.responseRate}%`}
                     icon={FaChartLine}
-                    color="#FFD700"
+                    color="#10B981"
                     subtitle={`For ${getFormattedMonthYear()}`}
                     onClick={handleResponseRateClick}
                 />
@@ -792,29 +1083,36 @@ const Dashboard = () => {
                         <FaChartLine style={styles.chartIcon} />
                         Weekly Request Trend - {getFormattedMonthYear()}
                     </h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                        <AreaChart data={dashboardData.weeklyTrend}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#E6EDF5" />
-                            <XAxis dataKey="day" stroke="#4A6F8F" />
-                            <YAxis stroke="#4A6F8F" />
-                            <Tooltip content={<CustomTooltip />} />
-                            <Legend />
-                            <Area
-                                type="monotone"
-                                dataKey="requests"
-                                stroke="#003366"
-                                fill="rgba(0, 51, 102, 0.1)"
-                                name="Requests"
-                            />
-                            <Area
-                                type="monotone"
-                                dataKey="resolved"
-                                stroke="#10B981"
-                                fill="rgba(16, 185, 129, 0.1)"
-                                name="Resolved"
-                            />
-                        </AreaChart>
-                    </ResponsiveContainer>
+                    {dashboardData.summary.totalRequests > 0 ? (
+                        <ResponsiveContainer width="100%" height={250}>
+                            <AreaChart data={dashboardData.weeklyTrend}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#E6EDF5" />
+                                <XAxis dataKey="day" stroke="#4A6F8F" />
+                                <YAxis stroke="#4A6F8F" />
+                                <Tooltip content={<CustomTooltip />} />
+                                <Legend />
+                                <Area
+                                    type="monotone"
+                                    dataKey="requests"
+                                    stroke="#003366"
+                                    fill="rgba(0, 51, 102, 0.1)"
+                                    name="Requests"
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="resolved"
+                                    stroke="#10B981"
+                                    fill="rgba(16, 185, 129, 0.1)"
+                                    name="Resolved"
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <EmptyState 
+                            type="chart" 
+                            message={`No request data available for ${getFormattedMonthYear()}`}
+                        />
+                    )}
                 </div>
 
                 {/* Status Distribution */}
@@ -823,25 +1121,32 @@ const Dashboard = () => {
                         <FaChartPie style={styles.chartIcon} />
                         Status Distribution - {getFormattedMonthYear()}
                     </h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                        <PieChart>
-                            <Pie
-                                data={dashboardData.statusDistribution}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={60}
-                                outerRadius={90}
-                                paddingAngle={5}
-                                dataKey="value"
-                                label={({ name, percentage }) => `${name} ${percentage}%`}
-                            >
-                                {dashboardData.statusDistribution.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                            </Pie>
-                            <Tooltip content={<CustomTooltip />} />
-                        </PieChart>
-                    </ResponsiveContainer>
+                    {dashboardData.statusDistribution.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={250}>
+                            <PieChart>
+                                <Pie
+                                    data={dashboardData.statusDistribution}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={60}
+                                    outerRadius={90}
+                                    paddingAngle={5}
+                                    dataKey="value"
+                                    label={({ name, percentage }) => `${name} ${percentage}%`}
+                                >
+                                    {dashboardData.statusDistribution.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                </Pie>
+                                <Tooltip content={<CustomTooltip />} />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <EmptyState 
+                            type="pie" 
+                            message={`No status data available for ${getFormattedMonthYear()}`}
+                        />
+                    )}
                 </div>
             </div>
 
@@ -870,9 +1175,10 @@ const Dashboard = () => {
                                 <ActivityItem key={activity.id || index} activity={activity} />
                             ))
                         ) : (
-                            <div style={styles.noDataMessage}>
-                                <p>No recent activities found</p>
-                            </div>
+                            <EmptyState 
+                                type="activity" 
+                                message={`No recent activities for ${getFormattedMonthYear()}`}
+                            />
                         )}
                     </div>
                 </div>
@@ -900,9 +1206,10 @@ const Dashboard = () => {
                                 ))}
                             </>
                         ) : (
-                            <div style={styles.noDataMessage}>
-                                <p>No customer data found for {getFormattedMonthYear()}</p>
-                            </div>
+                            <EmptyState 
+                                type="customers" 
+                                message={`No customer data for ${getFormattedMonthYear()}`}
+                            />
                         )}
                     </div>
                 </div>
@@ -984,13 +1291,7 @@ const styles = {
         backgroundSize: "16px",
         transition: "all 0.2s ease",
         minWidth: "120px",
-        ":hover": {
-            borderColor: "#FFD700",
-        },
-        ":focus": {
-            borderColor: "#003366",
-            boxShadow: "0 0 0 3px rgba(0, 51, 102, 0.1)",
-        },
+        cursor: "pointer",
     },
     refreshBtn: {
         display: "flex",
@@ -1006,10 +1307,18 @@ const styles = {
         cursor: "pointer",
         transition: "all 0.2s ease",
         boxShadow: "0 4px 12px rgba(0, 51, 102, 0.15)",
-        ":hover": {
-            transform: "translateY(-2px)",
-            boxShadow: "0 8px 16px rgba(0, 51, 102, 0.25)",
-        },
+    },
+    futureIndicator: {
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        padding: "12px 20px",
+        background: "rgba(255, 215, 0, 0.1)",
+        border: "1px solid #FFD700",
+        borderRadius: "12px",
+        marginBottom: "20px",
+        color: "#003366",
+        fontSize: "14px",
     },
     statsGrid: {
         display: "grid",
@@ -1024,11 +1333,7 @@ const styles = {
         boxShadow: "0 4px 12px rgba(0, 51, 102, 0.05)",
         border: "1px solid rgba(255, 215, 0, 0.15)",
         transition: "transform 0.2s ease, boxShadow 0.2s ease",
-        cursor: "pointer", // Add cursor pointer to indicate clickable
-        ":hover": {
-            transform: "translateY(-4px)",
-            boxShadow: "0 12px 24px rgba(0, 51, 102, 0.15)",
-        },
+        cursor: "pointer",
     },
     statContent: {
         display: "flex",
@@ -1116,10 +1421,6 @@ const styles = {
         border: "1px solid rgba(255, 215, 0, 0.1)",
         cursor: "pointer",
         transition: "transform 0.2s ease, boxShadow 0.2s ease",
-        ":hover": {
-            transform: "translateY(-4px)",
-            boxShadow: "0 12px 24px rgba(0, 51, 102, 0.15)",
-        },
     },
     moduleHeader: {
         display: "flex",
@@ -1233,9 +1534,6 @@ const styles = {
         padding: "12px",
         borderBottom: "1px solid #F0F4F9",
         transition: "background 0.2s ease",
-        ":hover": {
-            background: "#F8FBFF",
-        },
     },
     activityIcon: (color) => ({
         width: "32px",
@@ -1308,9 +1606,6 @@ const styles = {
         padding: "10px 12px",
         borderBottom: "1px solid #F0F4F9",
         fontSize: "13px",
-        ":hover": {
-            background: "#F8FBFF",
-        },
     },
     customerName: {
         color: "#1E293B",
@@ -1328,11 +1623,23 @@ const styles = {
         color: "#10B981",
         fontWeight: "600",
     },
-    noDataMessage: {
+    emptyState: {
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
         padding: "40px 20px",
         textAlign: "center",
+    },
+    emptyStateText: {
         color: "#8DA6C0",
         fontSize: "14px",
+        margin: "15px 0 5px",
+    },
+    emptyStateSubtext: {
+        color: "#B0C4DE",
+        fontSize: "12px",
+        margin: 0,
     },
     tooltip: {
         background: "#FFFFFF",

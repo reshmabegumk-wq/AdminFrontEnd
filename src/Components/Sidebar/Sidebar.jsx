@@ -205,7 +205,7 @@ const Sidebar = () => {
                                         },
                                         {
                                             icon: FaExclamationTriangle,
-                                            name: "Reissue Stolen/Lost Card",
+                                            name: "Stolen/Lost Card",
                                             path: "/stolen-card",
                                             id: "stolenCard"
                                         },

@@ -16,8 +16,9 @@ import {
     FaArrowUp,
     FaMoneyBillWave,
     FaFilter,
-    FaCreditCard,
-    FaIdCard
+    FaIdCard,
+    FaInfoCircle,
+    FaWallet
 } from "react-icons/fa";
 
 const IncreaseLimitRequests = () => {
@@ -41,7 +42,7 @@ const IncreaseLimitRequests = () => {
     const { showSnackbar } = useSnackbar();
     const itemsPerPage = 5;
 
-    // Function to fetch card details for an account
+    // Function to fetch card details for max limit
     const fetchCardDetails = async (accountNumber) => {
         try {
             const response = await API.get(`/cards/account/${accountNumber}`);
@@ -66,7 +67,7 @@ const IncreaseLimitRequests = () => {
             const payload = {
                 "status": "",
                 "page": 0,
-                "size": 1000 // Get enough records to count
+                "size": 1000
             };
             const response = await API.post("creditLimit/adminCreditLimitList", payload);
 
@@ -91,7 +92,7 @@ const IncreaseLimitRequests = () => {
         }
     };
 
-    // Function to fetch credit limit increase requests with card details
+    // Function to fetch credit limit increase requests with max limit
     const fetchLimitRequests = async (page = 0) => {
         setIsLoading(true);
         try {
@@ -105,32 +106,36 @@ const IncreaseLimitRequests = () => {
             if (response?.data?.status && response?.data?.data) {
                 const requests = response.data.data.content || [];
 
-                // Fetch card details for each request
-                const requestsWithCardDetails = await Promise.all(
+                // Fetch card details for max limit
+                const requestsWithMaxLimit = await Promise.all(
                     requests.map(async (request) => {
+                        let maxLimit = null;
                         if (request.accountNumber) {
                             const cardDetails = await fetchCardDetails(request.accountNumber);
                             if (cardDetails) {
-                                return {
-                                    ...request,
-                                    currentLimit: cardDetails.currentLimit,
-                                    maxLimit: cardDetails.maxLimit,
-                                    cardType: cardDetails.cardTypeName || "Credit Card",
-                                    cardNumber: cardDetails.cardNumber
-                                };
+                                maxLimit = cardDetails.maxLimit;
                             }
                         }
                         return {
-                            ...request,
-                            currentLimit: null,
-                            maxLimit: null,
-                            cardType: "Credit Card",
-                            cardNumber: null
+                            increaseCreditLimitId: request.increaseCreditLimitId,
+                            fullName: request.fullName,
+                            accountNumber: request.accountNumber,
+                            cardNumber: request.cardNumber,
+                            currentLimitAtRequest: request.currentLimitAtRequest,
+                            requestedLimit: request.requestedLimit,
+                            maxLimit: maxLimit,
+                            requestDate: request.requestDate,
+                            status: request.status,
+                            approvedByName: request.approvedByName,
+                            remarks: request.remarks,
+                            mobileNumber: request.mobileNumber,
+                            email: request.email,
+                            city: request.city
                         };
                     })
                 );
 
-                setLimitRequests(requestsWithCardDetails);
+                setLimitRequests(requestsWithMaxLimit);
                 setPaginationData({
                     pageNumber: response.data.data.pageNumber,
                     pageSize: response.data.data.pageSize,
@@ -159,9 +164,11 @@ const IncreaseLimitRequests = () => {
         fetchStats();
     }, [currentPage, statusFilter]);
 
-    // Handle search functionality (client-side filtering by cardholder name only)
+    // Handle search functionality
     const filteredData = limitRequests?.filter(item => {
-        const matchesSearch = item.fullName?.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = item.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             item.accountNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             item.cardNumber?.toString().includes(searchTerm);
         return matchesSearch;
     });
 
@@ -170,6 +177,7 @@ const IncreaseLimitRequests = () => {
         setCurrentPage(1);
         fetchLimitRequests(0);
         fetchStats();
+        showSnackbar("success", "Data refreshed successfully");
     };
 
     // Handle status filter change
@@ -210,11 +218,10 @@ const IncreaseLimitRequests = () => {
         );
     };
 
-    // Card Number Badge component (replacing Card Type Badge)
+    // Card Number Badge component
     const CardNumberBadge = ({ cardNumber }) => {
         const formatCardNumber = (number) => {
             if (!number) return "Not Available";
-            // Format as XXXX XXXX XXXX XXXX if it's a 16-digit number
             const str = number.toString().replace(/\s/g, '');
             if (str.length === 16) {
                 return str.match(/.{1,4}/g).join(' ');
@@ -241,56 +248,41 @@ const IncreaseLimitRequests = () => {
         );
     };
 
-    // API function to fetch request details with card information
+    // API function to fetch request details with max limit
     const fetchRequestDetails = async (id, accountNumber) => {
+        setIsLoading(true);
         try {
             // Fetch the limit request details
             const res = await API.get(`/creditLimit/creditLimitBy/${id}`);
 
             if (res.data && res.data.status && res.data.data) {
                 const requestData = res.data.data;
-
-                // Fetch card details for this account
+                
+                // Fetch card details for max limit
+                let maxLimit = null;
                 if (accountNumber) {
                     const cardDetails = await fetchCardDetails(accountNumber);
                     if (cardDetails) {
-                        setRequestDetails({
-                            ...requestData,
-                            currentLimit: cardDetails.currentLimit,
-                            maxLimit: cardDetails.maxLimit,
-                            cardType: cardDetails.cardTypeName,
-                            cardNumber: cardDetails.cardNumber
-                        });
-                        return {
-                            ...requestData,
-                            currentLimit: cardDetails.currentLimit,
-                            maxLimit: cardDetails.maxLimit,
-                            cardType: cardDetails.cardTypeName,
-                            cardNumber: cardDetails.cardNumber
-                        };
+                        maxLimit = cardDetails.maxLimit;
                     }
                 }
 
-                setRequestDetails({
+                const requestWithMaxLimit = {
                     ...requestData,
-                    currentLimit: null,
-                    maxLimit: null,
-                    cardType: "Credit Card",
-                    cardNumber: null
-                });
-                return {
-                    ...requestData,
-                    currentLimit: null,
-                    maxLimit: null,
-                    cardType: "Credit Card",
-                    cardNumber: null
+                    maxLimit: maxLimit
                 };
+                
+                setRequestDetails(requestWithMaxLimit);
+                return requestWithMaxLimit;
             }
             return null;
         } catch (error) {
             console.log("Error fetching request details:", error);
+            showSnackbar("error", "Failed to fetch request details");
             setRequestDetails(null);
             return null;
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -447,7 +439,7 @@ const IncreaseLimitRequests = () => {
                     </div>
                 </div>
 
-                {/* Stats Cards and Refresh Button - White background like ChequeBookRequests */}
+                {/* Stats Cards and Refresh Button */}
                 <div style={styles.headerRight}>
                     <div style={styles.statsContainer}>
                         <div style={styles.statCard}>
@@ -490,7 +482,7 @@ const IncreaseLimitRequests = () => {
                     <FaSearch style={styles.searchIcon} />
                     <input
                         type="text"
-                        placeholder="Search by cardholder name..."
+                        placeholder="Search by cardholder name, account number or card number..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={styles.searchInput}
@@ -504,9 +496,9 @@ const IncreaseLimitRequests = () => {
                         style={styles.filterSelect}
                     >
                         <option value="all">All Status</option>
-                        <option value="Approved">Approved</option>
-                        <option value="Rejected">Rejected</option>
-                        <option value="Pending">Pending</option>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
                     </select>
                 </div>
             </div>
@@ -519,10 +511,10 @@ const IncreaseLimitRequests = () => {
                             <th style={styles.tableHeader}>S.NO</th>
                             <th style={styles.tableHeader}>CARDHOLDER</th>
                             <th style={styles.tableHeader}>ACCOUNT NUMBER</th>
-                            <th style={styles.tableHeader}>CARD NUMBER</th> {/* Changed from CARD TYPE */}
-                            <th style={styles.tableHeader}>CURRENT LIMIT</th>
+                            <th style={styles.tableHeader}>CARD NUMBER</th>
+                            <th style={styles.tableHeader}>CURRENT LIMIT (AT REQUEST)</th>
                             <th style={styles.tableHeader}>REQUESTED LIMIT</th>
-                            <th style={styles.tableHeader}>MAXIMUM LIMIT</th>
+                            <th style={styles.tableHeader}>MAX LIMIT</th>
                             <th style={styles.tableHeader}>REQUEST DATE</th>
                             <th style={styles.tableHeader}>UPDATED BY</th>
                             <th style={styles.tableHeader}>STATUS</th>
@@ -552,11 +544,11 @@ const IncreaseLimitRequests = () => {
                                         <span style={styles.accountNumber}>{item.accountNumber || "N/A"}</span>
                                     </td>
                                     <td style={styles.tableCell}>
-                                        <CardNumberBadge cardNumber={item.cardNumber} /> {/* New column */}
+                                        <CardNumberBadge cardNumber={item.cardNumber} />
                                     </td>
                                     <td style={styles.tableCell}>
                                         <span style={styles.currentLimit}>
-                                            {formatCurrency(item.currentLimit)}
+                                            {formatCurrency(item.currentLimitAtRequest)}
                                         </span>
                                     </td>
                                     <td style={styles.tableCell}>
@@ -655,6 +647,31 @@ const IncreaseLimitRequests = () => {
                                 )}
                             </div>
 
+                            {/* Limit Information - Showing exactly what's in the database */}
+                            <div style={styles.currentLimitHighlight}>
+                                <div style={styles.currentLimitBox}>
+                                    <FaWallet size={20} color="#FFD700" />
+                                    <div>
+                                        <span style={styles.currentLimitLabel}>Current Limit (At Time of Request)</span>
+                                        <span style={styles.currentLimitValue}>
+                                            {formatCurrency(requestDetails.currentLimitAtRequest)}
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                {requestDetails.requestedLimit > requestDetails.currentLimitAtRequest && (
+                                    <div style={styles.increaseBox}>
+                                        <FaArrowUp size={16} color="#10B981" />
+                                        <div>
+                                            <span style={styles.increaseLabel}>Requested Increase Amount</span>
+                                            <span style={styles.increaseValue}>
+                                                +{formatCurrency(requestDetails.requestedLimit - requestDetails.currentLimitAtRequest)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
                             {/* Cardholder Information */}
                             <div style={styles.infoSection}>
                                 <h4 style={styles.sectionTitle}>
@@ -706,56 +723,78 @@ const IncreaseLimitRequests = () => {
                                         <span style={styles.infoLabel}>Request ID</span>
                                         <span style={styles.infoValue}>{requestDetails.increaseCreditLimitId || "N/A"}</span>
                                     </div>
-                                    <div style={styles.infoRow}>
-                                        <span style={styles.infoLabel}>Card Type</span>
-                                        <span style={styles.infoValue}>{requestDetails.cardType || "Credit Card"}</span>
-                                    </div>
-                                    <div style={styles.infoRow}>
-                                        <span style={styles.infoLabel}>Current Limit</span>
-                                        <span style={styles.infoValue}>
-                                            {formatCurrency(requestDetails.currentLimit)}
+                                    
+                                    {/* Current Limit at Request - This never changes */}
+                                    <div style={{...styles.infoRow, ...styles.highlightRow}}>
+                                        <span style={styles.infoLabel}>💰 Current Limit (At Request)</span>
+                                        <span style={{
+                                            ...styles.infoValue,
+                                            ...styles.currentLimitText
+                                        }}>
+                                            {formatCurrency(requestDetails.currentLimitAtRequest)}
                                         </span>
                                     </div>
-                                    <div style={styles.infoRow}>
-                                        <span style={styles.infoLabel}>Requested Limit</span>
-                                        <span style={styles.infoValue}>{formatCurrency(requestDetails.requestedLimit)}</span>
+                                    
+                                    {/* Requested Limit */}
+                                    <div style={{...styles.infoRow, ...styles.highlightRow}}>
+                                        <span style={styles.infoLabel}>📈 Requested Limit</span>
+                                        <span style={{
+                                            ...styles.infoValue,
+                                            ...styles.requestedLimitText
+                                        }}>
+                                            {formatCurrency(requestDetails.requestedLimit)}
+                                        </span>
                                     </div>
+
+                                    {/* Max Limit */}
                                     <div style={styles.infoRow}>
                                         <span style={styles.infoLabel}>Maximum Allowed Limit</span>
-                                        <span style={styles.infoValue}>
+                                        <span style={{
+                                            ...styles.infoValue,
+                                            color: "#8B5CF6",
+                                            fontWeight: "700"
+                                        }}>
                                             {formatCurrency(requestDetails.maxLimit)}
                                         </span>
                                     </div>
+                                    
+                                    {/* Request Date */}
                                     <div style={styles.infoRow}>
                                         <span style={styles.infoLabel}>Request Date</span>
                                         <span style={styles.infoValue}>{formatDate(requestDetails.requestDate)}</span>
                                     </div>
+                                    
+                                    {/* Status */}
                                     <div style={styles.infoRow}>
                                         <span style={styles.infoLabel}>Status</span>
                                         <span style={styles.infoValue}>{requestDetails.status || "N/A"}</span>
                                     </div>
-                                    {requestDetails.remarks && (
-                                        <div style={{ ...styles.infoRow, gridColumn: "span 2" }}>
-                                            <span style={styles.infoLabel}>Remarks</span>
-                                            <span style={styles.infoValue}>{requestDetails.remarks}</span>
-                                        </div>
-                                    )}
-                                    {requestDetails.approvedDate && (
-                                        <div style={styles.infoRow}>
-                                            <span style={styles.infoLabel}>Updated Date</span>
-                                            <span style={styles.infoValue}>{formatDate(requestDetails.approvedDate)}</span>
-                                        </div>
-                                    )}
+
+                                    {/* Updated By - Only show if available */}
                                     {requestDetails.approvedByName && (
                                         <div style={styles.infoRow}>
                                             <span style={styles.infoLabel}>Updated By</span>
                                             <span style={styles.infoValue}>{requestDetails.approvedByName}</span>
                                         </div>
                                     )}
+
+                                    {/* Remarks - Only show if available */}
+                                    {requestDetails.remarks && (
+                                        <div style={{ ...styles.infoRow, gridColumn: "span 2" }}>
+                                            <span style={styles.infoLabel}>Remarks</span>
+                                            <span style={styles.infoValue}>{requestDetails.remarks}</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
-                            {/* Action Buttons */}
+                            {/* Historical Note */}
+                            <div style={styles.infoNote}>
+                                <FaInfoCircle size={16} color="#003366" />
+                                <span>The current limit shown is the limit at the time this request was made. This value is stored for audit purposes and never changes.</span>
+                            </div>
+
+                            {/* Action Buttons - Only show for pending requests */}
                             {requestDetails.status?.toLowerCase() === "pending" && (
                                 <div style={styles.modalActions}>
                                     <button style={styles.rejectBtn} onClick={handleRejectRequest}>
@@ -962,6 +1001,9 @@ const styles = {
         fontSize: "14px",
         color: "#003366",
         background: "transparent",
+        "::placeholder": {
+            color: "#A0B8CC",
+        },
     },
     filterGroup: {
         display: "flex",
@@ -998,6 +1040,7 @@ const styles = {
     table: {
         width: "100%",
         borderCollapse: "collapse",
+        minWidth: "1200px",
     },
     tableHead: {
         background: "#F8FBFF",
@@ -1011,6 +1054,7 @@ const styles = {
         borderBottom: "2px solid #FFD700",
         textTransform: "uppercase",
         letterSpacing: "0.5px",
+        whiteSpace: "nowrap",
     },
     tableRow: {
         borderBottom: "1px solid #E6EDF5",
@@ -1023,6 +1067,7 @@ const styles = {
         padding: "16px",
         fontSize: "14px",
         color: "#1E293B",
+        whiteSpace: "nowrap",
     },
     sno: {
         fontWeight: "600",
@@ -1055,7 +1100,7 @@ const styles = {
         display: "inline-block",
     },
     maximumLimit: {
-        fontWeight: "500",
+        fontWeight: "600",
         color: "#8B5CF6",
         background: "rgba(139, 92, 246, 0.1)",
         padding: "4px 8px",
@@ -1265,6 +1310,54 @@ const styles = {
         borderBottom: "1px solid #E6EDF5",
         flexWrap: "wrap",
     },
+    currentLimitHighlight: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        background: "linear-gradient(135deg, #F8FBFF, #E6F0FF)",
+        padding: "20px 24px",
+        borderRadius: "20px",
+        marginBottom: "28px",
+        border: "2px solid #FFD700",
+        flexWrap: "wrap",
+        gap: "16px",
+    },
+    currentLimitBox: {
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+    },
+    currentLimitLabel: {
+        display: "block",
+        fontSize: "12px",
+        color: "#4A6F8F",
+        marginBottom: "4px",
+    },
+    currentLimitValue: {
+        fontSize: "24px",
+        fontWeight: "700",
+        color: "#003366",
+    },
+    increaseBox: {
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        background: "rgba(16, 185, 129, 0.1)",
+        padding: "12px 20px",
+        borderRadius: "16px",
+        border: "1px solid rgba(16, 185, 129, 0.2)",
+    },
+    increaseLabel: {
+        display: "block",
+        fontSize: "11px",
+        color: "#10B981",
+        marginBottom: "2px",
+    },
+    increaseValue: {
+        fontSize: "18px",
+        fontWeight: "700",
+        color: "#10B981",
+    },
     infoSection: {
         marginBottom: "28px",
     },
@@ -1294,6 +1387,12 @@ const styles = {
         flexDirection: "column",
         gap: "4px",
     },
+    highlightRow: {
+        background: "rgba(255, 215, 0, 0.08)",
+        padding: "8px 12px",
+        borderRadius: "10px",
+        border: "1px solid rgba(255, 215, 0, 0.2)",
+    },
     infoLabel: {
         fontSize: "12px",
         color: "#6B8BA4",
@@ -1303,6 +1402,29 @@ const styles = {
         fontSize: "15px",
         color: "#003366",
         fontWeight: "600",
+        wordBreak: "break-word",
+    },
+    currentLimitText: {
+        color: "#003366",
+        fontSize: "16px",
+        fontWeight: "700",
+    },
+    requestedLimitText: {
+        color: "#10B981",
+        fontSize: "16px",
+        fontWeight: "700",
+    },
+    infoNote: {
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        padding: "16px 20px",
+        background: "#F8FBFF",
+        borderRadius: "12px",
+        marginTop: "24px",
+        fontSize: "14px",
+        color: "#4A6F8F",
+        border: "1px solid #E6EDF5",
     },
     modalActions: {
         display: "flex",
