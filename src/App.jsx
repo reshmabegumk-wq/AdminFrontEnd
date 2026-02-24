@@ -92,6 +92,41 @@ const App = () => {
           }
         />
 
+        {/* Detail Routes - Add these for viewing individual requests */}
+        <Route
+          path="/cheque-book/:id"
+          element={
+            <Layout>
+              <ChequeLeavesRequests />
+            </Layout>
+          }
+        />
+        <Route
+          path="/stolen-card/:id"
+          element={
+            <Layout>
+              <StolenCardRequests />
+            </Layout>
+          }
+        />
+
+        <Route
+          path="/increase-limit/:id"
+          element={
+            <Layout>
+              <IncreaseLimitRequests />
+            </Layout>
+          }
+        />
+
+        <Route
+          path="/customer-queries/:id"
+          element={
+            <Layout>
+              <CustomerQueries />
+            </Layout>
+          }
+        />
 
       </Routes>
     </BrowserRouter>

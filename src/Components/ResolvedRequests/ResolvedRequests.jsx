@@ -15,12 +15,8 @@ import {
     FaSync,
     FaCalendarAlt,
     FaUser,
-    FaEye,
     FaChevronLeft,
     FaChevronRight,
-    FaCheckCircle,
-    FaClock,
-    FaSmile,
     FaStar
 } from "react-icons/fa";
 
@@ -31,22 +27,16 @@ const ResolvedRequests = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [resolvedRequests, setResolvedRequests] = useState([]);
     const [filteredRequests, setFilteredRequests] = useState([]);
-    const [displayedRequests, setDisplayedRequests] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedModule, setSelectedModule] = useState("all");
-    const [selectedResolutionTime, setSelectedResolutionTime] = useState("all");
-    const [currentPage, setCurrentPage] = useState(0);
-    const [totalPages, setTotalPages] = useState(0);
-    const [totalElements, setTotalElements] = useState(0);
-    const [pageSize] = useState(10);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(10);
     const [stats, setStats] = useState({
         total: 0,
-        chequeBooks: 0,
+        chequeleaves: 0,
         customerQueries: 0,
         limitRequests: 0,
-        stolenCards: 0,
-        avgResolutionTime: 0,
-        fastResolved: 0
+        stolenCards: 0
     });
 
     // Get filter state from navigation - this comes from dashboard
@@ -74,56 +64,17 @@ const ResolvedRequests = () => {
         return months[monthAbbr];
     };
 
-    // Calculate resolution time in hours
-    const getResolutionTime = (requestedDate, resolvedDate) => {
-        if (!requestedDate || !resolvedDate) return null;
-
-        const start = new Date(requestedDate);
-        const end = new Date(resolvedDate);
-        const diffMs = end - start;
-        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-        const diffDays = Math.floor(diffHours / 24);
-
-        if (diffDays > 0) {
-            return `${diffDays}d ${diffHours % 24}h`;
-        } else {
-            return `${diffHours}h`;
-        }
-    };
-
-    const getResolutionCategory = (requestedDate, resolvedDate) => {
-        if (!requestedDate || !resolvedDate) return 'unknown';
-
-        const start = new Date(requestedDate);
-        const end = new Date(resolvedDate);
-        const diffHours = (end - start) / (1000 * 60 * 60);
-
-        if (diffHours <= 1) return 'very-fast';
-        if (diffHours <= 4) return 'fast';
-        if (diffHours <= 24) return 'normal';
-        if (diffHours <= 48) return 'slow';
-        return 'very-slow';
-    };
-
-    const getResolutionColor = (category) => {
-        switch (category) {
-            case 'very-fast': return '#10B981';
-            case 'fast': return '#34D399';
-            case 'normal': return '#FFD700';
-            case 'slow': return '#F97316';
-            case 'very-slow': return '#EF4444';
-            default: return '#6B8BA4';
-        }
-    };
-
-    const getResolutionLabel = (category) => {
-        switch (category) {
-            case 'very-fast': return '< 1 hour';
-            case 'fast': return '1-4 hours';
-            case 'normal': return '4-24 hours';
-            case 'slow': return '1-2 days';
-            case 'very-slow': return '> 2 days';
-            default: return 'Unknown';
+    // Format date to dd-mm-yyyy
+    const formatDateToDDMMYYYY = (dateString) => {
+        if (!dateString) return "N/A";
+        try {
+            const date = new Date(dateString);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}-${month}-${year}`;
+        } catch (e) {
+            return dateString;
         }
     };
 
@@ -149,7 +100,7 @@ const ResolvedRequests = () => {
                 const chequeRequests = chequeRes.value.data.data.content.map(item => ({
                     id: `cheque-${item.chequeRequestId}`,
                     requestId: item.chequeRequestId,
-                    module: "Cheque Books",
+                    module: "Cheque Leaves",
                     moduleIcon: FaMoneyCheck,
                     moduleColor: "#003366",
                     customerName: item.fullName || "Unknown",
@@ -157,11 +108,9 @@ const ResolvedRequests = () => {
                     status: item.status || "Approved",
                     requestedDate: item.requestedDate || item.createdDate,
                     resolvedDate: item.approvedDate || item.updatedDate,
-                    description: `${item.noOfLeaves || 0} leaves cheque book`,
+                    description: `${item.noOfLeaves || 0} leaves cheque leaves requested`,
                     value: `${item.noOfLeaves || 0} leaves`,
                     resolvedBy: item.approvedBy || "System",
-                    resolutionTime: getResolutionTime(item.requestedDate || item.createdDate, item.approvedDate || item.updatedDate),
-                    resolutionCategory: getResolutionCategory(item.requestedDate || item.createdDate, item.approvedDate || item.updatedDate),
                     originalData: item
                 }));
                 allResolved = [...allResolved, ...chequeRequests];
@@ -183,8 +132,6 @@ const ResolvedRequests = () => {
                     description: item.customerQuery?.substring(0, 50) + "...",
                     value: "Query",
                     resolvedBy: item.approvedBy || "System",
-                    resolutionTime: getResolutionTime(item.queryRaisedDate, item.queryApprovedDate),
-                    resolutionCategory: getResolutionCategory(item.queryRaisedDate, item.queryApprovedDate),
                     originalData: item
                 }));
                 allResolved = [...allResolved, ...queryRequests];
@@ -206,8 +153,6 @@ const ResolvedRequests = () => {
                     description: `Requested ₹${item.requestedLimit?.toLocaleString() || 0}`,
                     value: `₹${item.requestedLimit?.toLocaleString() || 0}`,
                     resolvedBy: item.approvedBy || "System",
-                    resolutionTime: getResolutionTime(item.requestDate, item.approvedDate),
-                    resolutionCategory: getResolutionCategory(item.requestDate, item.approvedDate),
                     originalData: item
                 }));
                 allResolved = [...allResolved, ...limitRequests];
@@ -229,8 +174,6 @@ const ResolvedRequests = () => {
                     description: `Card: ${maskCardNumber(item.lostCardNumber)}`,
                     value: "Card Blocked",
                     resolvedBy: item.updatedBy || "System",
-                    resolutionTime: getResolutionTime(item.createdDate, item.updatedDate),
-                    resolutionCategory: getResolutionCategory(item.createdDate, item.updatedDate),
                     originalData: item
                 }));
                 allResolved = [...allResolved, ...stolenRequests];
@@ -252,45 +195,22 @@ const ResolvedRequests = () => {
             );
 
             // Calculate stats
-            const chequeBooks = filteredByDate.filter(r => r.module === "Cheque Books").length;
+            const chequeLeaves = filteredByDate.filter(r => r.module === "Cheque Leaves").length;
             const customerQueries = filteredByDate.filter(r => r.module === "Customer Queries").length;
             const limitRequests = filteredByDate.filter(r => r.module === "Limit Requests").length;
             const stolenCards = filteredByDate.filter(r => r.module === "Stolen Cards").length;
 
-            // Calculate average resolution time (in hours)
-            let totalHours = 0;
-            let validCount = 0;
-            let fastResolved = 0;
-
-            filteredByDate.forEach(request => {
-                if (request.requestedDate && request.resolvedDate) {
-                    const start = new Date(request.requestedDate);
-                    const end = new Date(request.resolvedDate);
-                    const hours = (end - start) / (1000 * 60 * 60);
-                    totalHours += hours;
-                    validCount++;
-
-                    if (hours <= 4) fastResolved++;
-                }
-            });
-
-            const avgResolutionTime = validCount > 0 ? Math.round(totalHours / validCount) : 0;
-
             setStats({
                 total: filteredByDate.length,
-                chequeBooks,
+                chequeLeaves,
                 customerQueries,
                 limitRequests,
-                stolenCards,
-                avgResolutionTime,
-                fastResolved
+                stolenCards
             });
 
             setResolvedRequests(filteredByDate);
             setFilteredRequests(filteredByDate);
-            setTotalElements(filteredByDate.length);
-            setTotalPages(Math.ceil(filteredByDate.length / pageSize));
-            setCurrentPage(0);
+            setCurrentPage(1);
 
             if (filteredByDate.length === 0) {
                 showSnackbar("info", `No resolved requests found for ${getFormattedMonthYear()}`);
@@ -308,22 +228,22 @@ const ResolvedRequests = () => {
         fetchResolvedRequests();
     }, [month, year]);
 
-    // Filter requests based on search, module, and resolution time
+    // Filter requests based on search (only customer name and account number) and module
     useEffect(() => {
         if (!resolvedRequests.length) return;
 
         let filtered = [...resolvedRequests];
 
-        // Apply search filter
+        // Apply search filter - ONLY on customer name and account number
         if (searchTerm.trim()) {
             const term = searchTerm.toLowerCase().trim();
-            filtered = filtered.filter(request =>
-                request.customerName?.toLowerCase().includes(term) ||
-                request.accountNumber?.toLowerCase().includes(term) ||
-                request.description?.toLowerCase().includes(term) ||
-                request.module?.toLowerCase().includes(term) ||
-                request.resolvedBy?.toLowerCase().includes(term)
-            );
+            filtered = filtered.filter(request => {
+                // FIX: Convert values to strings and handle null/undefined safely
+                const customerName = request.customerName ? String(request.customerName).toLowerCase() : '';
+                const accountNumber = request.accountNumber ? String(request.accountNumber).toLowerCase() : '';
+                
+                return customerName.includes(term) || accountNumber.includes(term);
+            });
         }
 
         // Apply module filter
@@ -333,25 +253,38 @@ const ResolvedRequests = () => {
             );
         }
 
-        // Apply resolution time filter
-        if (selectedResolutionTime !== "all") {
-            filtered = filtered.filter(request =>
-                request.resolutionCategory === selectedResolutionTime
-            );
-        }
-
         setFilteredRequests(filtered);
-        setTotalElements(filtered.length);
-        setTotalPages(Math.ceil(filtered.length / pageSize));
-        setCurrentPage(0);
-    }, [searchTerm, selectedModule, selectedResolutionTime, resolvedRequests]);
+        
+        // ALWAYS reset to page 1 when search or filter changes
+        // This ensures we never try to go to a non-existent page
+        setCurrentPage(1);
+    }, [searchTerm, selectedModule, resolvedRequests]);
 
-    // Update displayed requests based on current page
+    // Simple pagination calculation
+    const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
+    
+    // FIX: Ensure current page is always valid (especially when search returns 0 results)
+    // This useEffect runs after filteredRequests changes and ensures currentPage is valid
     useEffect(() => {
-        const start = currentPage * pageSize;
-        const end = start + pageSize;
-        setDisplayedRequests(filteredRequests.slice(start, end));
-    }, [filteredRequests, currentPage, pageSize]);
+        // If there are no results, currentPage should be 1 (even though no pages exist)
+        if (filteredRequests.length === 0) {
+            setCurrentPage(1);
+        } 
+        // If current page is greater than total pages, set to last page
+        else if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+        // If current page is less than 1, set to 1
+        else if (currentPage < 1) {
+            setCurrentPage(1);
+        }
+    }, [filteredRequests.length, totalPages, currentPage]);
+    
+    // Calculate paginated data - this will be an empty array if filteredRequests.length === 0
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const paginatedData = filteredRequests.length > 0 
+        ? filteredRequests.slice(startIndex, startIndex + itemsPerPage)
+        : [];
 
     const maskCardNumber = (cardNumber) => {
         if (!cardNumber) return "XXXX";
@@ -359,33 +292,14 @@ const ResolvedRequests = () => {
         return "XXXX XXXX XXXX " + str.slice(-4);
     };
 
-    const formatDate = (dateString) => {
-        if (!dateString) return "N/A";
-        try {
-            const date = new Date(dateString);
-            return date.toLocaleDateString('en-IN', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        } catch (e) {
-            return dateString;
-        }
-    };
-
-    // ===== REMOVED handleViewDetails function =====
-
     const handleExport = () => {
         try {
             const csvData = filteredRequests.map(request => ({
                 'Module': request.module,
                 'Customer Name': request.customerName,
                 'Account Number': request.accountNumber,
-                'Requested Date': formatDate(request.requestedDate),
-                'Resolved Date': formatDate(request.resolvedDate),
-                'Resolution Time': request.resolutionTime || 'N/A',
+                'Requested Date': formatDateToDDMMYYYY(request.requestedDate),
+                'Resolved Date': formatDateToDDMMYYYY(request.resolvedDate),
                 'Resolved By': request.resolvedBy,
                 'Description': request.description,
                 'Value': request.value
@@ -413,8 +327,11 @@ const ResolvedRequests = () => {
     };
 
     const handlePageChange = (newPage) => {
-        setCurrentPage(newPage);
-        document.querySelector(`.${styles.tableContainer}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Only change page if new page is valid and there are results
+        if (filteredRequests.length > 0 && newPage >= 1 && newPage <= totalPages) {
+            setCurrentPage(newPage);
+            document.querySelector('.tableContainer')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     };
 
     if (isLoading) {
@@ -441,7 +358,7 @@ const ResolvedRequests = () => {
                     <div>
                         <h1 style={styles.title}>Resolved Requests - {getFormattedMonthYear()}</h1>
                         <p style={styles.subtitle}>
-                            {filteredRequests.length} of {resolvedRequests.length} resolved request{filteredRequests.length !== 1 ? 's' : ''} shown
+                            {filteredRequests.length} resolved request{filteredRequests.length !== 1 ? 's' : ''} found
                         </p>
                     </div>
                 </div>
@@ -469,30 +386,12 @@ const ResolvedRequests = () => {
                     </div>
                 </div>
                 <div style={styles.statCard}>
-                    <div style={styles.statIcon(COLORS.fast)}>
-                        <FaClock size={20} color="#FFFFFF" />
-                    </div>
-                    <div style={styles.statInfo}>
-                        <span style={styles.statValue}>{stats.avgResolutionTime}h</span>
-                        <span style={styles.statLabel}>Avg Resolution</span>
-                    </div>
-                </div>
-                <div style={styles.statCard}>
-                    <div style={styles.statIcon(COLORS.veryFast)}>
-                        <FaSmile size={20} color="#FFFFFF" />
-                    </div>
-                    <div style={styles.statInfo}>
-                        <span style={styles.statValue}>{stats.fastResolved}</span>
-                        <span style={styles.statLabel}>Fast Resolved</span>
-                    </div>
-                </div>
-                <div style={styles.statCard}>
                     <div style={styles.statIcon(COLORS.cheque)}>
                         <FaMoneyCheck size={20} color="#FFFFFF" />
                     </div>
                     <div style={styles.statInfo}>
-                        <span style={styles.statValue}>{stats.chequeBooks}</span>
-                        <span style={styles.statLabel}>Cheque Books</span>
+                        <span style={styles.statValue}>{stats.chequeLeaves}</span>
+                        <span style={styles.statLabel}>Cheque Leaves</span>
                     </div>
                 </div>
                 <div style={styles.statCard}>
@@ -524,13 +423,13 @@ const ResolvedRequests = () => {
                 </div>
             </div>
 
-            {/* Filters */}
+            {/* Filters - Updated placeholder text */}
             <div style={styles.filtersContainer}>
                 <div style={styles.searchBox}>
                     <FaSearch size={14} color="#8DA6C0" style={styles.searchIcon} />
                     <input
                         type="text"
-                        placeholder="Search by customer, account, description, or resolver..."
+                        placeholder="Search by customer name or account number..."
                         style={styles.searchInput}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -552,66 +451,33 @@ const ResolvedRequests = () => {
                         onChange={(e) => setSelectedModule(e.target.value)}
                     >
                         <option value="all">All Modules</option>
-                        <option value="cheque books">Cheque Books</option>
+                        <option value="cheque leaves">Cheque Leaves</option>
                         <option value="customer queries">Customer Queries</option>
                         <option value="limit requests">Limit Requests</option>
                         <option value="stolen cards">Stolen Cards</option>
                     </select>
-                    <select
-                        style={styles.filterSelect}
-                        value={selectedResolutionTime}
-                        onChange={(e) => setSelectedResolutionTime(e.target.value)}
-                    >
-                        <option value="all">All Resolution Times</option>
-                        <option value="very-fast">Very Fast (&lt; 1 hour)</option>
-                        <option value="fast">Fast (1-4 hours)</option>
-                        <option value="normal">Normal (4-24 hours)</option>
-                        <option value="slow">Slow (1-2 days)</option>
-                        <option value="very-slow">Very Slow (&gt; 2 days)</option>
-                    </select>
                 </div>
             </div>
 
-            {/* Resolved Requests Table - ACTIONS COLUMN REMOVED */}
+            {/* Resolved Requests Table - Resolution Time column removed */}
             <div style={styles.tableContainer}>
-                {displayedRequests.length > 0 ? (
+                {paginatedData.length > 0 ? (
                     <table style={styles.table}>
                         <thead>
                             <tr>
-                                <th style={styles.th}>Resolution Time</th>
                                 <th style={styles.th}>Module</th>
                                 <th style={styles.th}>Customer</th>
                                 <th style={styles.th}>Account</th>
                                 <th style={styles.th}>Description</th>
                                 <th style={styles.th}>Resolved Date</th>
                                 <th style={styles.th}>Resolved By</th>
-                                {/* ACTIONS COLUMN HEADER REMOVED */}
                             </tr>
                         </thead>
                         <tbody>
-                            {displayedRequests.map((request) => {
+                            {paginatedData.map((request) => {
                                 const Icon = request.moduleIcon;
                                 return (
                                     <tr key={request.id} style={styles.tr}>
-                                        <td style={styles.td}>
-                                            <div style={styles.resolutionCell}>
-                                                <div style={{
-                                                    ...styles.resolutionIndicator,
-                                                    background: getResolutionColor(request.resolutionCategory)
-                                                }} />
-                                                <div>
-                                                    <div style={{
-                                                        ...styles.resolutionLabel,
-                                                        color: getResolutionColor(request.resolutionCategory)
-                                                    }}>
-                                                        {request.resolutionTime || 'N/A'}
-                                                    </div>
-                                                    <div style={styles.resolutionCategory}>
-                                                        {getResolutionLabel(request.resolutionCategory)}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
                                         <td style={styles.td}>
                                             <div style={styles.moduleCell}>
                                                 <div style={styles.moduleIconSmall(request.moduleColor)}>
@@ -631,7 +497,7 @@ const ResolvedRequests = () => {
                                         <td style={styles.td}>
                                             <div style={styles.dateCell}>
                                                 <FaCalendarAlt size={10} color="#8DA6C0" />
-                                                {formatDate(request.resolvedDate)}
+                                                {formatDateToDDMMYYYY(request.resolvedDate)}
                                             </div>
                                         </td>
                                         <td style={styles.td}>
@@ -640,7 +506,6 @@ const ResolvedRequests = () => {
                                                 <span>{request.resolvedBy}</span>
                                             </div>
                                         </td>
-                                        {/* ACTIONS CELL REMOVED */}
                                     </tr>
                                 );
                             })}
@@ -650,40 +515,48 @@ const ResolvedRequests = () => {
                     <div style={styles.noDataContainer}>
                         <FaCheckDouble size={48} color="#E6EDF5" />
                         <p style={styles.noDataText}>
-                            {searchTerm || selectedModule !== "all" || selectedResolutionTime !== "all"
+                            {searchTerm || selectedModule !== "all"
                                 ? "No matching resolved requests found"
                                 : `No resolved requests for ${getFormattedMonthYear()}`}
                         </p>
                         <p style={styles.noDataSubtext}>
-                            {searchTerm || selectedModule !== "all" || selectedResolutionTime !== "all"
-                                ? "Try adjusting your filters"
+                            {searchTerm || selectedModule !== "all"
+                                ? "Try adjusting your search or filter"
                                 : "No requests have been resolved yet this month."}
                         </p>
                     </div>
                 )}
             </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
+            {/* Pagination - Only show if there are items AND totalPages > 0 */}
+            {filteredRequests.length > 0 && totalPages > 0 && (
                 <div style={styles.pagination}>
                     <button
                         style={styles.pageButton}
                         onClick={() => handlePageChange(currentPage - 1)}
-                        disabled={currentPage === 0}
+                        disabled={currentPage === 1}
                     >
                         <FaChevronLeft size={12} />
                     </button>
                     <span style={styles.pageInfo}>
-                        Page {currentPage + 1} of {totalPages}
-                        {filteredRequests.length > 0 && ` (${filteredRequests.length} total)`}
+                        Page {currentPage} of {totalPages} ({filteredRequests.length} total)
                     </span>
                     <button
                         style={styles.pageButton}
                         onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={currentPage === totalPages - 1}
+                        disabled={currentPage === totalPages}
                     >
                         <FaChevronRight size={12} />
                     </button>
+                </div>
+            )}
+            
+            {/* When no results, show a simple message instead of pagination */}
+            {filteredRequests.length === 0 && (
+                <div style={styles.pagination}>
+                    <span style={styles.pageInfo}>
+                        No results to display
+                    </span>
                 </div>
             )}
         </div>
@@ -693,18 +566,13 @@ const ResolvedRequests = () => {
 // Colors
 const COLORS = {
     primary: '#003366',
-    veryFast: '#10B981',
-    fast: '#34D399',
-    normal: '#FFD700',
-    slow: '#F97316',
-    verySlow: '#EF4444',
     cheque: '#003366',
     query: '#FFD700',
     limit: '#10B981',
     stolen: '#EF4444'
 };
 
-// Styles
+// Styles (keep all your existing styles here)
 const styles = {
     container: {
         padding: "30px",
@@ -955,24 +823,6 @@ const styles = {
         fontSize: "14px",
         color: "#1E293B",
         borderBottom: "1px solid #F0F4F9",
-    },
-    resolutionCell: {
-        display: "flex",
-        alignItems: "center",
-        gap: "8px",
-    },
-    resolutionIndicator: {
-        width: "8px",
-        height: "8px",
-        borderRadius: "4px",
-    },
-    resolutionLabel: {
-        fontSize: "13px",
-        fontWeight: "600",
-    },
-    resolutionCategory: {
-        fontSize: "10px",
-        color: "#8DA6C0",
     },
     moduleCell: {
         display: "flex",

@@ -256,12 +256,12 @@ const Login = () => {
                         <div style={styles.fieldGroup}>
                             <div style={styles.passwordHeader}>
                                 <label style={styles.fieldLabel}>Password</label>
-                                <button
+                                {/* <button
                                     style={styles.forgotBtn}
                                     onClick={() => showSnackbar("info", "Reset link sent to registered email")}
                                 >
                                     Forgot?
-                                </button>
+                                </button> */}
                             </div>
                             <div style={{
                                 ...styles.inputBox,
@@ -317,7 +317,7 @@ const Login = () => {
                         </div>
 
                         {/* Demo Access */}
-                        <div style={styles.demoContainer}>
+                        {/* <div style={styles.demoContainer}>
                             <div style={styles.dividerLine}>
                                 <span style={styles.dividerText}>Quick Access</span>
                             </div>
@@ -332,7 +332,7 @@ const Login = () => {
                                 <FaUserShield style={styles.demoIcon} />
                                 <span style={styles.demoText}>Demo Admin Access</span>
                             </button>
-                        </div>
+                        </div> */}
 
                         {/* Security Badge */}
                         <div style={styles.securityBadge}>

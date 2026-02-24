@@ -65,55 +65,54 @@ const Dashboard = () => {
             responseRate: 0
         },
         modules: [
-            { 
-                name: "Cheque Leaves", 
-                total: 0, 
-                pending: 0, 
-                approved: 0, 
-                rejected: 0, 
-                icon: FaBook, 
-                color: "#003366", 
+            {
+                name: "Cheque Leaves",
+                total: 0,
+                pending: 0,
+                approved: 0,
+                rejected: 0,
+                icon: FaBook,
+                color: "#003366",
                 link: "/cheque-book", // Correct route from App.jsx
-                endpoint: "chequeRequest" 
+                endpoint: "chequeRequest"
             },
-            { 
-                name: "Customer Queries", 
-                total: 0, 
-                pending: 0, 
-                approved: 0, 
-                rejected: 0, 
-                icon: FaQuestionCircle, 
-                color: "#FFD700", 
+            {
+                name: "Customer Queries",
+                total: 0,
+                pending: 0,
+                approved: 0,
+                rejected: 0,
+                icon: FaQuestionCircle,
+                color: "#FFD700",
                 link: "/customer-queries", // Correct route from App.jsx
-                endpoint: "queriesResponse" 
+                endpoint: "queriesResponse"
             },
-            { 
-                name: "Limit Requests", 
-                total: 0, 
-                pending: 0, 
-                approved: 0, 
-                rejected: 0, 
-                icon: FaArrowUp, 
-                color: "#10B981", 
+            {
+                name: "Limit Requests",
+                total: 0,
+                pending: 0,
+                approved: 0,
+                rejected: 0,
+                icon: FaArrowUp,
+                color: "#10B981",
                 link: "/increase-limit", // Correct route from App.jsx
-                endpoint: "creditLimit" 
+                endpoint: "creditLimit"
             },
-            { 
-                name: "Stolen Cards", 
-                total: 0, 
-                pending: 0, 
-                approved: 0, 
-                rejected: 0, 
-                icon: FaShieldAlt, 
-                color: "#EF4444", 
+            {
+                name: "Stolen Cards",
+                total: 0,
+                pending: 0,
+                approved: 0,
+                rejected: 0,
+                icon: FaShieldAlt,
+                color: "#EF4444",
                 link: "/stolen-card", // Correct route from App.jsx
-                endpoint: "lostCard" 
+                endpoint: "lostCard"
             }
         ],
         weeklyTrend: [],
-        statusDistribution: [],
-        recentActivities: [],
-        topCustomers: []
+        statusDistribution: []
+        // Removed recentActivities and topCustomers from initial state
     });
 
     const COLORS = {
@@ -137,15 +136,15 @@ const Dashboard = () => {
         const currentDate = new Date();
         const currentYear = currentDate.getFullYear();
         const currentMonth = currentDate.getMonth();
-        
+
         const selectedMonthNum = getMonthNumber(selectedMonth);
         const selectedYearNum = parseInt(selectedYear);
-        
-        const isFuture = (selectedYearNum > currentYear) || 
-                        (selectedYearNum === currentYear && selectedMonthNum > currentMonth);
-        
+
+        const isFuture = (selectedYearNum > currentYear) ||
+            (selectedYearNum === currentYear && selectedMonthNum > currentMonth);
+
         setIsFutureMonth(isFuture);
-        
+
         if (isFuture) {
             showSnackbar("info", `Showing preview for ${getFormattedMonthYear()} (no actual data available yet)`);
         }
@@ -216,45 +215,45 @@ const Dashboard = () => {
     const generateMockDataForMonth = () => {
         const monthNum = getMonthNumber(selectedMonth);
         const year = parseInt(selectedYear);
-        
+
         // Generate different patterns based on month
         const seed = (monthNum + 1) * (year - 2020);
-        
+
         // Use seed to make data consistent for the same month/year
         Math.seed = seed;
         const mockRandom = () => {
             const x = Math.sin(seed++) * 10000;
             return x - Math.floor(x);
         };
-        
+
         const baseTotal = Math.floor(mockRandom() * 40) + 30; // 30-70 requests
         const pendingPercent = mockRandom() * 0.3 + 0.2; // 20-50% pending
         const approvedPercent = mockRandom() * 0.3 + 0.4; // 40-70% approved
         const rejectedPercent = 1 - pendingPercent - approvedPercent;
-        
+
         const mockModules = [
-            { 
+            {
                 ...dashboardData.modules[0],
                 total: Math.floor(mockRandom() * 15) + 5,
                 pending: 0,
                 approved: 0,
                 rejected: 0
             },
-            { 
+            {
                 ...dashboardData.modules[1],
                 total: Math.floor(mockRandom() * 20) + 10,
                 pending: 0,
                 approved: 0,
                 rejected: 0
             },
-            { 
+            {
                 ...dashboardData.modules[2],
                 total: Math.floor(mockRandom() * 10) + 3,
                 pending: 0,
                 approved: 0,
                 rejected: 0
             },
-            { 
+            {
                 ...dashboardData.modules[3],
                 total: Math.floor(mockRandom() * 8) + 2,
                 pending: 0,
@@ -262,13 +261,13 @@ const Dashboard = () => {
                 rejected: 0
             }
         ];
-        
+
         // Calculate totals from modules
         const totalRequests = mockModules.reduce((sum, m) => sum + m.total, 0);
         const pendingActions = Math.floor(totalRequests * pendingPercent);
         const resolvedToday = Math.floor(totalRequests * approvedPercent);
         const responseRate = totalRequests > 0 ? Math.round((resolvedToday / totalRequests) * 100) : 0;
-        
+
         // Distribute pending/approved/rejected across modules
         mockModules.forEach(module => {
             const moduleTotal = module.total;
@@ -276,7 +275,7 @@ const Dashboard = () => {
             module.approved = Math.floor(moduleTotal * approvedPercent);
             module.rejected = moduleTotal - module.pending - module.approved;
         });
-        
+
         return {
             summary: {
                 totalRequests,
@@ -290,9 +289,8 @@ const Dashboard = () => {
                 { name: 'Approved', value: resolvedToday, color: COLORS.approved, percentage: responseRate },
                 { name: 'Pending', value: pendingActions, color: COLORS.pending, percentage: Math.round(pendingActions / totalRequests * 100) },
                 { name: 'Rejected', value: totalRequests - resolvedToday - pendingActions, color: COLORS.rejected, percentage: Math.round((totalRequests - resolvedToday - pendingActions) / totalRequests * 100) }
-            ].filter(item => item.value > 0),
-            recentActivities: generateMockActivities(),
-            topCustomers: generateMockCustomers()
+            ].filter(item => item.value > 0)
+            // Removed recentActivities and topCustomers from mock data
         };
     };
 
@@ -300,60 +298,12 @@ const Dashboard = () => {
         const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         const requestsPerDay = Math.floor(totalRequests / 7);
         const resolvedPerDay = Math.floor(totalResolved / 7);
-        
+
         return days.map((day, index) => ({
             day,
             requests: index < totalRequests % 7 ? requestsPerDay + 1 : requestsPerDay,
             resolved: index < totalResolved % 7 ? resolvedPerDay + 1 : resolvedPerDay
         }));
-    };
-
-    const generateMockActivities = () => {
-        const activities = [];
-        const customers = ['John Smith', 'Sarah Johnson', 'Mike Wilson', 'Emma Brown', 'David Lee'];
-        const modules = [
-            { name: 'Cheque Leaves', icon: FaBook, color: '#003366' },
-            { name: 'Customer Queries', icon: FaQuestionCircle, color: '#FFD700' },
-            { name: 'Limit Requests', icon: FaArrowUp, color: '#10B981' },
-            { name: 'Stolen Cards', icon: FaShieldAlt, color: '#EF4444' }
-        ];
-        const statuses = ['Approved', 'Pending', 'Rejected'];
-        
-        for (let i = 0; i < 8; i++) {
-            const module = modules[Math.floor(Math.random() * modules.length)];
-            const status = statuses[Math.floor(Math.random() * statuses.length)];
-            const customer = customers[Math.floor(Math.random() * customers.length)];
-            
-            activities.push({
-                id: `mock-${i}`,
-                customer,
-                module: module.name,
-                moduleIcon: module.icon,
-                moduleColor: module.color,
-                status,
-                time: `${Math.floor(Math.random() * 24)} hours ago`,
-                timestamp: new Date().toISOString(),
-                description: `${module.name === 'Cheque Leaves' ? '50 leaves' : 
-                             module.name === 'Limit Requests' ? '₹50,000' : 
-                             module.name === 'Stolen Cards' ? 'Card blocked' : 
-                             'Query about account'}`,
-                accountNumber: `XXXXXX${Math.floor(Math.random() * 10000)}`
-            });
-        }
-        
-        return activities;
-    };
-
-    const generateMockCustomers = () => {
-        const customers = [
-            { name: 'John Smith', requests: 8, value: '₹1,50,000' },
-            { name: 'Sarah Johnson', requests: 6, value: '₹75,000' },
-            { name: 'Mike Wilson', requests: 5, value: '50 leaves' },
-            { name: 'Emma Brown', requests: 4, value: '₹25,000' },
-            { name: 'David Lee', requests: 3, value: '₹30,000' }
-        ];
-        
-        return customers.sort((a, b) => b.requests - a.requests);
     };
 
     const generateEmptyWeeklyData = () => {
@@ -561,24 +511,8 @@ const Dashboard = () => {
                 }
             ];
 
-            // Combine all recent activities
-            const allActivities = [
-                ...mapChequeActivities(chequeItems),
-                ...mapQueryActivities(queryItems),
-                ...mapLimitActivities(limitItems),
-                ...mapStolenActivities(stolenItems)
-            ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 8);
-
-            // Generate top customers from all items
-            const topCustomers = generateTopCustomers([
-                ...chequeItems,
-                ...queryItems,
-                ...limitItems,
-                ...stolenItems
-            ]);
-
             // Generate weekly trend based on filtered data
-            const weeklyTrend = totalRequests > 0 
+            const weeklyTrend = totalRequests > 0
                 ? generateWeeklyData([
                     ...filteredChequeItems,
                     ...filteredQueryItems,
@@ -599,9 +533,8 @@ const Dashboard = () => {
                 },
                 modules: updatedModules,
                 weeklyTrend,
-                statusDistribution,
-                recentActivities: allActivities,
-                topCustomers: topCustomers.slice(0, 5)
+                statusDistribution
+                // Removed recentActivities and topCustomers from setDashboardData
             });
 
             // Show message if no data for selected month
@@ -612,7 +545,7 @@ const Dashboard = () => {
         } catch (error) {
             console.error("Error fetching dashboard data:", error);
             showSnackbar("error", "Failed to load dashboard data");
-            
+
             // Fallback to mock data on error
             const mockData = generateMockDataForMonth();
             setDashboardData(mockData);
@@ -633,129 +566,6 @@ const Dashboard = () => {
         } catch (error) {
             console.error(`Error fetching recent from ${endpoint}:`, error);
             return [];
-        }
-    };
-
-    const mapChequeActivities = (items) => {
-        return items.map(item => ({
-            id: `cheque-${item.chequeRequestId}`,
-            customer: item.fullName || "Unknown",
-            module: "Cheque Leaves",
-            moduleIcon: FaBook,
-            moduleColor: "#003366",
-            status: item.status || "Pending",
-            time: formatTime(item.requestedDate || item.createdDate),
-            timestamp: item.requestedDate || item.createdDate,
-            description: `${item.noOfLeaves || 0} leaves cheque book`,
-            accountNumber: item.accountNumber
-        }));
-    };
-
-    const mapQueryActivities = (items) => {
-        return items.map(item => ({
-            id: `query-${item.queriesId}`,
-            customer: item.fullName || "Unknown",
-            module: "Customer Queries",
-            moduleIcon: FaQuestionCircle,
-            moduleColor: "#FFD700",
-            status: item.status || "Pending",
-            time: formatTime(item.queryRaisedDate),
-            timestamp: item.queryRaisedDate,
-            description: item.customerQuery?.substring(0, 30) + "...",
-            accountNumber: item.accountNumber
-        }));
-    };
-
-    const mapLimitActivities = (items) => {
-        return items.map(item => ({
-            id: `limit-${item.increaseCreditLimitId}`,
-            customer: item.fullName || "Unknown",
-            module: "Limit Requests",
-            moduleIcon: FaArrowUp,
-            moduleColor: "#10B981",
-            status: item.status || "Pending",
-            time: formatTime(item.requestDate),
-            timestamp: item.requestDate,
-            description: `Requested ₹${item.requestedLimit?.toLocaleString() || 0}`,
-            accountNumber: item.accountNumber
-        }));
-    };
-
-    const mapStolenActivities = (items) => {
-        return items.map(item => ({
-            id: `stolen-${item.lostCardId}`,
-            customer: item.fullName || item.cardHolder || "Unknown",
-            module: "Stolen Cards",
-            moduleIcon: FaShieldAlt,
-            moduleColor: "#EF4444",
-            status: item.status || "Pending",
-            time: formatTime(item.createdDate),
-            timestamp: item.createdDate,
-            description: `Card: ${maskCardNumber(item.lostCardNumber)}`,
-            accountNumber: item.accountNumber
-        }));
-    };
-
-    const formatTime = (dateString) => {
-        if (!dateString) return "N/A";
-        try {
-            const date = new Date(dateString);
-            const now = new Date();
-            const diffMs = now - date;
-            const diffMins = Math.floor(diffMs / 60000);
-            const diffHours = Math.floor(diffMs / 3600000);
-            const diffDays = Math.floor(diffMs / 86400000);
-
-            if (diffMins < 60) {
-                return `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`;
-            } else if (diffHours < 24) {
-                return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
-            } else if (diffDays < 7) {
-                return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
-            } else {
-                return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-            }
-        } catch (e) {
-            return dateString;
-        }
-    };
-
-    const maskCardNumber = (cardNumber) => {
-        if (!cardNumber) return "XXXX";
-        const str = cardNumber.toString();
-        return "XXXX XXXX XXXX " + str.slice(-4);
-    };
-
-    const generateTopCustomers = (allItems) => {
-        const customerMap = new Map();
-
-        allItems.forEach(item => {
-            const name = item.fullName || item.cardHolder || "Unknown";
-            const key = `${name}-${item.accountNumber || 'no-account'}`;
-
-            if (!customerMap.has(key)) {
-                customerMap.set(key, {
-                    name: name,
-                    accountNumber: item.accountNumber || 'N/A',
-                    requests: 0,
-                    value: calculateRequestValue(item)
-                });
-            }
-            const customer = customerMap.get(key);
-            customer.requests++;
-        });
-
-        return Array.from(customerMap.values())
-            .sort((a, b) => b.requests - a.requests);
-    };
-
-    const calculateRequestValue = (item) => {
-        if (item.requestedLimit) {
-            return `₹${item.requestedLimit.toLocaleString()}`;
-        } else if (item.noOfLeaves) {
-            return `${item.noOfLeaves} leaves`;
-        } else {
-            return "1 request";
         }
     };
 
@@ -810,8 +620,8 @@ const Dashboard = () => {
 
     // StatCard component
     const StatCard = ({ title, value, icon: Icon, color, subtitle, onClick }) => (
-        <div 
-            style={styles.statCard} 
+        <div
+            style={styles.statCard}
             onClick={onClick}
             onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
             onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
@@ -842,8 +652,8 @@ const Dashboard = () => {
         };
 
         return (
-            <div 
-                style={styles.moduleCard} 
+            <div
+                style={styles.moduleCard}
                 onClick={handleModuleClick}
                 onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
                 onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
@@ -885,49 +695,6 @@ const Dashboard = () => {
         );
     };
 
-    const ActivityItem = ({ activity }) => {
-        const Icon = activity.moduleIcon;
-        const statusColors = {
-            'Approved': COLORS.approved,
-            'approved': COLORS.approved,
-            'APPROVED': COLORS.approved,
-            'Pending': COLORS.pending,
-            'pending': COLORS.pending,
-            'PENDING': COLORS.pending,
-            'Rejected': COLORS.rejected,
-            'rejected': COLORS.rejected,
-            'REJECTED': COLORS.rejected
-        };
-
-        const statusColor = statusColors[activity.status] || COLORS.pending;
-        const displayStatus = activity.status?.charAt(0).toUpperCase() + activity.status?.slice(1).toLowerCase() || "Pending";
-
-        return (
-            <div style={styles.activityItem}>
-                <div style={styles.activityIcon(activity.moduleColor)}>
-                    <Icon size={12} color="#FFFFFF" />
-                </div>
-                <div style={styles.activityContent}>
-                    <div style={styles.activityTop}>
-                        <span style={styles.activityCustomer}>{activity.customer}</span>
-                        <span style={styles.activityTime}>{activity.time}</span>
-                    </div>
-                    <div style={styles.activityBottom}>
-                        <span style={styles.activityModule}>
-                            {activity.module} • {activity.description}
-                        </span>
-                        <span style={{ ...styles.activityStatus, color: statusColor, background: `${statusColor}10` }}>
-                            {displayStatus}
-                        </span>
-                    </div>
-                    {activity.accountNumber && (
-                        <span style={styles.activityAccount}>A/c: {activity.accountNumber}</span>
-                    )}
-                </div>
-            </div>
-        );
-    };
-
     const CustomTooltip = ({ active, payload, label }) => {
         if (active && payload && payload.length) {
             return (
@@ -948,8 +715,6 @@ const Dashboard = () => {
         <div style={styles.emptyState}>
             {type === 'chart' && <FaChartLine size={48} color="#E6EDF5" />}
             {type === 'pie' && <FaChartPie size={48} color="#E6EDF5" />}
-            {type === 'activity' && <FaClock size={48} color="#E6EDF5" />}
-            {type === 'customers' && <FaUsers size={48} color="#E6EDF5" />}
             <p style={styles.emptyStateText}>{message}</p>
             {isFutureMonth && (
                 <p style={styles.emptyStateSubtext}>This is a preview. Data will appear when available.</p>
@@ -1020,7 +785,7 @@ const Dashboard = () => {
                                 <option value="2024">2024</option>
                                 <option value="2025">2025</option>
                                 <option value="2026">2026</option>
-                              
+
                             </select>
                         </div>
                     </div>
@@ -1108,8 +873,8 @@ const Dashboard = () => {
                             </AreaChart>
                         </ResponsiveContainer>
                     ) : (
-                        <EmptyState 
-                            type="chart" 
+                        <EmptyState
+                            type="chart"
                             message={`No request data available for ${getFormattedMonthYear()}`}
                         />
                     )}
@@ -1142,8 +907,8 @@ const Dashboard = () => {
                             </PieChart>
                         </ResponsiveContainer>
                     ) : (
-                        <EmptyState 
-                            type="pie" 
+                        <EmptyState
+                            type="pie"
                             message={`No status data available for ${getFormattedMonthYear()}`}
                         />
                     )}
@@ -1161,59 +926,7 @@ const Dashboard = () => {
                 ))}
             </div>
 
-            {/* Bottom Section */}
-            <div style={styles.bottomSection}>
-                {/* Recent Activities */}
-                <div style={styles.recentCard}>
-                    <h3 style={styles.cardTitle}>
-                        <FaClock style={styles.cardIcon} />
-                        Recent Activities
-                    </h3>
-                    <div style={styles.activityList}>
-                        {dashboardData.recentActivities.length > 0 ? (
-                            dashboardData.recentActivities.map((activity, index) => (
-                                <ActivityItem key={activity.id || index} activity={activity} />
-                            ))
-                        ) : (
-                            <EmptyState 
-                                type="activity" 
-                                message={`No recent activities for ${getFormattedMonthYear()}`}
-                            />
-                        )}
-                    </div>
-                </div>
-
-                {/* Top Customers */}
-                <div style={styles.customersCard}>
-                    <h3 style={styles.cardTitle}>
-                        <FaUsers style={styles.cardIcon} />
-                        Top Customers - {getFormattedMonthYear()}
-                    </h3>
-                    <div style={styles.customerList}>
-                        {dashboardData.topCustomers.length > 0 ? (
-                            <>
-                                <div style={styles.customerHeader}>
-                                    <span>Customer</span>
-                                    <span>Requests</span>
-                                    <span>Value</span>
-                                </div>
-                                {dashboardData.topCustomers.map((customer, index) => (
-                                    <div key={index} style={styles.customerRow}>
-                                        <span style={styles.customerName}>{customer.name}</span>
-                                        <span style={styles.customerRequests}>{customer.requests}</span>
-                                        <span style={styles.customerValue}>{customer.value}</span>
-                                    </div>
-                                ))}
-                            </>
-                        ) : (
-                            <EmptyState 
-                                type="customers" 
-                                message={`No customer data for ${getFormattedMonthYear()}`}
-                            />
-                        )}
-                    </div>
-                </div>
-            </div>
+            {/* Removed Recent Activities and Top Customers sections */}
         </div>
     );
 };
@@ -1411,7 +1124,7 @@ const styles = {
         display: "grid",
         gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
         gap: "20px",
-        marginBottom: "30px",
+        marginBottom: "0", // Changed from "30px" to "0" since bottom section is removed
     },
     moduleCard: {
         background: "#FFFFFF",
@@ -1493,136 +1206,11 @@ const styles = {
         gap: "4px",
         color: "#4A6F8F",
     },
-    bottomSection: {
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
-        gap: "20px",
-    },
-    recentCard: {
-        background: "#FFFFFF",
-        borderRadius: "20px",
-        padding: "20px",
-        boxShadow: "0 4px 12px rgba(0, 51, 102, 0.05)",
-        border: "1px solid rgba(255, 215, 0, 0.1)",
-    },
-    customersCard: {
-        background: "#FFFFFF",
-        borderRadius: "20px",
-        padding: "20px",
-        boxShadow: "0 4px 12px rgba(0, 51, 102, 0.05)",
-        border: "1px solid rgba(255, 215, 0, 0.1)",
-    },
-    cardTitle: {
-        display: "flex",
-        alignItems: "center",
-        gap: "10px",
-        fontSize: "16px",
-        fontWeight: "600",
-        color: "#003366",
-        marginBottom: "20px",
-    },
-    cardIcon: {
-        color: "#FFD700",
-    },
-    activityList: {
-        maxHeight: "350px",
-        overflowY: "auto",
-    },
-    activityItem: {
-        display: "flex",
-        gap: "12px",
-        padding: "12px",
-        borderBottom: "1px solid #F0F4F9",
-        transition: "background 0.2s ease",
-    },
-    activityIcon: (color) => ({
-        width: "32px",
-        height: "32px",
-        borderRadius: "8px",
-        background: color,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-    }),
-    activityContent: {
-        flex: 1,
-    },
-    activityTop: {
-        display: "flex",
-        justifyContent: "space-between",
-        marginBottom: "4px",
-    },
-    activityCustomer: {
-        fontSize: "14px",
-        fontWeight: "600",
-        color: "#1E293B",
-    },
-    activityTime: {
-        fontSize: "11px",
-        color: "#8DA6C0",
-    },
-    activityBottom: {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        flexWrap: "wrap",
-        gap: "5px",
-    },
-    activityModule: {
-        fontSize: "12px",
-        color: "#6B8BA4",
-    },
-    activityStatus: {
-        fontSize: "11px",
-        fontWeight: "600",
-        padding: "2px 8px",
-        borderRadius: "12px",
-    },
-    activityAccount: {
-        fontSize: "10px",
-        color: "#8DA6C0",
-        marginTop: "2px",
-        display: "block",
-    },
-    customerList: {
-        maxHeight: "350px",
-        overflowY: "auto",
-    },
-    customerHeader: {
-        display: "grid",
-        gridTemplateColumns: "2fr 1fr 1.5fr",
-        padding: "12px",
-        background: "#F8FBFF",
-        borderRadius: "10px",
-        fontSize: "12px",
-        fontWeight: "600",
-        color: "#4A6F8F",
-        marginBottom: "10px",
-    },
-    customerRow: {
-        display: "grid",
-        gridTemplateColumns: "2fr 1fr 1.5fr",
-        padding: "10px 12px",
-        borderBottom: "1px solid #F0F4F9",
-        fontSize: "13px",
-    },
-    customerName: {
-        color: "#1E293B",
-        fontWeight: "500",
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        paddingRight: "10px",
-    },
-    customerRequests: {
-        color: "#003366",
-        fontWeight: "600",
-    },
-    customerValue: {
-        color: "#10B981",
-        fontWeight: "600",
-    },
+    // Removed bottomSection, recentCard, customersCard, cardTitle, cardIcon, 
+    // activityList, activityItem, activityIcon, activityContent, activityTop,
+    // activityCustomer, activityTime, activityBottom, activityModule, 
+    // activityStatus, activityAccount, customerList, customerHeader, 
+    // customerRow, customerName, customerRequests, customerValue styles
     emptyState: {
         display: "flex",
         flexDirection: "column",

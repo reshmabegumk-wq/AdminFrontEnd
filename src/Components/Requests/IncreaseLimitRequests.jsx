@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import API from "../../api";
 import { useSnackbar } from "../../Context/SnackbarContext";
 import {
@@ -41,6 +41,48 @@ const IncreaseLimitRequests = () => {
     });
     const { showSnackbar } = useSnackbar();
     const itemsPerPage = 5;
+
+    // Function to safely convert any value to string for searching
+    const safeToString = (value) => {
+        if (value === null || value === undefined) return "";
+        return String(value).toLowerCase();
+    };
+
+    // Function to format date to dd-mm-yyyy
+    const formatDateToDDMMYYYY = (dateString) => {
+        if (!dateString || dateString === "N/A" || dateString === "") return "N/A";
+        
+        try {
+            // Handle different date formats
+            let date;
+            if (typeof dateString === 'string' && dateString.includes('T')) {
+                // Handle ISO date string
+                date = new Date(dateString);
+            } else if (typeof dateString === 'string' && dateString.includes('-')) {
+                // Handle YYYY-MM-DD format
+                const [year, month, day] = dateString.split('T')[0].split('-');
+                if (year && month && day) {
+                    date = new Date(year, month - 1, day);
+                } else {
+                    date = new Date(dateString);
+                }
+            } else {
+                date = new Date(dateString);
+            }
+            
+            // Check if date is valid
+            if (isNaN(date.getTime())) return dateString;
+            
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            
+            return `${day}-${month}-${year}`;
+        } catch (error) {
+            console.error('Error formatting date:', error);
+            return dateString;
+        }
+    };
 
     // Function to fetch card details for max limit
     const fetchCardDetails = async (accountNumber) => {
@@ -164,17 +206,35 @@ const IncreaseLimitRequests = () => {
         fetchStats();
     }, [currentPage, statusFilter]);
 
-    // Handle search functionality
-    const filteredData = limitRequests?.filter(item => {
-        const matchesSearch = item.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                             item.accountNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                             item.cardNumber?.toString().includes(searchTerm);
-        return matchesSearch;
-    });
+    // Handle search functionality with useMemo for better performance
+    const filteredData = useMemo(() => {
+        if (!limitRequests || limitRequests.length === 0 || !searchTerm.trim()) {
+            return limitRequests;
+        }
+        
+        const searchLower = searchTerm.toLowerCase().trim();
+        return limitRequests.filter(item => {
+            // Safely convert all values to strings for comparison
+            const fullName = safeToString(item.fullName);
+            const accountNumber = safeToString(item.accountNumber);
+            const cardNumber = safeToString(item.cardNumber);
+            
+            return fullName.includes(searchLower) ||
+                   accountNumber.includes(searchLower) ||
+                   cardNumber.includes(searchLower);
+        });
+    }, [limitRequests, searchTerm]);
+
+    // Reset to page 1 when search term changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm]);
 
     // Handle refresh
     const handleRefresh = () => {
         setCurrentPage(1);
+        setSearchTerm("");
+        setStatusFilter("all");
         fetchLimitRequests(0);
         fetchStats();
         showSnackbar("success", "Data refreshed successfully");
@@ -184,6 +244,17 @@ const IncreaseLimitRequests = () => {
     const handleStatusFilterChange = (newStatus) => {
         setStatusFilter(newStatus);
         setCurrentPage(1);
+        setSearchTerm(""); // Optional: Clear search when changing filter
+    };
+
+    // Handle search input change
+    const handleSearchChange = (e) => {
+        setSearchTerm(e.target.value);
+    };
+
+    // Clear search
+    const handleClearSearch = () => {
+        setSearchTerm("");
     };
 
     // Status badge component
@@ -257,7 +328,7 @@ const IncreaseLimitRequests = () => {
 
             if (res.data && res.data.status && res.data.data) {
                 const requestData = res.data.data;
-                
+
                 // Fetch card details for max limit
                 let maxLimit = null;
                 if (accountNumber) {
@@ -271,7 +342,7 @@ const IncreaseLimitRequests = () => {
                     ...requestData,
                     maxLimit: maxLimit
                 };
-                
+
                 setRequestDetails(requestWithMaxLimit);
                 return requestWithMaxLimit;
             }
@@ -409,10 +480,9 @@ const IncreaseLimitRequests = () => {
         }).format(amount);
     };
 
-    // Format date
+    // Format date (using the new formatDateToDDMMYYYY function)
     const formatDate = (dateString) => {
-        if (!dateString) return "N/A";
-        return dateString;
+        return formatDateToDDMMYYYY(dateString);
     };
 
     // Format card number for display
@@ -424,6 +494,12 @@ const IncreaseLimitRequests = () => {
         }
         return str;
     };
+
+    // Determine if we should show pagination
+    const showPagination = paginationData && 
+                          paginationData.totalPages > 0 && 
+                          filteredData.length > 0 && 
+                          !searchTerm; // Hide pagination when searching
 
     return (
         <div style={styles.container}>
@@ -484,9 +560,17 @@ const IncreaseLimitRequests = () => {
                         type="text"
                         placeholder="Search by cardholder name, account number or card number..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={handleSearchChange}
                         style={styles.searchInput}
                     />
+                    {searchTerm && (
+                        <button 
+                            style={styles.clearSearch}
+                            onClick={handleClearSearch}
+                        >
+                            ×
+                        </button>
+                    )}
                 </div>
                 <div style={styles.filterGroup}>
                     <FaFilter style={styles.filterIcon} />
@@ -589,7 +673,17 @@ const IncreaseLimitRequests = () => {
                                 <td colSpan="11" style={styles.noDataCell}>
                                     <div style={styles.noData}>
                                         <FaExclamationTriangle size={48} style={styles.noDataIcon} />
-                                        <p style={styles.noDataText}>No limit increase requests found</p>
+                                        <p style={styles.noDataText}>
+                                            {searchTerm ? "No matching records found" : "No limit increase requests found"}
+                                        </p>
+                                        {searchTerm && (
+                                            <button 
+                                                style={styles.clearSearchBtn}
+                                                onClick={handleClearSearch}
+                                            >
+                                                Clear Search
+                                            </button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
@@ -598,8 +692,8 @@ const IncreaseLimitRequests = () => {
                 </table>
             </div>
 
-            {/* Pagination */}
-            {paginationData && paginationData.totalPages > 0 && (
+            {/* Pagination - Only show when not searching and data exists */}
+            {showPagination && (
                 <div style={styles.pagination}>
                     <button
                         style={styles.pageBtn}
@@ -647,7 +741,7 @@ const IncreaseLimitRequests = () => {
                                 )}
                             </div>
 
-                            {/* Limit Information - Showing exactly what's in the database */}
+                            {/* Limit Information */}
                             <div style={styles.currentLimitHighlight}>
                                 <div style={styles.currentLimitBox}>
                                     <FaWallet size={20} color="#FFD700" />
@@ -658,7 +752,7 @@ const IncreaseLimitRequests = () => {
                                         </span>
                                     </div>
                                 </div>
-                                
+
                                 {requestDetails.requestedLimit > requestDetails.currentLimitAtRequest && (
                                     <div style={styles.increaseBox}>
                                         <FaArrowUp size={16} color="#10B981" />
@@ -723,9 +817,8 @@ const IncreaseLimitRequests = () => {
                                         <span style={styles.infoLabel}>Request ID</span>
                                         <span style={styles.infoValue}>{requestDetails.increaseCreditLimitId || "N/A"}</span>
                                     </div>
-                                    
-                                    {/* Current Limit at Request - This never changes */}
-                                    <div style={{...styles.infoRow, ...styles.highlightRow}}>
+
+                                    <div style={{ ...styles.infoRow, ...styles.highlightRow }}>
                                         <span style={styles.infoLabel}>💰 Current Limit (At Request)</span>
                                         <span style={{
                                             ...styles.infoValue,
@@ -734,9 +827,8 @@ const IncreaseLimitRequests = () => {
                                             {formatCurrency(requestDetails.currentLimitAtRequest)}
                                         </span>
                                     </div>
-                                    
-                                    {/* Requested Limit */}
-                                    <div style={{...styles.infoRow, ...styles.highlightRow}}>
+
+                                    <div style={{ ...styles.infoRow, ...styles.highlightRow }}>
                                         <span style={styles.infoLabel}>📈 Requested Limit</span>
                                         <span style={{
                                             ...styles.infoValue,
@@ -746,7 +838,6 @@ const IncreaseLimitRequests = () => {
                                         </span>
                                     </div>
 
-                                    {/* Max Limit */}
                                     <div style={styles.infoRow}>
                                         <span style={styles.infoLabel}>Maximum Allowed Limit</span>
                                         <span style={{
@@ -757,20 +848,17 @@ const IncreaseLimitRequests = () => {
                                             {formatCurrency(requestDetails.maxLimit)}
                                         </span>
                                     </div>
-                                    
-                                    {/* Request Date */}
+
                                     <div style={styles.infoRow}>
                                         <span style={styles.infoLabel}>Request Date</span>
                                         <span style={styles.infoValue}>{formatDate(requestDetails.requestDate)}</span>
                                     </div>
-                                    
-                                    {/* Status */}
+
                                     <div style={styles.infoRow}>
                                         <span style={styles.infoLabel}>Status</span>
                                         <span style={styles.infoValue}>{requestDetails.status || "N/A"}</span>
                                     </div>
 
-                                    {/* Updated By - Only show if available */}
                                     {requestDetails.approvedByName && (
                                         <div style={styles.infoRow}>
                                             <span style={styles.infoLabel}>Updated By</span>
@@ -778,7 +866,6 @@ const IncreaseLimitRequests = () => {
                                         </div>
                                     )}
 
-                                    {/* Remarks - Only show if available */}
                                     {requestDetails.remarks && (
                                         <div style={{ ...styles.infoRow, gridColumn: "span 2" }}>
                                             <span style={styles.infoLabel}>Remarks</span>
@@ -989,6 +1076,7 @@ const styles = {
         border: "2px solid #E6EDF5",
         transition: "all 0.2s ease",
         minWidth: "300px",
+        position: "relative",
     },
     searchIcon: {
         color: "#6B8BA4",
@@ -1003,6 +1091,19 @@ const styles = {
         background: "transparent",
         "::placeholder": {
             color: "#A0B8CC",
+        },
+    },
+    clearSearch: {
+        position: "absolute",
+        right: "12px",
+        background: "none",
+        border: "none",
+        fontSize: "20px",
+        color: "#6B8BA4",
+        cursor: "pointer",
+        padding: "0 8px",
+        ":hover": {
+            color: "#003366",
         },
     },
     filterGroup: {
@@ -1184,7 +1285,22 @@ const styles = {
     noDataText: {
         fontSize: "16px",
         color: "#4A6F8F",
-        margin: 0,
+        margin: "0 0 16px 0",
+    },
+    clearSearchBtn: {
+        padding: "8px 16px",
+        background: "linear-gradient(135deg, #003366, #002244)",
+        border: "none",
+        borderRadius: "8px",
+        color: "#FFFFFF",
+        fontSize: "12px",
+        fontWeight: "600",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+        ":hover": {
+            transform: "translateY(-2px)",
+            boxShadow: "0 4px 12px rgba(0, 51, 102, 0.25)",
+        },
     },
     noDataCell: {
         padding: "0",

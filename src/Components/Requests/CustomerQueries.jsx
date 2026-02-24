@@ -378,18 +378,22 @@ const CustomerQueries = () => {
         setResponseText("");
     };
 
+    // Fixed StatusBadge component - Normalizes status to handle different cases
     const StatusBadge = ({ status }) => {
+        // Normalize status to uppercase for consistent comparison
+        const normalizedStatus = status?.toUpperCase();
+        
         const statusConfig = {
             APPROVED: { color: "#10B981", bg: "rgba(16, 185, 129, 0.1)", icon: FaCheckCircle, text: "Approved" },
             REJECTED: { color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)", icon: FaBan, text: "Rejected" },
             PENDING: { color: "#F97316", bg: "rgba(249, 115, 22, 0.1)", icon: FaClock, text: "Pending" }
         };
 
-        const config = statusConfig[status] || {
+        const config = statusConfig[normalizedStatus] || {
             color: "#6B7280",
             bg: "rgba(107, 114, 128, 0.1)",
             icon: FaClock,
-            text: status
+            text: status || "Unknown"
         };
         const Icon = config.icon;
 
@@ -411,15 +415,18 @@ const CustomerQueries = () => {
         );
     };
 
+    // Format date to DD-MM-YYYY
     const formatDate = (dateString) => {
-        if (!dateString) return 'N/A';
+        if (!dateString) return "N/A";
         try {
-            return new Date(dateString).toLocaleDateString('en-IN', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            });
-        } catch (e) {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return dateString;
+            
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}-${month}-${year}`;
+        } catch (error) {
             return dateString;
         }
     };
@@ -559,7 +566,7 @@ const CustomerQueries = () => {
                         </div>
 
                         {/* Action Buttons - Only show for pending requests */}
-                        {displayData.status === "PENDING" && !isSubmitting && (
+                        {displayData.status?.toUpperCase() === "PENDING" && !isSubmitting && (
                             <div style={styles.modalActions}>
                                 <button
                                     style={styles.rejectBtn}
@@ -717,6 +724,9 @@ const CustomerQueries = () => {
         );
     };
 
+    // Check if there's data to display
+    const hasData = filteredData.length > 0;
+
     return (
         <div style={styles.container}>
             {/* Header Section */}
@@ -772,7 +782,7 @@ const CustomerQueries = () => {
                     <FaSearch style={styles.searchIcon} />
                     <input
                         type="text"
-                        placeholder="Search by query ID, account number, customer name, email or query..."
+                        placeholder="Search by account number, customer name "
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={styles.searchInput}
@@ -786,9 +796,9 @@ const CustomerQueries = () => {
                         style={styles.filterSelect}
                     >
                         <option value="">All Status</option>
-                        <option value="PENDING">Pending</option>
-                        <option value="APPROVED">Approved</option>
-                        <option value="REJECTED">Rejected</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
                     </select>
                 </div>
             </div>
@@ -818,7 +828,7 @@ const CustomerQueries = () => {
                                     </div>
                                 </td>
                             </tr>
-                        ) : filteredData.length > 0 ? (
+                        ) : hasData ? (
                             filteredData.map((item, index) => (
                                 <tr key={`${item.queriesId}-${index}`} style={styles.tableRow}>
                                     <td style={styles.tableCell}>
@@ -879,8 +889,8 @@ const CustomerQueries = () => {
                 </table>
             </div>
 
-            {/* Pagination */}
-            {paginationData && paginationData.totalPages > 0 && (
+            {/* Pagination - Only show when there is data */}
+            {hasData && paginationData && paginationData.totalPages > 0 && (
                 <div style={styles.pagination}>
                     <button
                         style={styles.pageBtn}
