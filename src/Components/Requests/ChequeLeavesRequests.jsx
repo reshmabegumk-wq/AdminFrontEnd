@@ -6,8 +6,6 @@ import {
     FaCheckCircle,
     FaBan,
     FaClock,
-    FaDownload,
-    FaPrint,
     FaFilter,
     FaSearch,
     FaChevronLeft,
@@ -29,7 +27,13 @@ const ChequeLeavesRequests = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [showRejectReason, setShowRejectReason] = useState(false);
     const [rejectReason, setRejectReason] = useState("");
-    const [paginationData, setPaginationData] = useState(null);
+    const [paginationData, setPaginationData] = useState({
+        pageNumber: 0,
+        pageSize: 5,
+        totalElements: 0,
+        totalPages: 0,
+        last: true
+    });
     const [stats, setStats] = useState({
         total: 0,
         pending: 0,
@@ -39,6 +43,59 @@ const ChequeLeavesRequests = () => {
     const { showSnackbar } = useSnackbar();
     const itemsPerPage = 5;
     const abortControllerRef = useRef(null);
+
+    // Format date to DD-MM-YYYY
+    const formatDate = (dateString) => {
+        if (!dateString) return "N/A";
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return dateString;
+            
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}-${month}-${year}`;
+        } catch (error) {
+            return dateString;
+        }
+    };
+
+    // Function to parse date string for sorting
+    const parseDate = (dateString) => {
+        if (!dateString) return new Date(0);
+        try {
+            return new Date(dateString);
+        } catch {
+            return new Date(0);
+        }
+    };
+
+    // Sort function to show pending first, then by date (newest first)
+    const sortRequests = (data) => {
+        if (!data || !Array.isArray(data)) return [];
+        
+        const statusPriority = {
+            'Pending': 1,
+            'Approved': 2,
+            'Rejected': 3,
+            'Processing': 4
+        };
+
+        return [...data].sort((a, b) => {
+            // First priority: Pending status
+            const priorityA = statusPriority[a.status] || 99;
+            const priorityB = statusPriority[b.status] || 99;
+            
+            if (priorityA !== priorityB) {
+                return priorityA - priorityB;
+            }
+            
+            // Second priority: Date (newest first)
+            const dateA = parseDate(a.requestedDate || a.createdDate);
+            const dateB = parseDate(b.requestedDate || b.createdDate);
+            return dateB - dateA;
+        });
+    };
 
     // Fetch cheque book requests from API
     const fetchChequeRequests = async (page = 0) => {
@@ -60,57 +117,53 @@ const ChequeLeavesRequests = () => {
 
             console.log("Fetching with payload:", payload);
 
-            // Check if API is properly configured
-            if (!API || !API.defaults) {
-                console.error("API not properly configured");
-                showSnackbar("error", "API configuration error. Please check your connection.");
-                setChequeRequests([]);
-                setPaginationData(null);
-                setIsLoading(false);
-                return;
-            }
-
             const response = await API.post("chequeRequest/adminChequeList", payload, {
                 signal: abortControllerRef.current.signal,
                 timeout: 30000
             });
 
-            console.log("API Response Status:", response.status);
-            console.log("API Response Data:", response.data);
+            console.log("API Response:", response.data);
 
             if (response?.data?.data) {
-                setChequeRequests(response.data.data.content || []);
+                const content = response.data.data.content || [];
+                
+                // Sort the data to show pending first, then by date
+                const sortedContent = sortRequests(content);
+                
+                setChequeRequests(sortedContent);
                 setPaginationData({
-                    pageNumber: response.data.data.pageNumber,
-                    pageSize: response.data.data.pageSize,
-                    totalElements: response.data.data.totalElements,
-                    totalPages: response.data.data.totalPages,
-                    last: response.data.data.last
+                    pageNumber: response.data.data.pageNumber || 0,
+                    pageSize: response.data.data.pageSize || itemsPerPage,
+                    totalElements: response.data.data.totalElements || 0,
+                    totalPages: response.data.data.totalPages || 0,
+                    last: response.data.data.last || true
                 });
             } else {
                 setChequeRequests([]);
-                setPaginationData(null);
+                setPaginationData({
+                    pageNumber: 0,
+                    pageSize: itemsPerPage,
+                    totalElements: 0,
+                    totalPages: 0,
+                    last: true
+                });
             }
 
         } catch (error) {
             if (error.name === 'AbortError') {
                 console.log('Request was cancelled');
-            } else if (error.code === 'ECONNABORTED') {
-                console.log('Request timeout');
-                showSnackbar("error", "Request timeout. The server is taking too long to respond.");
-            } else if (error.response) {
-                console.log('Error response:', error.response.status, error.response.data);
-                showSnackbar("error", `Server error: ${error.response.status}`);
-            } else if (error.request) {
-                console.log('No response received');
-                showSnackbar("error", "Cannot connect to server. Please check if the server is running.");
             } else {
-                console.log('Error:', error.message);
+                console.error('Error fetching cheque requests:', error);
                 showSnackbar("error", "Failed to load cheque book requests. Please try again.");
             }
-
             setChequeRequests([]);
-            setPaginationData(null);
+            setPaginationData({
+                pageNumber: 0,
+                pageSize: itemsPerPage,
+                totalElements: 0,
+                totalPages: 0,
+                last: true
+            });
         } finally {
             setIsLoading(false);
         }
@@ -128,7 +181,6 @@ const ChequeLeavesRequests = () => {
             }
         } catch (error) {
             console.error('Error fetching stats:', error);
-            // Don't show error for stats to avoid too many messages
         }
     };
 
@@ -144,16 +196,18 @@ const ChequeLeavesRequests = () => {
         };
     }, [currentPage, statusFilter]);
 
-    // Handle search functionality
+    // Handle search functionality - client-side filtering only
     const filteredData = chequeRequests?.filter(item => {
-        const requestId = `CHQ-${item.chequeRequestId}`.toLowerCase();
+        if (!searchTerm.trim()) return true;
+        
+        const searchLower = searchTerm.toLowerCase().trim();
         const accountNumber = item.accountNumber?.toString() || "";
         const fullName = item.fullName?.toLowerCase() || "";
-        const searchLower = searchTerm.toLowerCase();
+        const mobileNumber = item.mobileNumber?.toString() || "";
 
-        return requestId.includes(searchLower) ||
+        return fullName.includes(searchLower) ||
             accountNumber.includes(searchLower) ||
-            fullName.includes(searchLower);
+            mobileNumber.includes(searchLower);
     });
 
     const handleRefresh = () => {
@@ -255,6 +309,11 @@ const ChequeLeavesRequests = () => {
         setShowRejectReason(true);
     };
 
+    const handleRejectReasonChange = (e) => {
+        const value = e.target.value;
+        setRejectReason(value);
+    };
+
     const handleSubmitRejection = async () => {
         if (!rejectReason.trim()) {
             showSnackbar("error", "Please provide a reason for rejection");
@@ -315,7 +374,7 @@ const ChequeLeavesRequests = () => {
             color: "#6B7280",
             bg: "rgba(107, 114, 128, 0.1)",
             icon: FaClock,
-            text: status
+            text: status || "Unknown"
         };
         const Icon = config.icon;
 
@@ -338,6 +397,7 @@ const ChequeLeavesRequests = () => {
     };
 
     const getLeafTypeText = (leaves) => {
+        if (!leaves) return "N/A";
         if (leaves === 25) return "25 Leaves";
         if (leaves === 50) return "50 Leaves";
         if (leaves === 100) return "100 Leaves";
@@ -409,7 +469,7 @@ const ChequeLeavesRequests = () => {
                             <div style={styles.infoGrid}>
                                 <div style={styles.infoRow}>
                                     <span style={styles.infoLabel}>Request Date</span>
-                                    <span style={styles.infoValue}>{displayData.requestedDate || "N/A"}</span>
+                                    <span style={styles.infoValue}>{formatDate(displayData.requestedDate)}</span>
                                 </div>
                                 <div style={styles.infoRow}>
                                     <span style={styles.infoLabel}>Leaf Type</span>
@@ -428,7 +488,7 @@ const ChequeLeavesRequests = () => {
                                 {displayData.approvedDate && (
                                     <div style={styles.infoRow}>
                                         <span style={styles.infoLabel}>Approved Date</span>
-                                        <span style={styles.infoValue}>{displayData.approvedDate}</span>
+                                        <span style={styles.infoValue}>{formatDate(displayData.approvedDate)}</span>
                                     </div>
                                 )}
                                 {displayData.approvedByName && (
@@ -478,15 +538,18 @@ const ChequeLeavesRequests = () => {
                     <div style={styles.rejectModalBody}>
                         <div style={styles.rejectFieldGroup}>
                             <label style={styles.rejectLabel}>Rejection Reason *</label>
-                            <input
-                                key="reject-input"
-                                type="text"
-                                style={styles.rejectInput}
-                                placeholder="Please provide a detailed reason for rejecting this request..."
-                                value={rejectReason}
-                                onChange={(e) => setRejectReason(e.target.value)}
-                                autoFocus={showRejectReason}
-                            />
+                            <textarea
+    dir="ltr"
+    style={{
+        ...styles.rejectTextarea,
+        direction: "ltr",
+        textAlign: "left"
+    }}
+    value={rejectReason}
+    onChange={handleRejectReasonChange}
+    rows={4}
+    autoFocus
+/>
                             <div style={styles.rejectCharCount}>
                                 {rejectReason.length}/500
                             </div>
@@ -575,7 +638,7 @@ const ChequeLeavesRequests = () => {
                     <FaSearch style={styles.searchIcon} />
                     <input
                         type="text"
-                        placeholder="Search by request ID, account number or customer name..."
+                        placeholder="Search by account number, customer name"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={styles.searchInput}
@@ -601,11 +664,11 @@ const ChequeLeavesRequests = () => {
                 <table style={styles.table}>
                     <thead style={styles.tableHead}>
                         <tr>
-                            <th style={styles.tableHeader}>S.No</th>
+                            <th style={styles.tableHeader}>S.NO</th>
                             <th style={styles.tableHeader}>ACCOUNT HOLDER</th>
                             <th style={styles.tableHeader}>ACCOUNT NO.</th>
                             <th style={styles.tableHeader}>REQUEST DATE</th>
-                            <th style={styles.tableHeader}>LEAF TYPE</th>
+                            <th style={styles.tableHeader}>LEAVES</th>
                             <th style={styles.tableHeader}>STATUS</th>
                             <th style={styles.tableHeader}>ACTION</th>
                         </tr>
@@ -637,11 +700,11 @@ const ChequeLeavesRequests = () => {
                                     <td style={styles.tableCell}>
                                         <div style={styles.dateCell}>
                                             <FaCalendarAlt style={styles.dateIcon} />
-                                            {item.requestedDate}
+                                            {formatDate(item.requestedDate)}
                                         </div>
                                     </td>
                                     <td style={styles.tableCell}>
-                                        <span style={styles.cardType}>{getLeafTypeText(item.noOfLeaves)}</span>
+                                        <span style={styles.leafType}>{getLeafTypeText(item.noOfLeaves)}</span>
                                     </td>
                                     <td style={styles.tableCell}>
                                         <StatusBadge status={item.status} />
@@ -662,7 +725,14 @@ const ChequeLeavesRequests = () => {
                                 <td colSpan="7" style={styles.noDataCell}>
                                     <div style={styles.noData}>
                                         <FaMoneyCheck size={48} style={styles.noDataIcon} />
-                                        <p style={styles.noDataText}>No cheque book requests found</p>
+                                        <p style={styles.noDataText}>
+                                            {searchTerm ? "No matching records found" : "No cheque book requests found"}
+                                        </p>
+                                        {paginationData.totalElements === 0 && !searchTerm && (
+                                            <p style={styles.noDataSubText}>
+                                                There are no cheque book requests in the system yet.
+                                            </p>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
@@ -671,8 +741,8 @@ const ChequeLeavesRequests = () => {
                 </table>
             </div>
 
-            {/* Pagination */}
-            {paginationData && paginationData.totalPages > 0 && (
+            {/* Pagination - Only show when there are records */}
+            {!isLoading && paginationData.totalElements > 0 && filteredData.length > 0 && (
                 <div style={styles.pagination}>
                     <button
                         style={styles.pageBtn}
@@ -790,11 +860,11 @@ const styles = {
         cursor: "pointer",
         transition: "all 0.2s ease",
         boxShadow: "0 4px 12px rgba(0, 51, 102, 0.15)",
-        ":hover": {
+        ':hover': {
             transform: "translateY(-2px)",
             boxShadow: "0 8px 16px rgba(0, 51, 102, 0.25)",
         },
-        ":disabled": {
+        ':disabled': {
             opacity: 0.7,
             cursor: "not-allowed",
             transform: "none",
@@ -890,7 +960,7 @@ const styles = {
     tableRow: {
         borderBottom: "1px solid #E6EDF5",
         transition: "background 0.2s ease",
-        ":hover": {
+        ':hover': {
             background: "#F8FBFF",
         },
     },
@@ -912,7 +982,7 @@ const styles = {
         fontFamily: "monospace",
         color: "#4A6F8F",
     },
-    cardType: {
+    leafType: {
         padding: "4px 10px",
         background: "#F0F7FF",
         borderRadius: "20px",
@@ -946,7 +1016,7 @@ const styles = {
         cursor: "pointer",
         transition: "all 0.2s ease",
         boxShadow: "0 4px 12px rgba(0, 51, 102, 0.15)",
-        ":hover": {
+        ':hover': {
             transform: "translateY(-2px)",
             boxShadow: "0 8px 16px rgba(0, 51, 102, 0.25)",
         },
@@ -971,6 +1041,14 @@ const styles = {
         fontSize: "16px",
         color: "#4A6F8F",
         margin: 0,
+    },
+    noDataSubText: {
+        fontSize: "14px",
+        color: "#6B8BA4",
+        marginTop: "8px",
+    },
+    noDataCell: {
+        padding: "0",
     },
     loadingCell: {
         padding: "60px",
@@ -1015,11 +1093,11 @@ const styles = {
         cursor: "pointer",
         color: "#003366",
         transition: "all 0.2s ease",
-        ":hover": {
+        ':hover': {
             borderColor: "#FFD700",
             background: "#FFF9E6",
         },
-        ":disabled": {
+        ':disabled': {
             opacity: 0.5,
             cursor: "not-allowed",
             borderColor: "#E6EDF5",
@@ -1030,7 +1108,6 @@ const styles = {
         color: "#4A6F8F",
         fontWeight: "500",
     },
-    // Modal Styles
     modalOverlay: {
         position: "fixed",
         top: 0,
@@ -1102,7 +1179,7 @@ const styles = {
         alignItems: "center",
         justifyContent: "center",
         transition: "all 0.2s ease",
-        ":hover": {
+        ':hover': {
             borderColor: "#FFD700",
             color: "#FFD700",
         },
@@ -1181,7 +1258,7 @@ const styles = {
         cursor: "pointer",
         transition: "all 0.2s ease",
         boxShadow: "0 8px 16px rgba(220, 38, 38, 0.15)",
-        ":hover": {
+        ':hover': {
             transform: "translateY(-2px)",
             boxShadow: "0 12px 20px rgba(220, 38, 38, 0.25)",
         },
@@ -1202,50 +1279,11 @@ const styles = {
         cursor: "pointer",
         transition: "all 0.2s ease",
         boxShadow: "0 8px 16px rgba(16, 185, 129, 0.15)",
-        ":hover": {
+        ':hover': {
             transform: "translateY(-2px)",
             boxShadow: "0 12px 20px rgba(16, 185, 129, 0.25)",
         },
     },
-    printBtn: {
-        padding: "14px 20px",
-        background: "#FFFFFF",
-        border: "2px solid #E6EDF5",
-        borderRadius: "14px",
-        color: "#4A6F8F",
-        fontSize: "14px",
-        fontWeight: "600",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "8px",
-        cursor: "pointer",
-        transition: "all 0.2s ease",
-        ":hover": {
-            borderColor: "#FFD700",
-            color: "#003366",
-        },
-    },
-    downloadBtn: {
-        padding: "14px 20px",
-        background: "#FFFFFF",
-        border: "2px solid #E6EDF5",
-        borderRadius: "14px",
-        color: "#4A6F8F",
-        fontSize: "14px",
-        fontWeight: "600",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "8px",
-        cursor: "pointer",
-        transition: "all 0.2s ease",
-        ":hover": {
-            borderColor: "#FFD700",
-            color: "#003366",
-        },
-    },
-    // Rejection Modal Styles
     rejectModalOverlay: {
         position: "fixed",
         top: 0,
@@ -1300,7 +1338,7 @@ const styles = {
         alignItems: "center",
         justifyContent: "center",
         transition: "all 0.2s ease",
-        ":hover": {
+        ':hover': {
             borderColor: "#DC2626",
             color: "#DC2626",
             background: "#FEF2F2",
@@ -1319,29 +1357,21 @@ const styles = {
         color: "#1E293B",
         marginBottom: "8px",
     },
-    rejectInput: {
+    rejectTextarea: {
         width: "100%",
-        padding: "14px 16px",
+        padding: "12px 16px",
         border: "2px solid #E6EDF5",
         borderRadius: "12px",
         fontSize: "14px",
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-        minHeight: "100px",
-        height: "100px",
+        lineHeight: "1.5",
+        resize: "vertical",
         outline: "none",
-        transition: "all 0.2s ease",
+        transition: "border-color 0.2s ease",
         direction: "ltr",
         textAlign: "left",
-        verticalAlign: "top",
-        overflow: "hidden",
-        whiteSpace: "nowrap",
-        textOverflow: "ellipsis",
-        ":focus": {
+        ':focus': {
             borderColor: "#DC2626",
-            boxShadow: "0 0 0 3px rgba(220, 38, 38, 0.1)",
-        },
-        "::placeholder": {
-            color: "#8DA6C0",
         },
     },
     rejectCharCount: {
@@ -1367,7 +1397,7 @@ const styles = {
         fontWeight: "600",
         cursor: "pointer",
         transition: "all 0.2s ease",
-        ":hover": {
+        ':hover': {
             background: "#E6F0FF",
             borderColor: "#CCE5FF",
         },
@@ -1386,11 +1416,11 @@ const styles = {
         cursor: "pointer",
         transition: "all 0.2s ease",
         boxShadow: "0 4px 12px rgba(220, 38, 38, 0.15)",
-        ":hover": {
+        ':hover': {
             transform: "translateY(-2px)",
             boxShadow: "0 8px 20px rgba(220, 38, 38, 0.25)",
         },
-        ":disabled": {
+        ':disabled': {
             opacity: 0.6,
             cursor: "not-allowed",
             transform: "none",
@@ -1398,5 +1428,15 @@ const styles = {
         },
     },
 };
+
+// Add keyframes for spin animation
+const styleSheet = document.createElement("style");
+styleSheet.textContent = `
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+`;
+document.head.appendChild(styleSheet);
 
 export default ChequeLeavesRequests;

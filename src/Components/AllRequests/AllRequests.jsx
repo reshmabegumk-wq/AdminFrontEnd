@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import API from "../../api";
 import { useSnackbar } from "../../Context/SnackbarContext";
@@ -32,14 +32,12 @@ const AllRequests = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [requests, setRequests] = useState([]);
     const [filteredRequests, setFilteredRequests] = useState([]);
-    const [displayedRequests, setDisplayedRequests] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedModule, setSelectedModule] = useState("all");
     const [selectedStatus, setSelectedStatus] = useState("all");
     const [currentPage, setCurrentPage] = useState(0);
-    const [totalPages, setTotalPages] = useState(0);
-    const [totalElements, setTotalElements] = useState(0);
     const [pageSize] = useState(10);
+    const [isFiltering, setIsFiltering] = useState(false);
 
     // Get filter state from navigation
     const { month, year, filterType, status } = location.state || {
@@ -57,23 +55,23 @@ const AllRequests = () => {
     }, [status]);
 
     // Format month name for display
-    const getFormattedMonthYear = () => {
+    const getFormattedMonthYear = useCallback(() => {
         const monthNames = {
             'jan': 'January', 'feb': 'February', 'mar': 'March', 'apr': 'April',
             'may': 'May', 'jun': 'June', 'jul': 'July', 'aug': 'August',
             'sep': 'September', 'oct': 'October', 'nov': 'November', 'dec': 'December'
         };
         return `${monthNames[month]} ${year}`;
-    };
+    }, [month, year]);
 
     // Get month number from month abbreviation
-    const getMonthNumber = (monthAbbr) => {
+    const getMonthNumber = useCallback((monthAbbr) => {
         const months = {
             'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
             'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
         };
         return months[monthAbbr];
-    };
+    }, []);
 
     // Fetch all requests
     const fetchAllRequests = async () => {
@@ -193,10 +191,10 @@ const AllRequests = () => {
                 new Date(b.requestedDate) - new Date(a.requestedDate)
             );
 
+            console.log('Fetched requests:', finalFiltered.length);
             setRequests(finalFiltered);
             setFilteredRequests(finalFiltered);
-            setTotalElements(finalFiltered.length);
-            setTotalPages(Math.ceil(finalFiltered.length / pageSize));
+            setCurrentPage(0);
 
             if (finalFiltered.length === 0) {
                 showSnackbar("info", `No requests found for ${getFormattedMonthYear()}`);
@@ -216,15 +214,31 @@ const AllRequests = () => {
 
     // Filter requests based on search, module, and status
     useEffect(() => {
+        if (!requests.length) {
+            setFilteredRequests([]);
+            return;
+        }
+
+        setIsFiltering(true);
+        
         let filtered = [...requests];
 
         // Apply search filter
-        if (searchTerm) {
-            filtered = filtered.filter(request =>
-                request.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                request.accountNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                request.description?.toLowerCase().includes(searchTerm.toLowerCase())
-            );
+        if (searchTerm && searchTerm.trim()) {
+            const searchLower = searchTerm.toLowerCase().trim();
+            filtered = filtered.filter(request => {
+                const customerName = (request.customerName || '').toLowerCase();
+                const accountNumber = (request.accountNumber || '').toLowerCase();
+                const description = (request.description || '').toLowerCase();
+                const module = (request.module || '').toLowerCase();
+                const status = (request.status || '').toLowerCase();
+                
+                return customerName.includes(searchLower) ||
+                       accountNumber.includes(searchLower) ||
+                       description.includes(searchLower) ||
+                       module.includes(searchLower) ||
+                       status.includes(searchLower);
+            });
         }
 
         // Apply module filter
@@ -234,25 +248,45 @@ const AllRequests = () => {
             );
         }
 
-        // Apply status filter (if not already applied from navigation)
-        if (selectedStatus !== "all" && filterType === 'all') {
+        // Apply status filter
+        if (selectedStatus !== "all") {
             filtered = filtered.filter(request => 
                 request.status?.toLowerCase() === selectedStatus.toLowerCase()
             );
         }
 
+        console.log('Filtering complete:', {
+            original: requests.length,
+            filtered: filtered.length,
+            searchTerm,
+            selectedModule,
+            selectedStatus
+        });
+        
         setFilteredRequests(filtered);
-        setTotalElements(filtered.length);
-        setTotalPages(Math.ceil(filtered.length / pageSize));
-        setCurrentPage(0);
-    }, [searchTerm, selectedModule, selectedStatus, requests, filterType]);
+        setCurrentPage(0); // Reset to first page on filter change
+        setIsFiltering(false);
+        
+    }, [searchTerm, selectedModule, selectedStatus, requests]);
 
-    // Update displayed requests based on current page
-    useEffect(() => {
+    // Get current page data
+    const displayedRequests = useMemo(() => {
+        if (!filteredRequests.length) return [];
         const start = currentPage * pageSize;
         const end = start + pageSize;
-        setDisplayedRequests(filteredRequests.slice(start, end));
+        const displayed = filteredRequests.slice(start, end);
+        
+        console.log('Displaying:', displayed.length, 'requests from page', currentPage, 'start:', start, 'end:', end);
+        console.log('Total filtered:', filteredRequests.length);
+        
+        return displayed;
     }, [filteredRequests, currentPage, pageSize]);
+
+    // Calculate pagination values
+    const totalPages = useMemo(() => 
+        Math.ceil(filteredRequests.length / pageSize), 
+        [filteredRequests.length, pageSize]
+    );
 
     const maskCardNumber = (cardNumber) => {
         if (!cardNumber) return "XXXX";
@@ -289,11 +323,9 @@ const AllRequests = () => {
         }
     };
 
-    // ===== UPDATED NAVIGATION FUNCTION =====
     const handleViewDetails = (request) => {
         console.log("Navigating to:", request.module, "with ID:", request.requestId);
         
-        // Navigate to the main list page with the ID in state
         switch (request.module) {
             case 'Cheque Leaves':
                 navigate('/cheque-book', { 
@@ -352,6 +384,7 @@ const AllRequests = () => {
     };
 
     const convertToCSV = (data) => {
+        if (!data || !data.length) return '';
         const headers = Object.keys(data[0] || {});
         const rows = data.map(obj => headers.map(header => JSON.stringify(obj[header] || '')).join(','));
         return [headers.join(','), ...rows].join('\n');
@@ -359,6 +392,23 @@ const AllRequests = () => {
 
     const handlePageChange = (newPage) => {
         setCurrentPage(newPage);
+        // Scroll to top of table
+        window.scrollTo({
+            top: document.getElementById('requests-table')?.offsetTop - 100 || 0,
+            behavior: 'smooth'
+        });
+    };
+
+    const handleClearSearch = () => {
+        setSearchTerm("");
+        setCurrentPage(0);
+    };
+
+    const handleClearAllFilters = () => {
+        setSearchTerm("");
+        setSelectedModule("all");
+        setSelectedStatus("all");
+        setCurrentPage(0);
     };
 
     const getPageTitle = () => {
@@ -371,10 +421,28 @@ const AllRequests = () => {
         }
     };
 
-    const getModuleOptions = () => {
+    const getModuleOptions = useCallback(() => {
         const modules = ['all', ...new Set(requests.map(r => r.module))];
         return modules;
+    }, [requests]);
+
+    const hasActiveFilters = () => {
+        return searchTerm || selectedModule !== "all" || selectedStatus !== "all";
     };
+
+    // Debug effect to monitor state changes
+    useEffect(() => {
+        console.log('State updated:', {
+            requests: requests.length,
+            filteredRequests: filteredRequests.length,
+            displayedRequests: displayedRequests.length,
+            currentPage,
+            totalPages,
+            searchTerm,
+            selectedModule,
+            selectedStatus
+        });
+    }, [requests, filteredRequests, displayedRequests, currentPage, totalPages, searchTerm, selectedModule, selectedStatus]);
 
     if (isLoading) {
         return (
@@ -400,12 +468,17 @@ const AllRequests = () => {
                     <div>
                         <h1 style={styles.title}>{getPageTitle()}</h1>
                         <p style={styles.subtitle}>
-                            Total {filteredRequests.length} requests found
+                            {filteredRequests.length} request{filteredRequests.length !== 1 ? 's' : ''} found
+                            {hasActiveFilters() && ' (filtered)'}
                         </p>
                     </div>
                 </div>
                 <div style={styles.headerRight}>
-                    <button style={styles.exportBtn} onClick={handleExport} disabled={filteredRequests.length === 0}>
+                    <button 
+                        style={styles.exportBtn} 
+                        onClick={handleExport} 
+                        disabled={filteredRequests.length === 0}
+                    >
                         <FaDownload size={14} />
                         Export
                     </button>
@@ -422,7 +495,7 @@ const AllRequests = () => {
                     <FaSearch size={14} color="#8DA6C0" style={styles.searchIcon} />
                     <input
                         type="text"
-                        placeholder="Search by customer, account, or description..."
+                        placeholder="Search by customer, account, description, module or status..."
                         style={styles.searchInput}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -430,7 +503,7 @@ const AllRequests = () => {
                     {searchTerm && (
                         <button 
                             style={styles.clearSearch}
-                            onClick={() => setSearchTerm("")}
+                            onClick={handleClearSearch}
                         >
                             ×
                         </button>
@@ -452,7 +525,6 @@ const AllRequests = () => {
                         style={styles.filterSelect}
                         value={selectedStatus}
                         onChange={(e) => setSelectedStatus(e.target.value)}
-                        disabled={filterType !== 'all'}
                     >
                         <option value="all">All Status</option>
                         <option value="approved">Approved</option>
@@ -462,8 +534,15 @@ const AllRequests = () => {
                 </div>
             </div>
 
+            {/* Debug info - remove in production */}
+            {/* <div style={{marginBottom: '10px', padding: '10px', background: '#f0f0f0', borderRadius: '5px'}}>
+                <p>Debug: Total: {requests.length} | Filtered: {filteredRequests.length} | Displayed: {displayedRequests.length}</p>
+                <p>Search: "{searchTerm}" | Module: {selectedModule} | Status: {selectedStatus}</p>
+                <p>Page: {currentPage + 1}/{totalPages}</p>
+            </div> */}
+
             {/* Requests Table */}
-            <div style={styles.tableContainer}>
+            <div id="requests-table" style={styles.tableContainer}>
                 {displayedRequests.length > 0 ? (
                     <table style={styles.table}>
                         <thead>
@@ -531,14 +610,30 @@ const AllRequests = () => {
                 ) : (
                     <div style={styles.noDataContainer}>
                         <FaFileAlt size={48} color="#E6EDF5" />
-                        <p style={styles.noDataText}>No requests found for {getFormattedMonthYear()}</p>
-                        <p style={styles.noDataSubtext}>Try adjusting your filters or select a different month</p>
+                        <p style={styles.noDataText}>
+                            {hasActiveFilters() 
+                                ? "No matching requests found" 
+                                : `No requests found for ${getFormattedMonthYear()}`}
+                        </p>
+                        <p style={styles.noDataSubtext}>
+                            {hasActiveFilters()
+                                ? "Try adjusting your search criteria or filters"
+                                : "There are no requests for this period"}
+                        </p>
+                        {hasActiveFilters() && (
+                            <button 
+                                style={styles.clearFiltersBtn}
+                                onClick={handleClearAllFilters}
+                            >
+                                Clear all filters
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
+            {/* Pagination - Only show if there are results and more than one page */}
+            {filteredRequests.length > 0 && totalPages > 1 && (
                 <div style={styles.pagination}>
                     <button
                         style={styles.pageButton}
@@ -547,9 +642,35 @@ const AllRequests = () => {
                     >
                         <FaChevronLeft size={12} />
                     </button>
-                    <span style={styles.pageInfo}>
-                        Page {currentPage + 1} of {totalPages} ({filteredRequests.length} total)
-                    </span>
+                    
+                    <div style={styles.pageNumbers}>
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                            let pageNum;
+                            if (totalPages <= 5) {
+                                pageNum = i;
+                            } else if (currentPage < 3) {
+                                pageNum = i;
+                            } else if (currentPage > totalPages - 3) {
+                                pageNum = totalPages - 5 + i;
+                            } else {
+                                pageNum = currentPage - 2 + i;
+                            }
+                            
+                            return (
+                                <button
+                                    key={pageNum}
+                                    style={{
+                                        ...styles.pageNumberBtn,
+                                        ...(currentPage === pageNum ? styles.activePageBtn : {})
+                                    }}
+                                    onClick={() => handlePageChange(pageNum)}
+                                >
+                                    {pageNum + 1}
+                                </button>
+                            );
+                        })}
+                    </div>
+
                     <button
                         style={styles.pageButton}
                         onClick={() => handlePageChange(currentPage + 1)}
@@ -559,11 +680,18 @@ const AllRequests = () => {
                     </button>
                 </div>
             )}
+
+            {/* Results info - Always show when there are results */}
+            {filteredRequests.length > 0 && (
+                <div style={styles.resultsInfo}>
+                    Showing {currentPage * pageSize + 1} to {Math.min((currentPage + 1) * pageSize, filteredRequests.length)} of {filteredRequests.length} results
+                </div>
+            )}
         </div>
     );
 };
 
-// Styles (keep your existing styles)
+// Styles (keep all your existing styles here)
 const styles = {
     container: {
         padding: "30px",
@@ -603,7 +731,7 @@ const styles = {
         fontWeight: "500",
         cursor: "pointer",
         transition: "all 0.2s ease",
-        ":hover": {
+        ':hover': {
             borderColor: "#FFD700",
         },
     },
@@ -642,11 +770,11 @@ const styles = {
         fontWeight: "600",
         cursor: "pointer",
         transition: "all 0.2s ease",
-        ":hover:not(:disabled)": {
+        ':hover:not(:disabled)': {
             borderColor: "#10B981",
             color: "#10B981",
         },
-        ":disabled": {
+        ':disabled': {
             opacity: 0.5,
             cursor: "not-allowed",
         },
@@ -695,7 +823,7 @@ const styles = {
         color: "#003366",
         outline: "none",
         transition: "all 0.2s ease",
-        ":focus": {
+        ':focus': {
             borderColor: "#FFD700",
         },
     },
@@ -710,7 +838,7 @@ const styles = {
         color: "#8DA6C0",
         cursor: "pointer",
         padding: "0 4px",
-        ":hover": {
+        ':hover': {
             color: "#EF4444",
         },
     },
@@ -763,7 +891,7 @@ const styles = {
     },
     tr: {
         transition: "background 0.2s ease",
-        ":hover": {
+        ':hover': {
             background: "#F8FBFF",
         },
     },
@@ -819,7 +947,7 @@ const styles = {
         fontWeight: "500",
         cursor: "pointer",
         transition: "all 0.2s ease",
-        ":hover": {
+        ':hover': {
             background: "#FFD700",
             color: "#003366",
         },
@@ -830,6 +958,7 @@ const styles = {
         alignItems: "center",
         gap: "20px",
         marginTop: "20px",
+        flexWrap: "wrap",
     },
     pageButton: {
         display: "flex",
@@ -843,18 +972,51 @@ const styles = {
         color: "#003366",
         cursor: "pointer",
         transition: "all 0.2s ease",
-        ":hover:not(:disabled)": {
+        ':hover:not(:disabled)': {
             borderColor: "#FFD700",
         },
-        ":disabled": {
+        ':disabled': {
             opacity: 0.5,
             cursor: "not-allowed",
         },
+    },
+    pageNumbers: {
+        display: "flex",
+        gap: "8px",
+    },
+    pageNumberBtn: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "36px",
+        height: "36px",
+        background: "#FFFFFF",
+        border: "2px solid #E6EDF5",
+        borderRadius: "10px",
+        color: "#003366",
+        fontSize: "14px",
+        fontWeight: "500",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+        ':hover': {
+            borderColor: "#FFD700",
+        },
+    },
+    activePageBtn: {
+        background: "#003366",
+        borderColor: "#003366",
+        color: "#FFFFFF",
     },
     pageInfo: {
         fontSize: "14px",
         color: "#4A6F8F",
         fontWeight: "500",
+    },
+    resultsInfo: {
+        textAlign: "center",
+        marginTop: "15px",
+        fontSize: "13px",
+        color: "#8DA6C0",
     },
     noDataContainer: {
         display: "flex",
@@ -873,6 +1035,22 @@ const styles = {
         fontSize: "14px",
         color: "#8DA6C0",
         margin: 0,
+    },
+    clearFiltersBtn: {
+        marginTop: "20px",
+        padding: "8px 16px",
+        background: "none",
+        border: "2px solid #E6EDF5",
+        borderRadius: "8px",
+        color: "#003366",
+        fontSize: "14px",
+        fontWeight: "500",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+        ':hover': {
+            borderColor: "#EF4444",
+            color: "#EF4444",
+        },
     },
     loadingContainer: {
         display: "flex",

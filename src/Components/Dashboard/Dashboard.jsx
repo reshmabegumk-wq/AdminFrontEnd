@@ -331,7 +331,7 @@ const Dashboard = () => {
                 moduleIcon: module.icon,
                 moduleColor: module.color,
                 status,
-                time: `${Math.floor(Math.random() * 24)} hours ago`,
+                time: "", // Changed: removed time value completely
                 timestamp: new Date().toISOString(),
                 description: `${module.name === 'Cheque Leaves' ? '50 leaves' : 
                              module.name === 'Limit Requests' ? '₹50,000' : 
@@ -644,7 +644,7 @@ const Dashboard = () => {
             moduleIcon: FaBook,
             moduleColor: "#003366",
             status: item.status || "Pending",
-            time: formatTime(item.requestedDate || item.createdDate),
+            time: "", // Changed: set time to empty string
             timestamp: item.requestedDate || item.createdDate,
             description: `${item.noOfLeaves || 0} leaves cheque book`,
             accountNumber: item.accountNumber
@@ -659,7 +659,7 @@ const Dashboard = () => {
             moduleIcon: FaQuestionCircle,
             moduleColor: "#FFD700",
             status: item.status || "Pending",
-            time: formatTime(item.queryRaisedDate),
+            time: "", // Changed: set time to empty string
             timestamp: item.queryRaisedDate,
             description: item.customerQuery?.substring(0, 30) + "...",
             accountNumber: item.accountNumber
@@ -674,7 +674,7 @@ const Dashboard = () => {
             moduleIcon: FaArrowUp,
             moduleColor: "#10B981",
             status: item.status || "Pending",
-            time: formatTime(item.requestDate),
+            time: "", // Changed: set time to empty string
             timestamp: item.requestDate,
             description: `Requested ₹${item.requestedLimit?.toLocaleString() || 0}`,
             accountNumber: item.accountNumber
@@ -689,35 +689,16 @@ const Dashboard = () => {
             moduleIcon: FaShieldAlt,
             moduleColor: "#EF4444",
             status: item.status || "Pending",
-            time: formatTime(item.createdDate),
+            time: "", // Changed: set time to empty string
             timestamp: item.createdDate,
             description: `Card: ${maskCardNumber(item.lostCardNumber)}`,
             accountNumber: item.accountNumber
         }));
     };
 
+    // This function is no longer used but kept for reference
     const formatTime = (dateString) => {
-        if (!dateString) return "N/A";
-        try {
-            const date = new Date(dateString);
-            const now = new Date();
-            const diffMs = now - date;
-            const diffMins = Math.floor(diffMs / 60000);
-            const diffHours = Math.floor(diffMs / 3600000);
-            const diffDays = Math.floor(diffMs / 86400000);
-
-            if (diffMins < 60) {
-                return `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`;
-            } else if (diffHours < 24) {
-                return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
-            } else if (diffDays < 7) {
-                return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
-            } else {
-                return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-            }
-        } catch (e) {
-            return dateString;
-        }
+        return ""; // Return empty string to remove time display
     };
 
     const maskCardNumber = (cardNumber) => {
@@ -910,7 +891,7 @@ const Dashboard = () => {
                 <div style={styles.activityContent}>
                     <div style={styles.activityTop}>
                         <span style={styles.activityCustomer}>{activity.customer}</span>
-                        <span style={styles.activityTime}>{activity.time}</span>
+                        {/* Removed the activity.time display completely */}
                     </div>
                     <div style={styles.activityBottom}>
                         <span style={styles.activityModule}>
@@ -1557,10 +1538,6 @@ const styles = {
         fontSize: "14px",
         fontWeight: "600",
         color: "#1E293B",
-    },
-    activityTime: {
-        fontSize: "11px",
-        color: "#8DA6C0",
     },
     activityBottom: {
         display: "flex",

@@ -175,18 +175,18 @@ const StolenCardRequests = () => {
         fetchStatistics();
     };
 
-    // Handle search functionality
+    // Handle search functionality - THIS NOW FILTERS THE CURRENT PAGE DATA
     const filteredData = stolenCardData?.filter(item => {
         const fullName = `${item.fullName || ''}`.toLowerCase();
         const matchesSearch = fullName.includes(searchTerm.toLowerCase()) ||
-            item.lostCardNumber?.toString().includes(searchTerm);
+            (item.lostCardNumber && item.lostCardNumber.toString().includes(searchTerm));
         return matchesSearch;
     });
 
     // Handle status filter change
     const handleStatusFilterChange = (newStatus) => {
         setStatusFilter(newStatus);
-        setCurrentPage(1);
+        setCurrentPage(1); // Reset to first page when filter changes
     };
 
     // Status badge component
@@ -340,7 +340,7 @@ const StolenCardRequests = () => {
             if (result?.status === true) {
                 showSnackbar("success", "Request approved successfully");
                 closeOverview();
-                fetchStolenCardRequests();
+                fetchStolenCardRequests(currentPage - 1); // Refresh current page
                 fetchStatistics();
             } else {
                 showSnackbar("error", result?.message || "Failed to approve request");
@@ -356,10 +356,9 @@ const StolenCardRequests = () => {
         setShowRejectReason(true);
     };
 
-    // FIXED: Handle reject reason change with proper text direction
+    // Handle reject reason change with proper text direction
     const handleRejectReasonChange = (e) => {
         const value = e.target.value;
-        // Store the raw value without any manipulation
         setRejectReason(value);
     };
 
@@ -388,7 +387,7 @@ const StolenCardRequests = () => {
                 setShowRejectReason(false);
                 setRejectReason("");
                 closeOverview();
-                fetchStolenCardRequests();
+                fetchStolenCardRequests(currentPage - 1); // Refresh current page
                 fetchStatistics();
             } else {
                 showSnackbar("error", result?.message || "Failed to reject request");
@@ -695,7 +694,10 @@ const StolenCardRequests = () => {
                             filteredData.map((item, index) => (
                                 <tr key={item.lostCardId} style={styles.tableRow}>
                                     <td style={styles.tableCell}>
-                                        <span style={styles.requestId}>{index + 1}</span>
+                                        <span style={styles.requestId}>
+                                            {/* Calculate S.No based on current page */}
+                                            {((currentPage - 1) * itemsPerPage) + index + 1}
+                                        </span>
                                     </td>
                                     <td style={styles.tableCell}>
                                         <span style={styles.accountHolder}>{item.fullName || "Customer"}</span>
@@ -746,7 +748,8 @@ const StolenCardRequests = () => {
                 </table>
             </div>
 
-            {paginationData && paginationData.totalPages > 0 && (
+            {/* Only show pagination if there is data and paginationData exists */}
+            {paginationData && paginationData.totalPages > 0 && filteredData.length > 0 && (
                 <div style={styles.pagination}>
                     <button
                         style={styles.pageBtn}
@@ -767,7 +770,6 @@ const StolenCardRequests = () => {
                     </button>
                 </div>
             )}
-
             {showOverview && selectedRequest && (
                 <StolenCardModal request={selectedRequest} onClose={closeOverview} />
             )}

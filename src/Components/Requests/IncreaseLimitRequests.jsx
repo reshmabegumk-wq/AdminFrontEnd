@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import API from "../../api";
 import { useSnackbar } from "../../Context/SnackbarContext";
 import {
@@ -32,7 +32,6 @@ const IncreaseLimitRequests = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [showRejectReason, setShowRejectReason] = useState(false);
     const [rejectReason, setRejectReason] = useState("");
-    const [paginationData, setPaginationData] = useState(null);
     const [stats, setStats] = useState({
         total: 0,
         pending: 0,
@@ -40,30 +39,11 @@ const IncreaseLimitRequests = () => {
         rejected: 0
     });
     const { showSnackbar } = useSnackbar();
-    const itemsPerPage = 5;
-
-    // Function to fetch card details for max limit
-    const fetchCardDetails = async (accountNumber) => {
-        try {
-            const response = await API.get(`/cards/account/${accountNumber}`);
-            if (response?.data?.status && response?.data?.data) {
-                // Find the credit card from the list
-                const creditCard = response.data.data.find(card =>
-                    card.cardTypeName?.toLowerCase() === 'credit'
-                );
-                return creditCard || null;
-            }
-            return null;
-        } catch (error) {
-            console.error('Error fetching card details:', error);
-            return null;
-        }
-    };
+    const itemsPerPage = 10; // Increased to show more items per page
 
     // Function to fetch statistics
     const fetchStats = async () => {
         try {
-            // Fetch all requests to get counts
             const payload = {
                 "status": "",
                 "page": 0,
@@ -74,7 +54,6 @@ const IncreaseLimitRequests = () => {
             if (response?.data?.status && response?.data?.data) {
                 const requests = response.data.data.content || [];
 
-                // Calculate counts
                 const total = requests.length;
                 const approved = requests.filter(r => r.status?.toLowerCase() === 'approved').length;
                 const rejected = requests.filter(r => r.status?.toLowerCase() === 'rejected').length;
@@ -92,97 +71,167 @@ const IncreaseLimitRequests = () => {
         }
     };
 
-    // Function to fetch credit limit increase requests with max limit
-    const fetchLimitRequests = async (page = 0) => {
+    // Function to fetch ALL credit limit increase requests
+    const fetchAllLimitRequests = async () => {
         setIsLoading(true);
         try {
+            // Fetch all requests at once (no pagination)
             const payload = {
-                "status": statusFilter === "all" ? "" : statusFilter,
-                "page": page,
-                "size": itemsPerPage
+                "status": "",
+                "page": 0,
+                "size": 1000 // Fetch a large number to get all records
             };
             const response = await API.post("creditLimit/adminCreditLimitList", payload);
 
             if (response?.data?.status && response?.data?.data) {
                 const requests = response.data.data.content || [];
 
-                // Fetch card details for max limit
-                const requestsWithMaxLimit = await Promise.all(
-                    requests.map(async (request) => {
-                        let maxLimit = null;
-                        if (request.accountNumber) {
-                            const cardDetails = await fetchCardDetails(request.accountNumber);
-                            if (cardDetails) {
-                                maxLimit = cardDetails.maxLimit;
-                            }
-                        }
-                        return {
-                            increaseCreditLimitId: request.increaseCreditLimitId,
-                            fullName: request.fullName,
-                            accountNumber: request.accountNumber,
-                            cardNumber: request.cardNumber,
-                            currentLimitAtRequest: request.currentLimitAtRequest,
-                            requestedLimit: request.requestedLimit,
-                            maxLimit: maxLimit,
-                            requestDate: request.requestDate,
-                            status: request.status,
-                            approvedByName: request.approvedByName,
-                            remarks: request.remarks,
-                            mobileNumber: request.mobileNumber,
-                            email: request.email,
-                            city: request.city
-                        };
-                    })
-                );
+                const formattedRequests = requests.map(request => ({
+                    increaseCreditLimitId: request.increaseCreditLimitId,
+                    fullName: request.fullName || "Unknown Name",
+                    accountNumber: request.accountNumber || "N/A",
+                    cardNumber: request.cardNumber || "N/A",
+                    currentLimitAtRequest: request.currentLimitAtRequest || 0,
+                    requestedLimit: request.requestedLimit || 0,
+                    requestDate: request.requestDate || "N/A",
+                    status: request.status || "pending",
+                    approvedByName: request.approvedByName || "-",
+                    approvedDate: request.approvedDate || "N/A",
+                    remarks: request.remarks || "",
+                    mobileNumber: request.mobileNumber || "N/A",
+                    email: request.email || "N/A",
+                    city: request.city || "N/A"
+                }));
 
-                setLimitRequests(requestsWithMaxLimit);
-                setPaginationData({
-                    pageNumber: response.data.data.pageNumber,
-                    pageSize: response.data.data.pageSize,
-                    totalElements: response.data.data.totalElements,
-                    totalPages: response.data.data.totalPages,
-                    last: response.data.data.last
-                });
+                setLimitRequests(formattedRequests);
             } else {
                 setLimitRequests([]);
-                setPaginationData(null);
             }
 
         } catch (error) {
             console.error('Error fetching limit increase requests:', error);
             showSnackbar("error", "Failed to load limit increase requests. Please try again.");
             setLimitRequests([]);
-            setPaginationData(null);
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Fetch data on component mount and when filters/page changes
+    // Fetch data on component mount
     useEffect(() => {
-        fetchLimitRequests(currentPage - 1);
+        fetchAllLimitRequests();
         fetchStats();
-    }, [currentPage, statusFilter]);
+    }, []); // Empty dependency array - only run once on mount
+
+    // Handle status filter change - refetch data
+    const handleStatusFilterChange = async (newStatus) => {
+        setStatusFilter(newStatus);
+        setCurrentPage(1);
+        setSearchTerm("");
+        
+        // Refetch with new status
+        setIsLoading(true);
+        try {
+            const payload = {
+                "status": newStatus === "all" ? "" : newStatus,
+                "page": 0,
+                "size": 1000
+            };
+            const response = await API.post("creditLimit/adminCreditLimitList", payload);
+
+            if (response?.data?.status && response?.data?.data) {
+                const requests = response.data.data.content || [];
+
+                const formattedRequests = requests.map(request => ({
+                    increaseCreditLimitId: request.increaseCreditLimitId,
+                    fullName: request.fullName || "Unknown Name",
+                    accountNumber: request.accountNumber || "N/A",
+                    cardNumber: request.cardNumber || "N/A",
+                    currentLimitAtRequest: request.currentLimitAtRequest || 0,
+                    requestedLimit: request.requestedLimit || 0,
+                    requestDate: request.requestDate || "N/A",
+                    status: request.status || "pending",
+                    approvedByName: request.approvedByName || "-",
+                    approvedDate: request.approvedDate || "N/A",
+                    remarks: request.remarks || "",
+                    mobileNumber: request.mobileNumber || "N/A",
+                    email: request.email || "N/A",
+                    city: request.city || "N/A"
+                }));
+
+                setLimitRequests(formattedRequests);
+            } else {
+                setLimitRequests([]);
+            }
+        } catch (error) {
+            console.error('Error fetching limit increase requests:', error);
+            showSnackbar("error", "Failed to load limit increase requests. Please try again.");
+            setLimitRequests([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     // Handle search functionality
-    const filteredData = limitRequests?.filter(item => {
-        const matchesSearch = item.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                             item.accountNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                             item.cardNumber?.toString().includes(searchTerm);
-        return matchesSearch;
-    });
+    const filteredData = useMemo(() => {
+        if (!limitRequests || limitRequests.length === 0) {
+            return [];
+        }
+        
+        let filtered = [...limitRequests];
+
+        // Apply status filter
+        if (statusFilter !== "all") {
+            filtered = filtered.filter(item => 
+                item.status?.toLowerCase() === statusFilter.toLowerCase()
+            );
+        }
+
+        // Apply search filter
+        if (searchTerm.trim()) {
+            const searchLower = searchTerm.toLowerCase().trim();
+            filtered = filtered.filter(item => {
+                const fullName = (item.fullName || "").toLowerCase();
+                const accountNumber = (item.accountNumber || "").toLowerCase();
+                const cardNumber = (item.cardNumber || "").toString().toLowerCase();
+                
+                return fullName.includes(searchLower) ||
+                       accountNumber.includes(searchLower) ||
+                       cardNumber.includes(searchLower);
+            });
+        }
+        
+        return filtered;
+    }, [limitRequests, searchTerm, statusFilter]);
+
+    // Client-side pagination
+    const paginatedData = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        return filteredData.slice(startIndex, endIndex);
+    }, [filteredData, currentPage]);
+
+    const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
     // Handle refresh
     const handleRefresh = () => {
         setCurrentPage(1);
-        fetchLimitRequests(0);
+        setSearchTerm("");
+        setStatusFilter("all");
+        fetchAllLimitRequests();
         fetchStats();
         showSnackbar("success", "Data refreshed successfully");
     };
 
-    // Handle status filter change
-    const handleStatusFilterChange = (newStatus) => {
-        setStatusFilter(newStatus);
+    // Handle search input change
+    const handleSearchChange = (e) => {
+        setSearchTerm(e.target.value);
+        setCurrentPage(1); // Reset to first page when searching
+    };
+
+    // Clear search
+    const handleClearSearch = () => {
+        setSearchTerm("");
         setCurrentPage(1);
     };
 
@@ -221,7 +270,7 @@ const IncreaseLimitRequests = () => {
     // Card Number Badge component
     const CardNumberBadge = ({ cardNumber }) => {
         const formatCardNumber = (number) => {
-            if (!number) return "Not Available";
+            if (!number || number === "N/A") return "Not Available";
             const str = number.toString().replace(/\s/g, '');
             if (str.length === 16) {
                 return str.match(/.{1,4}/g).join(' ');
@@ -248,32 +297,16 @@ const IncreaseLimitRequests = () => {
         );
     };
 
-    // API function to fetch request details with max limit
-    const fetchRequestDetails = async (id, accountNumber) => {
+    // API function to fetch request details
+    const fetchRequestDetails = async (id) => {
         setIsLoading(true);
         try {
-            // Fetch the limit request details
             const res = await API.get(`/creditLimit/creditLimitBy/${id}`);
 
             if (res.data && res.data.status && res.data.data) {
                 const requestData = res.data.data;
-                
-                // Fetch card details for max limit
-                let maxLimit = null;
-                if (accountNumber) {
-                    const cardDetails = await fetchCardDetails(accountNumber);
-                    if (cardDetails) {
-                        maxLimit = cardDetails.maxLimit;
-                    }
-                }
-
-                const requestWithMaxLimit = {
-                    ...requestData,
-                    maxLimit: maxLimit
-                };
-                
-                setRequestDetails(requestWithMaxLimit);
-                return requestWithMaxLimit;
+                setRequestDetails(requestData);
+                return requestData;
             }
             return null;
         } catch (error) {
@@ -310,7 +343,7 @@ const IncreaseLimitRequests = () => {
     const handleViewOverview = async (item) => {
         setSelectedRequest(item);
         setShowOverview(true);
-        await fetchRequestDetails(item.increaseCreditLimitId, item.accountNumber);
+        await fetchRequestDetails(item.increaseCreditLimitId);
     };
 
     // Handle approve request
@@ -331,7 +364,8 @@ const IncreaseLimitRequests = () => {
             if (result?.status) {
                 showSnackbar("success", "Request approved successfully");
                 closeOverview();
-                fetchLimitRequests(currentPage - 1);
+                // Refresh data
+                fetchAllLimitRequests();
                 fetchStats();
             } else {
                 showSnackbar("error", result?.message || "Failed to approve request");
@@ -372,7 +406,8 @@ const IncreaseLimitRequests = () => {
                 setShowRejectReason(false);
                 setRejectReason("");
                 closeOverview();
-                fetchLimitRequests(currentPage - 1);
+                // Refresh data
+                fetchAllLimitRequests();
                 fetchStats();
             } else {
                 showSnackbar("error", result?.message || "Failed to reject request");
@@ -401,23 +436,27 @@ const IncreaseLimitRequests = () => {
     // Format currency
     const formatCurrency = (amount) => {
         if (!amount && amount !== 0) return "N/A";
-        return new Intl.NumberFormat('en-IN', {
-            style: 'currency',
-            currency: 'INR',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        }).format(amount);
+        try {
+            return new Intl.NumberFormat('en-IN', {
+                style: 'currency',
+                currency: 'INR',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(amount);
+        } catch (error) {
+            return `₹${amount}`;
+        }
     };
 
     // Format date
     const formatDate = (dateString) => {
-        if (!dateString) return "N/A";
+        if (!dateString || dateString === "N/A") return "N/A";
         return dateString;
     };
 
     // Format card number for display
     const formatCardNumber = (cardNumber) => {
-        if (!cardNumber) return "N/A";
+        if (!cardNumber || cardNumber === "N/A") return "N/A";
         const str = cardNumber.toString().replace(/\s/g, '');
         if (str.length === 16) {
             return str.match(/.{1,4}/g).join(' ');
@@ -484,9 +523,17 @@ const IncreaseLimitRequests = () => {
                         type="text"
                         placeholder="Search by cardholder name, account number or card number..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={handleSearchChange}
                         style={styles.searchInput}
                     />
+                    {searchTerm && (
+                        <button 
+                            style={styles.clearSearch}
+                            onClick={handleClearSearch}
+                        >
+                            ×
+                        </button>
+                    )}
                 </div>
                 <div style={styles.filterGroup}>
                     <FaFilter style={styles.filterIcon} />
@@ -514,9 +561,9 @@ const IncreaseLimitRequests = () => {
                             <th style={styles.tableHeader}>CARD NUMBER</th>
                             <th style={styles.tableHeader}>CURRENT LIMIT (AT REQUEST)</th>
                             <th style={styles.tableHeader}>REQUESTED LIMIT</th>
-                            <th style={styles.tableHeader}>MAX LIMIT</th>
                             <th style={styles.tableHeader}>REQUEST DATE</th>
-                            <th style={styles.tableHeader}>UPDATED BY</th>
+                            <th style={styles.tableHeader}>APPROVED DATE</th>
+                            <th style={styles.tableHeader}>APPROVED BY</th>
                             <th style={styles.tableHeader}>STATUS</th>
                             <th style={styles.tableHeader}>ACTION</th>
                         </tr>
@@ -531,9 +578,9 @@ const IncreaseLimitRequests = () => {
                                     </div>
                                 </td>
                             </tr>
-                        ) : filteredData.length > 0 ? (
-                            filteredData.map((item, index) => (
-                                <tr key={item.increaseCreditLimitId} style={styles.tableRow}>
+                        ) : paginatedData && paginatedData.length > 0 ? (
+                            paginatedData.map((item, index) => (
+                                <tr key={item.increaseCreditLimitId || index} style={styles.tableRow}>
                                     <td style={styles.tableCell}>
                                         <span style={styles.sno}>{(currentPage - 1) * itemsPerPage + index + 1}</span>
                                     </td>
@@ -557,14 +604,15 @@ const IncreaseLimitRequests = () => {
                                         </span>
                                     </td>
                                     <td style={styles.tableCell}>
-                                        <span style={styles.maximumLimit}>
-                                            {formatCurrency(item.maxLimit)}
-                                        </span>
+                                        <div style={styles.dateCell}>
+                                            <FaCalendarAlt style={styles.dateIcon} />
+                                            {formatDate(item.requestDate)}
+                                        </div>
                                     </td>
                                     <td style={styles.tableCell}>
                                         <div style={styles.dateCell}>
                                             <FaCalendarAlt style={styles.dateIcon} />
-                                            {formatDate(item.requestDate)}
+                                            {formatDate(item.approvedDate)}
                                         </div>
                                     </td>
                                     <td style={styles.tableCell}>
@@ -589,7 +637,17 @@ const IncreaseLimitRequests = () => {
                                 <td colSpan="11" style={styles.noDataCell}>
                                     <div style={styles.noData}>
                                         <FaExclamationTriangle size={48} style={styles.noDataIcon} />
-                                        <p style={styles.noDataText}>No limit increase requests found</p>
+                                        <p style={styles.noDataText}>
+                                            {searchTerm ? "No matching requests found" : "No limit increase requests found"}
+                                        </p>
+                                        {searchTerm && (
+                                            <button 
+                                                style={styles.clearSearchBtn}
+                                                onClick={handleClearSearch}
+                                            >
+                                                Clear Search
+                                            </button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
@@ -598,8 +656,8 @@ const IncreaseLimitRequests = () => {
                 </table>
             </div>
 
-            {/* Pagination */}
-            {paginationData && paginationData.totalPages > 0 && (
+            {/* Pagination - Client-side pagination */}
+            {!isLoading && filteredData.length > 0 && totalPages > 1 && (
                 <div style={styles.pagination}>
                     <button
                         style={styles.pageBtn}
@@ -608,16 +666,26 @@ const IncreaseLimitRequests = () => {
                     >
                         <FaChevronLeft size={16} />
                     </button>
+                    
                     <span style={styles.pageInfo}>
-                        Page {currentPage} of {paginationData.totalPages} ({paginationData.totalElements} total)
+                        Page {currentPage} of {totalPages} 
+                        ({filteredData.length} {filteredData.length === 1 ? 'record' : 'records'})
                     </span>
+                    
                     <button
                         style={styles.pageBtn}
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, paginationData.totalPages))}
-                        disabled={currentPage === paginationData.totalPages}
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
                     >
                         <FaChevronRight size={16} />
                     </button>
+                </div>
+            )}
+            
+            {/* Show record count even when no pagination needed */}
+            {!isLoading && filteredData.length > 0 && totalPages <= 1 && (
+                <div style={styles.recordCount}>
+                    Showing {filteredData.length} {filteredData.length === 1 ? 'record' : 'records'}
                 </div>
             )}
 
@@ -647,7 +715,7 @@ const IncreaseLimitRequests = () => {
                                 )}
                             </div>
 
-                            {/* Limit Information - Showing exactly what's in the database */}
+                            {/* Limit Information */}
                             <div style={styles.currentLimitHighlight}>
                                 <div style={styles.currentLimitBox}>
                                     <FaWallet size={20} color="#FFD700" />
@@ -724,7 +792,6 @@ const IncreaseLimitRequests = () => {
                                         <span style={styles.infoValue}>{requestDetails.increaseCreditLimitId || "N/A"}</span>
                                     </div>
                                     
-                                    {/* Current Limit at Request - This never changes */}
                                     <div style={{...styles.infoRow, ...styles.highlightRow}}>
                                         <span style={styles.infoLabel}>💰 Current Limit (At Request)</span>
                                         <span style={{
@@ -735,7 +802,6 @@ const IncreaseLimitRequests = () => {
                                         </span>
                                     </div>
                                     
-                                    {/* Requested Limit */}
                                     <div style={{...styles.infoRow, ...styles.highlightRow}}>
                                         <span style={styles.infoLabel}>📈 Requested Limit</span>
                                         <span style={{
@@ -745,40 +811,31 @@ const IncreaseLimitRequests = () => {
                                             {formatCurrency(requestDetails.requestedLimit)}
                                         </span>
                                     </div>
-
-                                    {/* Max Limit */}
-                                    <div style={styles.infoRow}>
-                                        <span style={styles.infoLabel}>Maximum Allowed Limit</span>
-                                        <span style={{
-                                            ...styles.infoValue,
-                                            color: "#8B5CF6",
-                                            fontWeight: "700"
-                                        }}>
-                                            {formatCurrency(requestDetails.maxLimit)}
-                                        </span>
-                                    </div>
                                     
-                                    {/* Request Date */}
                                     <div style={styles.infoRow}>
                                         <span style={styles.infoLabel}>Request Date</span>
                                         <span style={styles.infoValue}>{formatDate(requestDetails.requestDate)}</span>
                                     </div>
                                     
-                                    {/* Status */}
                                     <div style={styles.infoRow}>
                                         <span style={styles.infoLabel}>Status</span>
                                         <span style={styles.infoValue}>{requestDetails.status || "N/A"}</span>
                                     </div>
 
-                                    {/* Updated By - Only show if available */}
-                                    {requestDetails.approvedByName && (
+                                    {requestDetails.approvedDate && requestDetails.approvedDate !== "N/A" && (
                                         <div style={styles.infoRow}>
-                                            <span style={styles.infoLabel}>Updated By</span>
+                                            <span style={styles.infoLabel}>Approved Date</span>
+                                            <span style={styles.infoValue}>{formatDate(requestDetails.approvedDate)}</span>
+                                        </div>
+                                    )}
+
+                                    {requestDetails.approvedByName && requestDetails.approvedByName !== "-" && (
+                                        <div style={styles.infoRow}>
+                                            <span style={styles.infoLabel}>Approved By</span>
                                             <span style={styles.infoValue}>{requestDetails.approvedByName}</span>
                                         </div>
                                     )}
 
-                                    {/* Remarks - Only show if available */}
                                     {requestDetails.remarks && (
                                         <div style={{ ...styles.infoRow, gridColumn: "span 2" }}>
                                             <span style={styles.infoLabel}>Remarks</span>
@@ -989,6 +1046,7 @@ const styles = {
         border: "2px solid #E6EDF5",
         transition: "all 0.2s ease",
         minWidth: "300px",
+        position: "relative",
     },
     searchIcon: {
         color: "#6B8BA4",
@@ -1003,6 +1061,19 @@ const styles = {
         background: "transparent",
         "::placeholder": {
             color: "#A0B8CC",
+        },
+    },
+    clearSearch: {
+        position: "absolute",
+        right: "12px",
+        background: "none",
+        border: "none",
+        fontSize: "20px",
+        color: "#6B8BA4",
+        cursor: "pointer",
+        padding: "0 8px",
+        ":hover": {
+            color: "#003366",
         },
     },
     filterGroup: {
@@ -1099,15 +1170,6 @@ const styles = {
         borderRadius: "6px",
         display: "inline-block",
     },
-    maximumLimit: {
-        fontWeight: "600",
-        color: "#8B5CF6",
-        background: "rgba(139, 92, 246, 0.1)",
-        padding: "4px 8px",
-        borderRadius: "6px",
-        display: "inline-block",
-        fontFamily: "monospace",
-    },
     dateCell: {
         display: "flex",
         alignItems: "center",
@@ -1184,7 +1246,22 @@ const styles = {
     noDataText: {
         fontSize: "16px",
         color: "#4A6F8F",
-        margin: 0,
+        margin: "0 0 16px 0",
+    },
+    clearSearchBtn: {
+        padding: "8px 16px",
+        background: "linear-gradient(135deg, #003366, #002244)",
+        border: "none",
+        borderRadius: "8px",
+        color: "#FFFFFF",
+        fontSize: "12px",
+        fontWeight: "600",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+        ":hover": {
+            transform: "translateY(-2px)",
+            boxShadow: "0 4px 12px rgba(0, 51, 102, 0.25)",
+        },
     },
     noDataCell: {
         padding: "0",
@@ -1195,6 +1272,13 @@ const styles = {
         alignItems: "center",
         gap: "20px",
         marginTop: "24px",
+    },
+    recordCount: {
+        textAlign: "center",
+        marginTop: "24px",
+        fontSize: "14px",
+        color: "#4A6F8F",
+        fontWeight: "500",
     },
     pageBtn: {
         width: "80px",
