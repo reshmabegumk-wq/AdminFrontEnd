@@ -782,7 +782,7 @@ const CustomerQueries = () => {
                     <FaSearch style={styles.searchIcon} />
                     <input
                         type="text"
-                        placeholder="Search by account number, customer name or query..."
+                        placeholder="Search by account number, customer name "
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={styles.searchInput}

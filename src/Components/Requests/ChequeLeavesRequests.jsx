@@ -518,7 +518,7 @@ const ChequeLeavesRequests = () => {
         );
     };
 
-    // Rejection Modal - Separate component
+    // Rejection Modal - Separate component with fixed textarea
     const RejectionModal = () => {
         if (!showRejectReason) return null;
 
@@ -539,17 +539,35 @@ const ChequeLeavesRequests = () => {
                         <div style={styles.rejectFieldGroup}>
                             <label style={styles.rejectLabel}>Rejection Reason *</label>
                             <textarea
-    dir="ltr"
-    style={{
-        ...styles.rejectTextarea,
-        direction: "ltr",
-        textAlign: "left"
-    }}
-    value={rejectReason}
-    onChange={handleRejectReasonChange}
-    rows={4}
-    autoFocus
-/>
+                                dir="ltr"
+                                style={{
+                                    width: "100%",
+                                    padding: "12px 16px",
+                                    border: "2px solid #E6EDF5",
+                                    borderRadius: "12px",
+                                    fontSize: "14px",
+                                    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                                    lineHeight: "1.5",
+                                    resize: "vertical",
+                                    outline: "none",
+                                    transition: "border-color 0.2s ease",
+                                    direction: "ltr",
+                                    unicodeBidi: "bidi-override",
+                                    textAlign: "left",
+                                }}
+                                value={rejectReason}
+                                onChange={handleRejectReasonChange}
+                                rows={4}
+                                autoFocus
+                                spellCheck="false"
+                                autoComplete="off"
+                                onFocus={(e) => {
+                                    // Ensure cursor is at the end of text
+                                    const val = e.target.value;
+                                    e.target.value = '';
+                                    e.target.value = val;
+                                }}
+                            />
                             <div style={styles.rejectCharCount}>
                                 {rejectReason.length}/500
                             </div>
@@ -1368,8 +1386,6 @@ const styles = {
         resize: "vertical",
         outline: "none",
         transition: "border-color 0.2s ease",
-        direction: "ltr",
-        textAlign: "left",
         ':focus': {
             borderColor: "#DC2626",
         },

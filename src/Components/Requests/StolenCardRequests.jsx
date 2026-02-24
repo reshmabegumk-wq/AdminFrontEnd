@@ -38,6 +38,22 @@ const StolenCardRequests = () => {
     const { showSnackbar } = useSnackbar();
     const itemsPerPage = 5;
 
+    // Format date to DD-MM-YYYY
+    const formatDate = (dateString) => {
+        if (!dateString) return "N/A";
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return dateString;
+            
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}-${month}-${year}`;
+        } catch (error) {
+            return dateString;
+        }
+    };
+
     // Helper function to normalize card type from backend
     const normalizeCardType = (typeName) => {
         if (!typeName) return null;
@@ -356,7 +372,7 @@ const StolenCardRequests = () => {
         setShowRejectReason(true);
     };
 
-    // Handle reject reason change with proper text direction
+    // Handle reject reason change
     const handleRejectReasonChange = (e) => {
         const value = e.target.value;
         setRejectReason(value);
@@ -413,7 +429,90 @@ const StolenCardRequests = () => {
         setRejectReason("");
     };
 
-    // Modal Component
+    // Separate Rejection Modal Component (like in ChequeLeavesRequests)
+    const RejectionModal = () => {
+        if (!showRejectReason) return null;
+
+        return (
+            <div style={styles.rejectModalOverlay} onClick={handleCancelRejection}>
+                <div style={styles.rejectModalContent} onClick={(e) => e.stopPropagation()}>
+                    <div style={styles.rejectModalHeader}>
+                        <h3 style={styles.rejectModalTitle}>
+                            <FaBan size={16} style={{ marginRight: "8px", color: "#DC2626" }} />
+                            Reject Request
+                        </h3>
+                        <button style={styles.rejectCloseBtn} onClick={handleCancelRejection}>
+                            ×
+                        </button>
+                    </div>
+
+                    <div style={styles.rejectModalBody}>
+                        <div style={styles.rejectFieldGroup}>
+                            <label style={styles.rejectLabel}>Rejection Reason *</label>
+                            <textarea
+                                dir="ltr"
+                                style={{
+                                    width: "100%",
+                                    padding: "12px 16px",
+                                    border: "2px solid #E6EDF5",
+                                    borderRadius: "12px",
+                                    fontSize: "14px",
+                                    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                                    lineHeight: "1.5",
+                                    resize: "vertical",
+                                    outline: "none",
+                                    transition: "border-color 0.2s ease",
+                                    direction: "ltr",
+                                    unicodeBidi: "bidi-override",
+                                    textAlign: "left",
+                                }}
+                                value={rejectReason}
+                                onChange={handleRejectReasonChange}
+                                rows={4}
+                                autoFocus
+                                spellCheck="false"
+                                autoComplete="off"
+                                onFocus={(e) => {
+                                    // Ensure cursor is at the end of text
+                                    const val = e.target.value;
+                                    e.target.value = '';
+                                    e.target.value = val;
+                                }}
+                            />
+                            <div style={styles.rejectCharCount}>
+                                {rejectReason.length}/500
+                            </div>
+                        </div>
+
+                        <div style={styles.rejectModalActions}>
+                            <button
+                                style={styles.rejectCancelBtn}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCancelRejection();
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                style={styles.rejectSubmitBtn}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSubmitRejection();
+                                }}
+                                disabled={!rejectReason.trim()}
+                            >
+                                <FaBan size={14} />
+                                Submit Rejection
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // Main Modal Component
     const StolenCardModal = ({ request, onClose }) => {
         if (!request) return null;
 
@@ -498,11 +597,11 @@ const StolenCardRequests = () => {
                                 </div>
                                 <div style={styles.infoRow}>
                                     <span style={styles.infoLabel}>Created Date</span>
-                                    <span style={styles.infoValue}>{displayData.createdDate || "N/A"}</span>
+                                    <span style={styles.infoValue}>{formatDate(displayData.createdDate)}</span>
                                 </div>
                                 <div style={styles.infoRow}>
                                     <span style={styles.infoLabel}>Stolen Date</span>
-                                    <span style={styles.infoValue}>{displayData.lostCardStolenDate || "N/A"}</span>
+                                    <span style={styles.infoValue}>{formatDate(displayData.lostCardStolenDate)}</span>
                                 </div>
                                 <div style={styles.infoRow}>
                                     <span style={styles.infoLabel}>Status</span>
@@ -514,7 +613,7 @@ const StolenCardRequests = () => {
                                 </div>
                                 <div style={styles.infoRow}>
                                     <span style={styles.infoLabel}>Updated Date</span>
-                                    <span style={styles.infoValue}>{displayData.approvedDate || "N/A"}</span>
+                                    <span style={styles.infoValue}>{formatDate(displayData.approvedDate)}</span>
                                 </div>
                                 <div style={styles.infoRow}>
                                     <span style={styles.infoLabel}>Updated By</span>
@@ -533,57 +632,6 @@ const StolenCardRequests = () => {
                                     <FaCheckCircle size={14} />
                                     Approve request
                                 </button>
-                            </div>
-                        )}
-
-                        {showRejectReason && (
-                            <div style={styles.rejectModalOverlay}>
-                                <div style={styles.rejectModalContent}>
-                                    <div style={styles.rejectModalHeader}>
-                                        <h3 style={styles.rejectModalTitle}>
-                                            <FaBan size={16} style={{ marginRight: "8px", color: "#DC2626" }} />
-                                            Reject Request
-                                        </h3>
-                                        <button style={styles.rejectCloseBtn} onClick={handleCancelRejection}>
-                                            ×
-                                        </button>
-                                    </div>
-
-                                    <div style={styles.rejectModalBody}>
-                                        <div style={styles.rejectFieldGroup}>
-                                            <label style={styles.rejectLabel}>Rejection Reason *</label>
-                                            <textarea
-                                                style={styles.rejectTextarea}
-                                                placeholder="Please provide a detailed reason for rejecting this request..."
-                                                value={rejectReason}
-                                                onChange={handleRejectReasonChange}
-                                                rows={4}
-                                                autoFocus
-                                                dir="ltr"
-                                            />
-                                            <div style={styles.rejectCharCount}>
-                                                {rejectReason.length}/500
-                                            </div>
-                                        </div>
-
-                                        <div style={styles.rejectModalActions}>
-                                            <button
-                                                style={styles.rejectCancelBtn}
-                                                onClick={handleCancelRejection}
-                                            >
-                                                Cancel
-                                            </button>
-                                            <button
-                                                style={styles.rejectSubmitBtn}
-                                                onClick={handleSubmitRejection}
-                                                disabled={!rejectReason.trim()}
-                                            >
-                                                <FaBan size={14} />
-                                                Submit Rejection
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
                         )}
                     </div>
@@ -695,7 +743,6 @@ const StolenCardRequests = () => {
                                 <tr key={item.lostCardId} style={styles.tableRow}>
                                     <td style={styles.tableCell}>
                                         <span style={styles.requestId}>
-                                            {/* Calculate S.No based on current page */}
                                             {((currentPage - 1) * itemsPerPage) + index + 1}
                                         </span>
                                     </td>
@@ -714,7 +761,7 @@ const StolenCardRequests = () => {
                                     <td style={styles.tableCell}>
                                         <div style={styles.dateCell}>
                                             <FaCalendarAlt style={styles.dateIcon} />
-                                            {item.createdDate}
+                                            {formatDate(item.createdDate)}
                                         </div>
                                     </td>
                                     <td style={styles.tableCell}>
@@ -748,7 +795,6 @@ const StolenCardRequests = () => {
                 </table>
             </div>
 
-            {/* Only show pagination if there is data and paginationData exists */}
             {paginationData && paginationData.totalPages > 0 && filteredData.length > 0 && (
                 <div style={styles.pagination}>
                     <button
@@ -770,14 +816,18 @@ const StolenCardRequests = () => {
                     </button>
                 </div>
             )}
+            
             {showOverview && selectedRequest && (
                 <StolenCardModal request={selectedRequest} onClose={closeOverview} />
             )}
+            
+            {/* Separate Rejection Modal */}
+            <RejectionModal />
         </div>
     );
 };
 
-// Styles object
+// Styles object (keep all your existing styles)
 const styles = {
     container: {
         padding: "30px",
@@ -1346,29 +1396,6 @@ const styles = {
         fontWeight: "600",
         color: "#1E293B",
         marginBottom: "8px",
-    },
-    rejectTextarea: {
-        width: "100%",
-        padding: "14px 16px",
-        border: "2px solid #E6EDF5",
-        borderRadius: "12px",
-        fontSize: "14px",
-        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-        minHeight: "100px",
-        outline: "none",
-        transition: "all 0.2s ease",
-        resize: "vertical",
-        direction: "ltr",
-        unicodeBidi: "normal",
-        textAlign: "left",
-        ":focus": {
-            borderColor: "#DC2626",
-            boxShadow: "0 0 0 3px rgba(220, 38, 38, 0.1)",
-        },
-        "::placeholder": {
-            color: "#8DA6C0",
-            textAlign: "left",
-        },
     },
     rejectCharCount: {
         textAlign: "right",

@@ -35,7 +35,6 @@ const PendingActions = () => {
     const [displayedRequests, setDisplayedRequests] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedModule, setSelectedModule] = useState("all");
-    const [selectedPriority, setSelectedPriority] = useState("all");
     const [currentPage, setCurrentPage] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
     const [totalElements, setTotalElements] = useState(0);
@@ -45,8 +44,7 @@ const PendingActions = () => {
         chequeBooks: 0,
         customerQueries: 0,
         limitRequests: 0,
-        stolenCards: 0,
-        urgent: 0
+        stolenCards: 0
     });
 
     // Get filter state from navigation - this comes from dashboard
@@ -74,38 +72,10 @@ const PendingActions = () => {
         return months[monthAbbr];
     };
 
-    // Calculate priority based on date
-    const getPriority = (dateString) => {
-        if (!dateString) return 'normal';
-        
-        const requestDate = new Date(dateString);
-        const now = new Date();
-        const diffDays = Math.floor((now - requestDate) / (1000 * 60 * 60 * 24));
-        
-        if (diffDays >= 5) return 'urgent';
-        if (diffDays >= 3) return 'high';
-        if (diffDays >= 1) return 'medium';
-        return 'low';
-    };
-
-    const getPriorityColor = (priority) => {
-        switch (priority) {
-            case 'urgent': return '#EF4444';
-            case 'high': return '#F97316';
-            case 'medium': return '#FFD700';
-            case 'low': return '#10B981';
-            default: return '#6B8BA4';
-        }
-    };
-
-    const getPriorityLabel = (priority) => {
-        switch (priority) {
-            case 'urgent': return 'Urgent';
-            case 'high': return 'High';
-            case 'medium': return 'Medium';
-            case 'low': return 'Low';
-            default: return 'Normal';
-        }
+    // Helper function to safely convert any value to lowercase string
+    const safeToLowerCase = (value) => {
+        if (value === null || value === undefined) return '';
+        return String(value).toLowerCase();
     };
 
     // Fetch all pending requests for the selected month
@@ -139,7 +109,6 @@ const PendingActions = () => {
                     requestedDate: item.requestedDate || item.createdDate,
                     description: `${item.noOfLeaves || 0} leaves cheque book`,
                     value: `${item.noOfLeaves || 0} leaves`,
-                    priority: getPriority(item.requestedDate || item.createdDate),
                     originalData: item
                 }));
                 allPending = [...allPending, ...chequeRequests];
@@ -159,7 +128,6 @@ const PendingActions = () => {
                     requestedDate: item.queryRaisedDate,
                     description: item.customerQuery?.substring(0, 50) + "...",
                     value: "Query",
-                    priority: getPriority(item.queryRaisedDate),
                     originalData: item
                 }));
                 allPending = [...allPending, ...queryRequests];
@@ -179,7 +147,6 @@ const PendingActions = () => {
                     requestedDate: item.requestDate,
                     description: `Requested ₹${item.requestedLimit?.toLocaleString() || 0}`,
                     value: `₹${item.requestedLimit?.toLocaleString() || 0}`,
-                    priority: getPriority(item.requestDate),
                     originalData: item
                 }));
                 allPending = [...allPending, ...limitRequests];
@@ -199,7 +166,6 @@ const PendingActions = () => {
                     requestedDate: item.createdDate,
                     description: `Card: ${maskCardNumber(item.lostCardNumber)}`,
                     value: "Card Blocked",
-                    priority: getPriority(item.createdDate),
                     originalData: item
                 }));
                 allPending = [...allPending, ...stolenRequests];
@@ -215,17 +181,12 @@ const PendingActions = () => {
                 return date.getMonth() === monthNum && date.getFullYear() === yearNum;
             });
 
-            // Sort by priority and date (urgent first, then oldest)
-            filteredByDate.sort((a, b) => {
-                const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
-                if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
-                    return priorityOrder[a.priority] - priorityOrder[b.priority];
-                }
-                return new Date(a.requestedDate) - new Date(b.requestedDate);
-            });
+            // Sort by date (oldest first)
+            filteredByDate.sort((a, b) => 
+                new Date(a.requestedDate) - new Date(b.requestedDate)
+            );
 
             // Calculate stats
-            const urgent = filteredByDate.filter(r => r.priority === 'urgent').length;
             const chequeBooks = filteredByDate.filter(r => r.module === "Cheque Leaves").length;
             const customerQueries = filteredByDate.filter(r => r.module === "Customer Queries").length;
             const limitRequests = filteredByDate.filter(r => r.module === "Limit Requests").length;
@@ -236,8 +197,7 @@ const PendingActions = () => {
                 chequeBooks,
                 customerQueries,
                 limitRequests,
-                stolenCards,
-                urgent
+                stolenCards
             });
 
             setPendingRequests(filteredByDate);
@@ -248,8 +208,6 @@ const PendingActions = () => {
 
             if (filteredByDate.length === 0) {
                 showSnackbar("info", `No pending actions found for ${getFormattedMonthYear()}`);
-            } else if (urgent > 0) {
-                showSnackbar("warning", `${urgent} urgent pending action${urgent > 1 ? 's' : ''} need immediate attention!`);
             }
 
         } catch (error) {
@@ -264,7 +222,7 @@ const PendingActions = () => {
         fetchPendingRequests();
     }, [month, year]);
 
-    // Filter requests based on search, module, and priority
+    // Filter requests based on search and module
     useEffect(() => {
         if (!pendingRequests.length) return;
 
@@ -273,33 +231,26 @@ const PendingActions = () => {
         // Apply search filter
         if (searchTerm.trim()) {
             const term = searchTerm.toLowerCase().trim();
-            filtered = filtered.filter(request =>
-                request.customerName?.toLowerCase().includes(term) ||
-                request.accountNumber?.toLowerCase().includes(term) ||
-                request.description?.toLowerCase().includes(term) ||
-                request.module?.toLowerCase().includes(term)
+            filtered = filtered.filter(request => 
+                safeToLowerCase(request.customerName).includes(term) ||
+                safeToLowerCase(request.accountNumber).includes(term) ||
+                safeToLowerCase(request.description).includes(term) ||
+                safeToLowerCase(request.module).includes(term)
             );
         }
 
         // Apply module filter
         if (selectedModule !== "all") {
             filtered = filtered.filter(request => 
-                request.module.toLowerCase() === selectedModule.toLowerCase()
-            );
-        }
-
-        // Apply priority filter
-        if (selectedPriority !== "all") {
-            filtered = filtered.filter(request => 
-                request.priority === selectedPriority
+                safeToLowerCase(request.module) === safeToLowerCase(selectedModule)
             );
         }
 
         setFilteredRequests(filtered);
         setTotalElements(filtered.length);
         setTotalPages(Math.ceil(filtered.length / pageSize));
-        setCurrentPage(0);
-    }, [searchTerm, selectedModule, selectedPriority, pendingRequests]);
+        setCurrentPage(0); // Reset to first page when filters change
+    }, [searchTerm, selectedModule, pendingRequests]);
 
     // Update displayed requests based on current page
     useEffect(() => {
@@ -314,26 +265,15 @@ const PendingActions = () => {
         return "XXXX XXXX XXXX " + str.slice(-4);
     };
 
+    // Updated date formatter to return only dd-mm-yyyy
     const formatDate = (dateString) => {
         if (!dateString) return "N/A";
         try {
             const date = new Date(dateString);
-            const now = new Date();
-            const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-            
-            if (diffDays === 0) {
-                return `Today at ${date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`;
-            } else if (diffDays === 1) {
-                return `Yesterday at ${date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`;
-            } else {
-                return date.toLocaleDateString('en-IN', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-            }
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}-${month}-${year}`;
         } catch (e) {
             return dateString;
         }
@@ -380,7 +320,6 @@ const PendingActions = () => {
                 'Module': request.module,
                 'Customer Name': request.customerName,
                 'Account Number': request.accountNumber,
-                'Priority': getPriorityLabel(request.priority),
                 'Requested Date': formatDate(request.requestedDate),
                 'Description': request.description,
                 'Value': request.value
@@ -405,11 +344,6 @@ const PendingActions = () => {
         const headers = Object.keys(data[0] || {});
         const rows = data.map(obj => headers.map(header => JSON.stringify(obj[header] || '')).join(','));
         return [headers.join(','), ...rows].join('\n');
-    };
-
-    const handlePageChange = (newPage) => {
-        setCurrentPage(newPage);
-        document.querySelector(`.${styles.tableContainer}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
     if (isLoading) {
@@ -452,7 +386,7 @@ const PendingActions = () => {
                 </div>
             </div>
 
-            {/* Stats Cards */}
+            {/* Stats Cards - Removed urgent stat */}
             <div style={styles.statsGrid}>
                 <div style={styles.statCard}>
                     <div style={styles.statIcon(COLORS.primary)}>
@@ -461,15 +395,6 @@ const PendingActions = () => {
                     <div style={styles.statInfo}>
                         <span style={styles.statValue}>{stats.total}</span>
                         <span style={styles.statLabel}>Total Pending</span>
-                    </div>
-                </div>
-                <div style={styles.statCard}>
-                    <div style={styles.statIcon(COLORS.urgent)}>
-                        <FaExclamationCircle size={20} color="#FFFFFF" />
-                    </div>
-                    <div style={styles.statInfo}>
-                        <span style={styles.statValue}>{stats.urgent}</span>
-                        <span style={styles.statLabel}>Urgent</span>
                     </div>
                 </div>
                 <div style={styles.statCard}>
@@ -510,7 +435,7 @@ const PendingActions = () => {
                 </div>
             </div>
 
-            {/* Filters - Only Module and Priority filters remain */}
+            {/* Filters - Only Module filter remains */}
             <div style={styles.filtersContainer}>
                 <div style={styles.searchBox}>
                     <FaSearch size={14} color="#8DA6C0" style={styles.searchIcon} />
@@ -543,27 +468,15 @@ const PendingActions = () => {
                         <option value="limit requests">Limit Requests</option>
                         <option value="stolen cards">Stolen Cards</option>
                     </select>
-                    <select
-                        style={styles.filterSelect}
-                        value={selectedPriority}
-                        onChange={(e) => setSelectedPriority(e.target.value)}
-                    >
-                        <option value="all">All Priorities</option>
-                        <option value="urgent">Urgent</option>
-                        <option value="high">High</option>
-                        <option value="medium">Medium</option>
-                        <option value="low">Low</option>
-                    </select>
                 </div>
             </div>
 
-            {/* Pending Requests Table */}
+            {/* Pending Requests Table - Removed priority column */}
             <div style={styles.tableContainer}>
                 {displayedRequests.length > 0 ? (
                     <table style={styles.table}>
                         <thead>
                             <tr>
-                                <th style={styles.th}>Priority</th>
                                 <th style={styles.th}>Module</th>
                                 <th style={styles.th}>Customer</th>
                                 <th style={styles.th}>Account</th>
@@ -577,20 +490,6 @@ const PendingActions = () => {
                                 const Icon = request.moduleIcon;
                                 return (
                                     <tr key={request.id} style={styles.tr}>
-                                        <td style={styles.td}>
-                                            <div style={styles.priorityCell}>
-                                                <div style={{
-                                                    ...styles.priorityIndicator,
-                                                    background: getPriorityColor(request.priority)
-                                                }} />
-                                                <span style={{
-                                                    ...styles.priorityLabel,
-                                                    color: getPriorityColor(request.priority)
-                                                }}>
-                                                    {getPriorityLabel(request.priority)}
-                                                </span>
-                                            </div>
-                                        </td>
                                         <td style={styles.td}>
                                             <div style={styles.moduleCell}>
                                                 <div style={styles.moduleIconSmall(request.moduleColor)}>
@@ -632,12 +531,12 @@ const PendingActions = () => {
                     <div style={styles.noDataContainer}>
                         <FaHourglassHalf size={48} color="#E6EDF5" />
                         <p style={styles.noDataText}>
-                            {searchTerm || selectedModule !== "all" || selectedPriority !== "all" 
+                            {searchTerm || selectedModule !== "all"
                                 ? "No matching pending actions found" 
                                 : `No pending actions for ${getFormattedMonthYear()}`}
                         </p>
                         <p style={styles.noDataSubtext}>
-                            {searchTerm || selectedModule !== "all" || selectedPriority !== "all"
+                            {searchTerm || selectedModule !== "all"
                                 ? "Try adjusting your filters"
                                 : "All caught up! Check back later."}
                         </p>
@@ -645,27 +544,12 @@ const PendingActions = () => {
                 )}
             </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-                <div style={styles.pagination}>
-                    <button
-                        style={styles.pageButton}
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        disabled={currentPage === 0}
-                    >
-                        <FaChevronLeft size={12} />
-                    </button>
-                    <span style={styles.pageInfo}>
-                        Page {currentPage + 1} of {totalPages} 
-                        {filteredRequests.length > 0 && ` (${filteredRequests.length} total)`}
-                    </span>
-                    <button
-                        style={styles.pageButton}
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={currentPage === totalPages - 1}
-                    >
-                        <FaChevronRight size={12} />
-                    </button>
+            {/* Simple Pagination Text - Exactly as requested: "Page 1 of 1 (2 total)" */}
+            {filteredRequests.length > 0 && (
+                <div style={styles.paginationContainer}>
+                    <div style={styles.pagination}>
+                        Page {currentPage + 1} of {totalPages} ({filteredRequests.length} total)
+                    </div>
                 </div>
             )}
         </div>
@@ -675,10 +559,6 @@ const PendingActions = () => {
 // Colors
 const COLORS = {
     primary: '#003366',
-    urgent: '#EF4444',
-    high: '#F97316',
-    medium: '#FFD700',
-    low: '#10B981',
     cheque: '#003366',
     query: '#FFD700',
     limit: '#10B981',
@@ -937,20 +817,6 @@ const styles = {
         color: "#1E293B",
         borderBottom: "1px solid #F0F4F9",
     },
-    priorityCell: {
-        display: "flex",
-        alignItems: "center",
-        gap: "8px",
-    },
-    priorityIndicator: {
-        width: "8px",
-        height: "8px",
-        borderRadius: "4px",
-    },
-    priorityLabel: {
-        fontSize: "12px",
-        fontWeight: "600",
-    },
     moduleCell: {
         display: "flex",
         alignItems: "center",
@@ -996,37 +862,20 @@ const styles = {
             color: "#003366",
         },
     },
-    pagination: {
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        gap: "20px",
+    paginationContainer: {
         marginTop: "20px",
-    },
-    pageButton: {
         display: "flex",
-        alignItems: "center",
         justifyContent: "center",
-        width: "36px",
-        height: "36px",
-        background: "#FFFFFF",
-        border: "2px solid #E6EDF5",
-        borderRadius: "10px",
-        color: "#003366",
-        cursor: "pointer",
-        transition: "all 0.2s ease",
-        ":hover:not(:disabled)": {
-            borderColor: "#FFD700",
-        },
-        ":disabled": {
-            opacity: 0.5,
-            cursor: "not-allowed",
-        },
     },
-    pageInfo: {
+    pagination: {
         fontSize: "14px",
         color: "#4A6F8F",
         fontWeight: "500",
+        padding: "10px 20px",
+        background: "#FFFFFF",
+        borderRadius: "20px",
+        border: "1px solid #E6EDF5",
+        boxShadow: "0 2px 4px rgba(0, 51, 102, 0.05)",
     },
     noDataContainer: {
         display: "flex",
