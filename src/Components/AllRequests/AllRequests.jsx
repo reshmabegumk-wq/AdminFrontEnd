@@ -313,18 +313,18 @@ const AllRequests = () => {
         return "XXXX XXXX XXXX " + str.slice(-4);
     };
 
+    // UPDATED: Format date to dd-mm-yyyy format
     const formatDate = (dateString) => {
         if (!dateString) return "N/A";
         try {
             const date = new Date(dateString);
             if (isNaN(date.getTime())) return "Invalid Date";
-            return date.toLocaleDateString('en-IN', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
+            
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-based
+            const year = date.getFullYear();
+            
+            return `${day}-${month}-${year}`;
         } catch (e) {
             return String(dateString);
         }

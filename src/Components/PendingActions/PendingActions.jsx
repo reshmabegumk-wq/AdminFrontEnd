@@ -265,11 +265,14 @@ const PendingActions = () => {
         return "XXXX XXXX XXXX " + str.slice(-4);
     };
 
-    // Updated date formatter to return only dd-mm-yyyy
+    // Updated date formatter to return only dd-mm-yyyy without time
     const formatDate = (dateString) => {
         if (!dateString) return "N/A";
         try {
             const date = new Date(dateString);
+            // Check if date is valid
+            if (isNaN(date.getTime())) return "N/A";
+            
             const day = String(date.getDate()).padStart(2, '0');
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const year = date.getFullYear();

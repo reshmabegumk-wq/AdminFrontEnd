@@ -33,7 +33,7 @@ const ResolvedRequests = () => {
     const [itemsPerPage] = useState(10);
     const [stats, setStats] = useState({
         total: 0,
-        chequeBooks: 0,
+        chequeleaves: 0,
         customerQueries: 0,
         limitRequests: 0,
         stolenCards: 0
@@ -64,6 +64,20 @@ const ResolvedRequests = () => {
         return months[monthAbbr];
     };
 
+    // Format date to dd-mm-yyyy
+    const formatDateToDDMMYYYY = (dateString) => {
+        if (!dateString) return "N/A";
+        try {
+            const date = new Date(dateString);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}-${month}-${year}`;
+        } catch (e) {
+            return dateString;
+        }
+    };
+
     // Fetch all resolved requests for the selected month
     const fetchResolvedRequests = async () => {
         setIsLoading(true);
@@ -86,7 +100,7 @@ const ResolvedRequests = () => {
                 const chequeRequests = chequeRes.value.data.data.content.map(item => ({
                     id: `cheque-${item.chequeRequestId}`,
                     requestId: item.chequeRequestId,
-                    module: "Cheque Books",
+                    module: "Cheque Leaves",
                     moduleIcon: FaMoneyCheck,
                     moduleColor: "#003366",
                     customerName: item.fullName || "Unknown",
@@ -94,7 +108,7 @@ const ResolvedRequests = () => {
                     status: item.status || "Approved",
                     requestedDate: item.requestedDate || item.createdDate,
                     resolvedDate: item.approvedDate || item.updatedDate,
-                    description: `${item.noOfLeaves || 0} leaves cheque book`,
+                    description: `${item.noOfLeaves || 0} leaves cheque leaves requested`,
                     value: `${item.noOfLeaves || 0} leaves`,
                     resolvedBy: item.approvedBy || "System",
                     originalData: item
@@ -181,14 +195,14 @@ const ResolvedRequests = () => {
             );
 
             // Calculate stats
-            const chequeBooks = filteredByDate.filter(r => r.module === "Cheque Books").length;
+            const chequeLeaves = filteredByDate.filter(r => r.module === "Cheque Leaves").length;
             const customerQueries = filteredByDate.filter(r => r.module === "Customer Queries").length;
             const limitRequests = filteredByDate.filter(r => r.module === "Limit Requests").length;
             const stolenCards = filteredByDate.filter(r => r.module === "Stolen Cards").length;
 
             setStats({
                 total: filteredByDate.length,
-                chequeBooks,
+                chequeLeaves,
                 customerQueries,
                 limitRequests,
                 stolenCards
@@ -278,30 +292,14 @@ const ResolvedRequests = () => {
         return "XXXX XXXX XXXX " + str.slice(-4);
     };
 
-    const formatDate = (dateString) => {
-        if (!dateString) return "N/A";
-        try {
-            const date = new Date(dateString);
-            return date.toLocaleDateString('en-IN', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        } catch (e) {
-            return dateString;
-        }
-    };
-
     const handleExport = () => {
         try {
             const csvData = filteredRequests.map(request => ({
                 'Module': request.module,
                 'Customer Name': request.customerName,
                 'Account Number': request.accountNumber,
-                'Requested Date': formatDate(request.requestedDate),
-                'Resolved Date': formatDate(request.resolvedDate),
+                'Requested Date': formatDateToDDMMYYYY(request.requestedDate),
+                'Resolved Date': formatDateToDDMMYYYY(request.resolvedDate),
                 'Resolved By': request.resolvedBy,
                 'Description': request.description,
                 'Value': request.value
@@ -392,8 +390,8 @@ const ResolvedRequests = () => {
                         <FaMoneyCheck size={20} color="#FFFFFF" />
                     </div>
                     <div style={styles.statInfo}>
-                        <span style={styles.statValue}>{stats.chequeBooks}</span>
-                        <span style={styles.statLabel}>Cheque Books</span>
+                        <span style={styles.statValue}>{stats.chequeLeaves}</span>
+                        <span style={styles.statLabel}>Cheque Leaves</span>
                     </div>
                 </div>
                 <div style={styles.statCard}>
@@ -453,7 +451,7 @@ const ResolvedRequests = () => {
                         onChange={(e) => setSelectedModule(e.target.value)}
                     >
                         <option value="all">All Modules</option>
-                        <option value="cheque books">Cheque Books</option>
+                        <option value="cheque leaves">Cheque Leaves</option>
                         <option value="customer queries">Customer Queries</option>
                         <option value="limit requests">Limit Requests</option>
                         <option value="stolen cards">Stolen Cards</option>
@@ -499,7 +497,7 @@ const ResolvedRequests = () => {
                                         <td style={styles.td}>
                                             <div style={styles.dateCell}>
                                                 <FaCalendarAlt size={10} color="#8DA6C0" />
-                                                {formatDate(request.resolvedDate)}
+                                                {formatDateToDDMMYYYY(request.resolvedDate)}
                                             </div>
                                         </td>
                                         <td style={styles.td}>
