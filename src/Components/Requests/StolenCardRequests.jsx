@@ -90,10 +90,56 @@ const StolenCardRequests = () => {
             console.log("API Response:", response.data);
 
             if (response?.data?.data) {
-                let content = response.data.data.content || [];
+                // Log the actual structure to debug
+                console.log("Response data structure:", JSON.stringify(response.data.data, null, 2));
+                
+                let content = [];
+                let totalElements = 0;
+                let totalPages = 0;
+                
+                // Handle different possible response structures
+                if (Array.isArray(response.data.data)) {
+                    // If data is directly an array
+                    content = response.data.data;
+                    totalElements = content.length;
+                    totalPages = Math.ceil(totalElements / itemsPerPage);
+                    console.log("Data is direct array");
+                } else if (response.data.data.content) {
+                    // If data has content property (standard Spring pagination)
+                    content = response.data.data.content || [];
+                    totalElements = response.data.data.totalElements || content.length;
+                    totalPages = response.data.data.totalPages || Math.ceil(totalElements / itemsPerPage);
+                    console.log("Data has content property");
+                } else if (response.data.data.records) {
+                    // If data has records property
+                    content = response.data.data.records || [];
+                    totalElements = response.data.data.totalRecords || content.length;
+                    totalPages = response.data.data.totalPages || Math.ceil(totalElements / itemsPerPage);
+                    console.log("Data has records property");
+                } else if (response.data.data.list) {
+                    // If data has list property
+                    content = response.data.data.list || [];
+                    totalElements = response.data.data.totalCount || content.length;
+                    totalPages = response.data.data.totalPages || Math.ceil(totalElements / itemsPerPage);
+                    console.log("Data has list property");
+                } else {
+                    // Try to get content from any property that might be an array
+                    const possibleArrays = Object.values(response.data.data).find(val => Array.isArray(val));
+                    if (possibleArrays) {
+                        content = possibleArrays;
+                        totalElements = response.data.data.totalElements || content.length;
+                        totalPages = response.data.data.totalPages || Math.ceil(totalElements / itemsPerPage);
+                        console.log("Found array in data:", possibleArrays);
+                    } else {
+                        console.log("No array found in data");
+                        content = [];
+                        totalElements = 0;
+                        totalPages = 0;
+                    }
+                }
 
                 // Process each item
-                content = content.map(item => {
+                content = (content || []).map(item => {
                     // PRIORITY 1: Use cardTypeName from backend if available
                     if (item.cardTypeName) {
                         item.cardType = normalizeCardType(item.cardTypeName);
@@ -120,6 +166,10 @@ const StolenCardRequests = () => {
                             item.fullName = `${item.firstName || ''} ${item.lastName || ''}`.trim();
                         } else if (item.customer?.firstName || item.customer?.lastName) {
                             item.fullName = `${item.customer.firstName || ''} ${item.customer.lastName || ''}`.trim();
+                        } else if (item.cardholderName) {
+                            item.fullName = item.cardholderName;
+                        } else if (item.customerName) {
+                            item.fullName = item.customerName;
                         }
                     }
 
@@ -132,24 +182,40 @@ const StolenCardRequests = () => {
                 });
 
                 console.log("Processed Content:", content);
+                console.log("Total Elements:", totalElements);
+                console.log("Total Pages:", totalPages);
+                
                 setStolenCardData(content);
 
                 setPaginationData({
-                    pageNumber: response.data.data.pageNumber,
-                    pageSize: response.data.data.pageSize,
-                    totalElements: response.data.data.totalElements,
-                    totalPages: response.data.data.totalPages,
-                    last: response.data.data.last
+                    pageNumber: response.data.data.pageNumber || page,
+                    pageSize: itemsPerPage,
+                    totalElements: totalElements,
+                    totalPages: totalPages,
+                    last: page >= totalPages - 1
                 });
             } else {
+                console.log("No data in response");
                 setStolenCardData([]);
-                setPaginationData(null);
+                setPaginationData({
+                    pageNumber: 0,
+                    pageSize: itemsPerPage,
+                    totalElements: 0,
+                    totalPages: 0,
+                    last: true
+                });
             }
         } catch (error) {
             console.error('Error fetching stolen card requests:', error);
             showSnackbar("error", "Failed to load stolen card requests. Please try again.");
             setStolenCardData([]);
-            setPaginationData(null);
+            setPaginationData({
+                pageNumber: 0,
+                pageSize: itemsPerPage,
+                totalElements: 0,
+                totalPages: 0,
+                last: true
+            });
         } finally {
             setIsLoading(false);
         }
@@ -297,6 +363,10 @@ const StolenCardRequests = () => {
                         data.fullName = `${data.firstName || ''} ${data.lastName || ''}`.trim();
                     } else if (data.customer) {
                         data.fullName = `${data.customer.firstName || ''} ${data.customer.lastName || ''}`.trim();
+                    } else if (data.cardholderName) {
+                        data.fullName = data.cardholderName;
+                    } else if (data.customerName) {
+                        data.fullName = data.customerName;
                     }
                 }
 
@@ -429,7 +499,7 @@ const StolenCardRequests = () => {
         setRejectReason("");
     };
 
-    // Separate Rejection Modal Component (like in ChequeLeavesRequests)
+    // Separate Rejection Modal Component
     const RejectionModal = () => {
         if (!showRejectReason) return null;
 
@@ -740,7 +810,7 @@ const StolenCardRequests = () => {
                             </tr>
                         ) : filteredData.length > 0 ? (
                             filteredData.map((item, index) => (
-                                <tr key={item.lostCardId} style={styles.tableRow}>
+                                <tr key={item.lostCardId || index} style={styles.tableRow}>
                                     <td style={styles.tableCell}>
                                         <span style={styles.requestId}>
                                             {((currentPage - 1) * itemsPerPage) + index + 1}
@@ -795,7 +865,7 @@ const StolenCardRequests = () => {
                 </table>
             </div>
 
-            {paginationData && paginationData.totalPages > 0 && filteredData.length > 0 && (
+            {paginationData && paginationData.totalPages > 0 && (
                 <div style={styles.pagination}>
                     <button
                         style={styles.pageBtn}
@@ -805,7 +875,8 @@ const StolenCardRequests = () => {
                         <FaChevronLeft size={16} />
                     </button>
                     <span style={styles.pageInfo}>
-                        Page {currentPage} of {paginationData.totalPages} ({paginationData.totalElements} total)
+                        Page {currentPage} of {paginationData.totalPages} 
+                        ({paginationData.totalElements} total {paginationData.totalElements === 1 ? 'record' : 'records'})
                     </span>
                     <button
                         style={styles.pageBtn}
@@ -827,7 +898,7 @@ const StolenCardRequests = () => {
     );
 };
 
-// Styles object (keep all your existing styles)
+// Styles object
 const styles = {
     container: {
         padding: "30px",
@@ -912,15 +983,6 @@ const styles = {
         cursor: "pointer",
         transition: "all 0.2s ease",
         boxShadow: "0 4px 12px rgba(0, 51, 102, 0.15)",
-        ":hover": {
-            transform: "translateY(-2px)",
-            boxShadow: "0 8px 16px rgba(0, 51, 102, 0.25)",
-        },
-        ":disabled": {
-            opacity: 0.7,
-            cursor: "not-allowed",
-            transform: "none",
-        },
     },
     refreshIcon: {
         transition: "transform 0.3s ease",
@@ -959,9 +1021,6 @@ const styles = {
         fontSize: "14px",
         color: "#003366",
         background: "transparent",
-        "::placeholder": {
-            color: "#8DA6C0",
-        },
     },
     filterGroup: {
         display: "flex",
@@ -1015,9 +1074,6 @@ const styles = {
     tableRow: {
         borderBottom: "1px solid #E6EDF5",
         transition: "background 0.2s ease",
-        ":hover": {
-            background: "#F8FBFF",
-        },
     },
     tableCell: {
         padding: "16px",
@@ -1062,10 +1118,6 @@ const styles = {
         cursor: "pointer",
         transition: "all 0.2s ease",
         boxShadow: "0 4px 12px rgba(0, 51, 102, 0.15)",
-        ":hover": {
-            transform: "translateY(-2px)",
-            boxShadow: "0 8px 16px rgba(0, 51, 102, 0.25)",
-        },
     },
     viewText: {
         marginLeft: "2px",
@@ -1110,15 +1162,6 @@ const styles = {
         cursor: "pointer",
         color: "#003366",
         transition: "all 0.2s ease",
-        ":hover": {
-            borderColor: "#FFD700",
-            background: "#FFF9E6",
-        },
-        ":disabled": {
-            opacity: 0.5,
-            cursor: "not-allowed",
-            borderColor: "#E6EDF5",
-        },
     },
     pageInfo: {
         fontSize: "14px",
@@ -1220,10 +1263,6 @@ const styles = {
         alignItems: "center",
         justifyContent: "center",
         transition: "all 0.2s ease",
-        ":hover": {
-            borderColor: "#FFD700",
-            color: "#FFD700",
-        },
     },
     modalBody: {
         padding: "32px",
@@ -1299,10 +1338,6 @@ const styles = {
         cursor: "pointer",
         transition: "all 0.2s ease",
         boxShadow: "0 8px 16px rgba(220, 38, 38, 0.15)",
-        ":hover": {
-            transform: "translateY(-2px)",
-            boxShadow: "0 12px 20px rgba(220, 38, 38, 0.25)",
-        },
     },
     approveBtn: {
         flex: 1,
@@ -1320,10 +1355,6 @@ const styles = {
         cursor: "pointer",
         transition: "all 0.2s ease",
         boxShadow: "0 8px 16px rgba(16, 185, 129, 0.15)",
-        ":hover": {
-            transform: "translateY(-2px)",
-            boxShadow: "0 12px 20px rgba(16, 185, 129, 0.25)",
-        },
     },
     rejectModalOverlay: {
         position: "fixed",
@@ -1378,11 +1409,6 @@ const styles = {
         alignItems: "center",
         justifyContent: "center",
         transition: "all 0.2s ease",
-        ":hover": {
-            borderColor: "#DC2626",
-            color: "#DC2626",
-            background: "#FEF2F2",
-        },
     },
     rejectModalBody: {
         padding: "28px",
@@ -1420,10 +1446,6 @@ const styles = {
         fontWeight: "600",
         cursor: "pointer",
         transition: "all 0.2s ease",
-        ":hover": {
-            background: "#E6F0FF",
-            borderColor: "#CCE5FF",
-        },
     },
     rejectSubmitBtn: {
         display: "flex",
@@ -1439,16 +1461,6 @@ const styles = {
         cursor: "pointer",
         transition: "all 0.2s ease",
         boxShadow: "0 4px 12px rgba(220, 38, 38, 0.15)",
-        ":hover": {
-            transform: "translateY(-2px)",
-            boxShadow: "0 8px 20px rgba(220, 38, 38, 0.25)",
-        },
-        ":disabled": {
-            opacity: 0.6,
-            cursor: "not-allowed",
-            transform: "none",
-            boxShadow: "none",
-        },
     },
 };
 

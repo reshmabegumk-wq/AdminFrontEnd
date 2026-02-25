@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import API from "../../api";
 import { useSnackbar } from "../../Context/SnackbarContext";
@@ -420,7 +419,7 @@ const ChequeLeavesRequests = () => {
                             </div>
                             <div>
                                 <h3 style={styles.modalTitle}>Cheque Book Request</h3>
-                                <p style={styles.modalSubtitle}>Request ID: CHQ-{displayData.chequeRequestId}</p>
+                               
                             </div>
                         </div>
                         <button style={styles.closeBtn} onClick={onClose}>×</button>
@@ -760,29 +759,49 @@ const ChequeLeavesRequests = () => {
                 </table>
             </div>
 
-            {/* Pagination - Only show when there are records */}
-            {!isLoading && paginationData.totalElements > 0 && filteredData.length > 0 && (
-                <div style={styles.pagination}>
-                    <button
-                        style={styles.pageBtn}
-                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 0))}
-                        disabled={currentPage === 0}
-                    >
-                        <FaChevronLeft size={16} />
-                    </button>
-                    <span style={styles.pageInfo}>
-                        Page {currentPage + 1} of {paginationData.totalPages} ({paginationData.totalElements} total)
-                    </span>
-                    <button
-                        style={styles.pageBtn}
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, paginationData.totalPages - 1))}
-                        disabled={currentPage === paginationData.totalPages - 1}
-                    >
-                        <FaChevronRight size={16} />
-                    </button>
+            {/* Search info indicator */}
+            {searchTerm && filteredData.length > 0 && (
+                <div style={styles.searchInfo}>
+                    Found {filteredData.length} matching record{filteredData.length !== 1 ? 's' : ''}
                 </div>
             )}
 
+            {/* Pagination - Only show when there are records */}
+            
+{!isLoading && paginationData.totalPages > 0 && (
+    <div style={styles.pagination}>
+        <button
+            style={styles.pageBtn}
+            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 0))}
+            disabled={currentPage === 0}
+        >
+            <FaChevronLeft size={16} />
+        </button>
+
+        <span style={styles.pageInfo}>
+            Showing {(currentPage * paginationData.pageSize) + 1}
+            -
+            {Math.min(
+                (currentPage + 1) * paginationData.pageSize,
+                paginationData.totalElements
+            )}
+            of {paginationData.totalElements} results • 
+            Page {currentPage + 1} of {paginationData.totalPages}
+        </span>
+
+        <button
+            style={styles.pageBtn}
+            onClick={() =>
+                setCurrentPage(prev =>
+                    Math.min(prev + 1, paginationData.totalPages - 1)
+                )
+            }
+            disabled={currentPage >= paginationData.totalPages - 1}
+        >
+            <FaChevronRight size={16} />
+        </button>
+    </div>
+)}
             {/* Overview Modal */}
             {showOverview && selectedRequest && (
                 <ChequeRequestModal request={selectedRequest} onClose={closeOverview} />
@@ -1126,6 +1145,23 @@ const styles = {
         fontSize: "14px",
         color: "#4A6F8F",
         fontWeight: "500",
+    },
+    searchInfo: {
+        textAlign: "center",
+        marginTop: "16px",
+        marginBottom: "8px",
+        fontSize: "14px",
+        color: "#4A6F8F",
+        fontWeight: "500",
+        padding: "8px",
+        background: "#F8FBFF",
+        borderRadius: "8px",
+        display: "inline-block",
+        marginLeft: "auto",
+        marginRight: "auto",
+        width: "fit-content",
+        paddingLeft: "20px",
+        paddingRight: "20px",
     },
     modalOverlay: {
         position: "fixed",

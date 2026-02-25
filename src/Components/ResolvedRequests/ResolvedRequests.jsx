@@ -78,6 +78,13 @@ const ResolvedRequests = () => {
         }
     };
 
+    // Mask card number for display
+    const maskCardNumber = (cardNumber) => {
+        if (!cardNumber) return "XXXX";
+        const str = cardNumber.toString();
+        return "XXXX XXXX XXXX " + str.slice(-4);
+    };
+
     // Fetch all resolved requests for the selected month
     const fetchResolvedRequests = async () => {
         setIsLoading(true);
@@ -95,89 +102,99 @@ const ResolvedRequests = () => {
             // Process and combine all resolved requests
             let allResolved = [];
 
-            // Cheque requests
-            if (chequeRes.status === 'fulfilled' && chequeRes.value?.data?.data?.content) {
-                const chequeRequests = chequeRes.value.data.data.content.map(item => ({
-                    id: `cheque-${item.chequeRequestId}`,
-                    requestId: item.chequeRequestId,
-                    module: "Cheque Leaves",
-                    moduleIcon: FaMoneyCheck,
-                    moduleColor: "#003366",
-                    customerName: item.fullName || "Unknown",
-                    accountNumber: item.accountNumber || "N/A",
-                    status: item.status || "Approved",
-                    requestedDate: item.requestedDate || item.createdDate,
-                    resolvedDate: item.approvedDate || item.updatedDate,
-                    description: `${item.noOfLeaves || 0} leaves cheque leaves requested`,
-                    value: `${item.noOfLeaves || 0} leaves`,
-                    resolvedBy: item.approvedBy || "System",
-                    originalData: item
-                }));
-                allResolved = [...allResolved, ...chequeRequests];
+            // Cheque requests - FIXED
+            if (chequeRes.status === 'fulfilled' && chequeRes.value?.data?.status === true) {
+                if (chequeRes.value.data.data && chequeRes.value.data.data.content) {
+                    const chequeRequests = chequeRes.value.data.data.content.map(item => ({
+                        id: `cheque-${item.chequeRequestId}`,
+                        requestId: item.chequeRequestId,
+                        module: "Cheque Leaves",
+                        moduleIcon: FaMoneyCheck,
+                        moduleColor: "#003366",
+                        customerName: item.fullName || "Unknown",
+                        accountNumber: item.accountNumber || "N/A",
+                        status: item.status || "Approved",
+                        requestedDate: item.requestedDate || item.createdDate,
+                        resolvedDate: item.approvedDate || item.updatedDate,
+                        description: `${item.noOfLeaves || 0} leaves cheque leaves requested`,
+                        value: `${item.noOfLeaves || 0} leaves`,
+                        resolvedBy: item.approvedByName || "System",
+                        originalData: item
+                    }));
+                    allResolved = [...allResolved, ...chequeRequests];
+                }
             }
 
-            // Query requests
-            if (queryRes.status === 'fulfilled' && queryRes.value?.data?.data?.content) {
-                const queryRequests = queryRes.value.data.data.content.map(item => ({
-                    id: `query-${item.queriesId}`,
-                    requestId: item.queriesId,
-                    module: "Customer Queries",
-                    moduleIcon: FaQuestionCircle,
-                    moduleColor: "#FFD700",
-                    customerName: item.fullName || "Unknown",
-                    accountNumber: item.accountNumber || "N/A",
-                    status: item.status || "Approved",
-                    requestedDate: item.queryRaisedDate,
-                    resolvedDate: item.queryApprovedDate,
-                    description: item.customerQuery?.substring(0, 50) + "...",
-                    value: "Query",
-                    resolvedBy: item.approvedBy || "System",
-                    originalData: item
-                }));
-                allResolved = [...allResolved, ...queryRequests];
+            // Query requests - FIXED
+            if (queryRes.status === 'fulfilled' && queryRes.value?.data?.status === true) {
+                if (queryRes.value.data.data && queryRes.value.data.data.content) {
+                    const queryRequests = queryRes.value.data.data.content.map(item => ({
+                        id: `query-${item.queriesId}`,
+                        requestId: item.queriesId,
+                        module: "Customer Queries",
+                        moduleIcon: FaQuestionCircle,
+                        moduleColor: "#FFD700",
+                        customerName: item.fullName || "Unknown",
+                        accountNumber: item.accountNumber || "N/A",
+                        status: item.status || "Approved",
+                        requestedDate: item.queryRaisedDate,
+                        resolvedDate: item.queryApprovedDate,
+                        description: item.customerQuery?.substring(0, 50) + "...",
+                        value: "Query",
+                        resolvedBy: item.approvedByName || "System",
+                        originalData: item
+                    }));
+                    allResolved = [...allResolved, ...queryRequests];
+                }
             }
 
-            // Limit requests
-            if (limitRes.status === 'fulfilled' && limitRes.value?.data?.data?.content) {
-                const limitRequests = limitRes.value.data.data.content.map(item => ({
-                    id: `limit-${item.increaseCreditLimitId}`,
-                    requestId: item.increaseCreditLimitId,
-                    module: "Limit Requests",
-                    moduleIcon: FaArrowUp,
-                    moduleColor: "#10B981",
-                    customerName: item.fullName || "Unknown",
-                    accountNumber: item.accountNumber || "N/A",
-                    status: item.status || "Approved",
-                    requestedDate: item.requestDate,
-                    resolvedDate: item.approvedDate,
-                    description: `Requested ₹${item.requestedLimit?.toLocaleString() || 0}`,
-                    value: `₹${item.requestedLimit?.toLocaleString() || 0}`,
-                    resolvedBy: item.approvedBy || "System",
-                    originalData: item
-                }));
-                allResolved = [...allResolved, ...limitRequests];
+            // Limit requests - FIXED
+            if (limitRes.status === 'fulfilled' && limitRes.value?.data?.status === true) {
+                if (limitRes.value.data.data && limitRes.value.data.data.content) {
+                    const limitRequests = limitRes.value.data.data.content.map(item => ({
+                        id: `limit-${item.increaseCreditLimitId}`,
+                        requestId: item.increaseCreditLimitId,
+                        module: "Limit Requests",
+                        moduleIcon: FaArrowUp,
+                        moduleColor: "#10B981",
+                        customerName: item.fullName || "Unknown",
+                        accountNumber: item.accountNumber || "N/A",
+                        status: item.status || "Approved",
+                        requestedDate: item.requestDate,
+                        resolvedDate: item.approvedDate,
+                        description: `Requested ₹${item.requestedLimit?.toLocaleString() || 0}`,
+                        value: `₹${item.requestedLimit?.toLocaleString() || 0}`,
+                        resolvedBy: item.approvedByName || "System",
+                        originalData: item
+                    }));
+                    allResolved = [...allResolved, ...limitRequests];
+                }
             }
 
-            // Stolen card requests
-            if (stolenRes.status === 'fulfilled' && stolenRes.value?.data?.data?.content) {
-                const stolenRequests = stolenRes.value.data.data.content.map(item => ({
-                    id: `stolen-${item.lostCardId}`,
-                    requestId: item.lostCardId,
-                    module: "Stolen Cards",
-                    moduleIcon: FaExclamationTriangle,
-                    moduleColor: "#EF4444",
-                    customerName: item.fullName || item.cardHolder || "Unknown",
-                    accountNumber: item.accountNumber || "N/A",
-                    status: item.status || "Approved",
-                    requestedDate: item.createdDate,
-                    resolvedDate: item.updatedDate,
-                    description: `Card: ${maskCardNumber(item.lostCardNumber)}`,
-                    value: "Card Blocked",
-                    resolvedBy: item.updatedBy || "System",
-                    originalData: item
-                }));
-                allResolved = [...allResolved, ...stolenRequests];
+            // Stolen card requests - FIXED
+            if (stolenRes.status === 'fulfilled' && stolenRes.value?.data?.status === true) {
+                if (stolenRes.value.data.data && stolenRes.value.data.data.content) {
+                    const stolenRequests = stolenRes.value.data.data.content.map(item => ({
+                        id: `stolen-${item.lostCardId}`,
+                        requestId: item.lostCardId,
+                        module: "Stolen Cards",
+                        moduleIcon: FaExclamationTriangle,
+                        moduleColor: "#EF4444",
+                        customerName: item.fullName || item.cardHolder || "Unknown",
+                        accountNumber: item.accountNumber || "N/A",
+                        status: item.status || "Approved",
+                        requestedDate: item.createdDate,
+                        resolvedDate: item.approvedDate || item.updatedDate,
+                        description: `Card: ${maskCardNumber(item.lostCardNumber)}`,
+                        value: "Card Blocked",
+                        resolvedBy: item.approvedByName || "System",
+                        originalData: item
+                    }));
+                    allResolved = [...allResolved, ...stolenRequests];
+                }
             }
+
+            console.log("All resolved requests:", allResolved);
 
             // Filter by selected month and year
             const monthNum = getMonthNumber(month);
@@ -185,8 +202,12 @@ const ResolvedRequests = () => {
 
             const filteredByDate = allResolved.filter(request => {
                 if (!request.resolvedDate) return false;
-                const date = new Date(request.resolvedDate);
-                return date.getMonth() === monthNum && date.getFullYear() === yearNum;
+                try {
+                    const date = new Date(request.resolvedDate);
+                    return date.getMonth() === monthNum && date.getFullYear() === yearNum;
+                } catch (e) {
+                    return false;
+                }
             });
 
             // Sort by resolved date (newest first)
@@ -214,6 +235,8 @@ const ResolvedRequests = () => {
 
             if (filteredByDate.length === 0) {
                 showSnackbar("info", `No resolved requests found for ${getFormattedMonthYear()}`);
+            } else {
+                showSnackbar("success", `Loaded ${filteredByDate.length} resolved requests for ${getFormattedMonthYear()}`);
             }
 
         } catch (error) {
@@ -285,12 +308,6 @@ const ResolvedRequests = () => {
     const paginatedData = filteredRequests.length > 0 
         ? filteredRequests.slice(startIndex, startIndex + itemsPerPage)
         : [];
-
-    const maskCardNumber = (cardNumber) => {
-        if (!cardNumber) return "XXXX";
-        const str = cardNumber.toString();
-        return "XXXX XXXX XXXX " + str.slice(-4);
-    };
 
     const handleExport = () => {
         try {
@@ -459,7 +476,7 @@ const ResolvedRequests = () => {
                 </div>
             </div>
 
-            {/* Resolved Requests Table - Resolution Time column removed */}
+            {/* Resolved Requests Table */}
             <div style={styles.tableContainer}>
                 {paginatedData.length > 0 ? (
                     <table style={styles.table}>
@@ -572,7 +589,7 @@ const COLORS = {
     stolen: '#EF4444'
 };
 
-// Styles (keep all your existing styles here)
+// Styles
 const styles = {
     container: {
         padding: "30px",
