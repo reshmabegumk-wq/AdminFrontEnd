@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import API from "../../api";
 import { useSnackbar } from "../../Context/SnackbarContext";
@@ -99,29 +98,140 @@ const ChequeLeavesRequests = () => {
         });
     };
 
-    // Fetch user details by ID
+    // Fetch user details by ID with detailed logging
     const fetchUserDetails = async (userId) => {
-        if (!userId || users[userId]) return; // Skip if already fetched
+        if (!userId) {
+            console.log("fetchUserDetails: No userId provided");
+            return;
+        }
+        
+        console.log(`fetchUserDetails: Starting fetch for userId: ${userId}`);
+        console.log(`fetchUserDetails: Current users state:`, users);
+        
+        // Skip if already fetched
+        if (users[userId]) {
+            console.log(`fetchUserDetails: User ${userId} already in state:`, users[userId]);
+            return;
+        }
 
         try {
-            const response = await API.get(`user/${userId}`, {
-                timeout: 30000
+            console.log(`fetchUserDetails: Making API call to /user/${userId}`);
+            
+            const token = localStorage.getItem('token');
+            console.log(`fetchUserDetails: Auth token present:`, !!token);
+            
+            const response = await API.get(`/user/${userId}`, {
+                timeout: 30000,
+                headers: token ? {
+                    'Authorization': `Bearer ${token}`
+                } : {}
             });
 
-            if (response?.data?.data) {
-                setUsers(prev => ({
-                    ...prev,
-                    [userId]: response.data.data.fullName || `User ${userId}`
-                }));
+            console.log(`fetchUserDetails: Raw response for user ${userId}:`, response);
+            console.log(`fetchUserDetails: Response data for user ${userId}:`, JSON.stringify(response.data, null, 2));
+            console.log(`fetchUserDetails: Response status:`, response.status);
+
+            // Extract the name based on your API response structure
+            let userName = `Admin ${userId}`; // Default fallback
+            
+            if (response?.data) {
+                // Try different possible response structures
+                if (response.data.data) {
+                    console.log(`fetchUserDetails: response.data.data exists:`, response.data.data);
+                    userName = response.data.data.fullName || 
+                              response.data.data.name || 
+                              response.data.data.username ||
+                              response.data.data.firstName || 
+                              (response.data.data.firstName ? 
+                                  response.data.data.firstName + (response.data.data.lastName ? ' ' + response.data.data.lastName : '') 
+                                  : null) ||
+                              `Admin ${userId}`;
+                } else if (response.data.fullName) {
+                    console.log(`fetchUserDetails: response.data.fullName exists:`, response.data.fullName);
+                    userName = response.data.fullName;
+                } else if (response.data.name) {
+                    console.log(`fetchUserDetails: response.data.name exists:`, response.data.name);
+                    userName = response.data.name;
+                } else if (response.data.userName) {
+                    console.log(`fetchUserDetails: response.data.userName exists:`, response.data.userName);
+                    userName = response.data.userName;
+                } else if (response.data.firstName) {
+                    console.log(`fetchUserDetails: response.data.firstName exists:`, response.data.firstName);
+                    userName = response.data.firstName + (response.data.lastName ? ' ' + response.data.lastName : '');
+                } else {
+                    console.log(`fetchUserDetails: No recognizable name field found in response`);
+                    console.log(`fetchUserDetails: Response keys:`, Object.keys(response.data));
+                }
             }
+
+            console.log(`fetchUserDetails: Setting user ${userId} name as:`, userName);
+
+            setUsers(prev => {
+                console.log(`fetchUserDetails: Previous users state:`, prev);
+                const newState = {
+                    ...prev,
+                    [userId]: userName
+                };
+                console.log(`fetchUserDetails: New users state:`, newState);
+                return newState;
+            });
+
         } catch (error) {
-            console.error(`Error fetching user ${userId}:`, error);
+            console.error(`fetchUserDetails: Error fetching user ${userId}:`, error);
+            console.error(`fetchUserDetails: Error message:`, error.message);
+            if (error.response) {
+                console.error(`fetchUserDetails: Error response data:`, error.response.data);
+                console.error(`fetchUserDetails: Error response status:`, error.response.status);
+                console.error(`fetchUserDetails: Error response headers:`, error.response.headers);
+            } else if (error.request) {
+                console.error(`fetchUserDetails: No response received:`, error.request);
+            }
             // Set a fallback name
             setUsers(prev => ({
                 ...prev,
                 [userId]: `Admin ${userId}`
             }));
         }
+    };
+
+    // Function to get the updated by - Returns the user's name
+    const getUpdatedBy = (item) => {
+        console.log(`getUpdatedBy: Processing item ${item.chequeRequestId}:`, item);
+        console.log(`getUpdatedBy: approvedBy:`, item.approvedBy);
+        console.log(`getUpdatedBy: Current users state:`, users);
+
+        // For pending requests (no approver)
+        if (!item.approvedBy) {
+            console.log(`getUpdatedBy: No approvedBy, returning empty string`);
+            return "";
+        }
+
+        // If the API directly provides the name in the response
+        if (item.approvedByName) {
+            console.log(`getUpdatedBy: Using approvedByName:`, item.approvedByName);
+            return item.approvedByName;
+        }
+
+        // If we have the name in our users state
+        if (item.approvedBy && users[item.approvedBy]) {
+            console.log(`getUpdatedBy: Found in users state:`, users[item.approvedBy]);
+            return users[item.approvedBy];
+        }
+
+        // If not in state, trigger fetch and show loading
+        if (item.approvedBy && !users[item.approvedBy]) {
+            console.log(`getUpdatedBy: User ${item.approvedBy} not in state, triggering fetch`);
+            // Use setTimeout to avoid state updates during render
+            setTimeout(() => {
+                console.log(`getUpdatedBy: setTimeout calling fetchUserDetails for ${item.approvedBy}`);
+                fetchUserDetails(item.approvedBy);
+            }, 100);
+            return "Loading...";
+        }
+
+        // Fallback
+        console.log(`getUpdatedBy: Using fallback: Admin ${item.approvedBy}`);
+        return `Admin ${item.approvedBy}`;
     };
 
     // Fetch cheque leaves requests from API
@@ -142,14 +252,21 @@ const ChequeLeavesRequests = () => {
                 "size": itemsPerPage
             };
 
-            console.log("Fetching with payload:", payload);
+            console.log("fetchChequeRequests: Fetching with payload:", payload);
+            
+            const token = localStorage.getItem('token');
+            console.log("fetchChequeRequests: Auth token present:", !!token);
 
-            const response = await API.post("chequeRequest/adminChequeList", payload, {
+            const response = await API.post("/chequeRequest/adminChequeList", payload, {
                 signal: abortControllerRef.current.signal,
-                timeout: 30000
+                timeout: 30000,
+                headers: token ? {
+                    'Authorization': `Bearer ${token}`
+                } : {}
             });
 
-            console.log("API Response:", response.data);
+            console.log("fetchChequeRequests: Full API Response:", JSON.stringify(response.data, null, 2));
+            console.log("fetchChequeRequests: Response status:", response.status);
 
             // Handle different response structures
             let content = [];
@@ -158,46 +275,32 @@ const ChequeLeavesRequests = () => {
             let currentPageNumber = page;
 
             if (response?.data?.data) {
+                console.log("fetchChequeRequests: response.data.data exists");
                 // Check if data is paginated object with content array
                 if (response.data.data.content && Array.isArray(response.data.data.content)) {
+                    console.log("fetchChequeRequests: response.data.data.content is array");
                     content = response.data.data.content;
                     totalElements = response.data.data.totalElements || 0;
                     totalPages = response.data.data.totalPages || 0;
                     currentPageNumber = response.data.data.pageNumber || page;
-
-                    // Fetch user details for each request that has approvedBy
-                    content.forEach(item => {
-                        if (item.approvedBy) {
-                            fetchUserDetails(item.approvedBy);
-                        }
-                    });
                 }
                 // Check if data is directly an array
                 else if (Array.isArray(response.data.data)) {
+                    console.log("fetchChequeRequests: response.data.data is array");
                     content = response.data.data;
                     totalElements = content.length;
                     totalPages = Math.ceil(content.length / itemsPerPage);
-
-                    // Fetch user details for each request that has approvedBy
-                    content.forEach(item => {
-                        if (item.approvedBy) {
-                            fetchUserDetails(item.approvedBy);
-                        }
-                    });
                 }
             } else if (Array.isArray(response.data)) {
+                console.log("fetchChequeRequests: response.data is array");
                 // Handle case where response.data itself is the array
                 content = response.data;
                 totalElements = content.length;
                 totalPages = Math.ceil(content.length / itemsPerPage);
-
-                // Fetch user details for each request that has approvedBy
-                content.forEach(item => {
-                    if (item.approvedBy) {
-                        fetchUserDetails(item.approvedBy);
-                    }
-                });
             }
+
+            console.log("fetchChequeRequests: Extracted content:", content);
+            console.log("fetchChequeRequests: Content length:", content.length);
 
             // Sort the data to show pending first, then by date
             const sortedContent = sortRequests(content);
@@ -211,11 +314,37 @@ const ChequeLeavesRequests = () => {
                 last: currentPageNumber >= totalPages - 1
             });
 
+            // Get unique user IDs to fetch
+            const uniqueUserIds = [...new Set(sortedContent
+                .filter(item => {
+                    const hasApprovedBy = !!item.approvedBy;
+                    const notInState = !users[item.approvedBy];
+                    console.log(`fetchChequeRequests: Checking item ${item.chequeRequestId}, approvedBy: ${item.approvedBy}, hasApprovedBy: ${hasApprovedBy}, notInState: ${notInState}`);
+                    return hasApprovedBy && notInState;
+                })
+                .map(item => item.approvedBy)
+            )];
+
+            console.log("fetchChequeRequests: Unique user IDs to fetch:", uniqueUserIds);
+
+            // Fetch user details for unique IDs
+            uniqueUserIds.forEach(userId => {
+                if (userId) {
+                    console.log(`fetchChequeRequests: Calling fetchUserDetails for ${userId}`);
+                    fetchUserDetails(userId);
+                }
+            });
+
         } catch (error) {
             if (error.name === 'AbortError') {
-                console.log('Request was cancelled');
+                console.log('fetchChequeRequests: Request was cancelled');
             } else {
-                console.error('Error fetching cheque requests:', error);
+                console.error('fetchChequeRequests: Error fetching cheque requests:', error);
+                console.error('fetchChequeRequests: Error message:', error.message);
+                if (error.response) {
+                    console.error('fetchChequeRequests: Error response:', error.response.data);
+                    console.error('fetchChequeRequests: Error status:', error.response.status);
+                }
                 showSnackbar("error", "Failed to load cheque leaves requests. Please try again.");
             }
             setChequeRequests([]);
@@ -234,15 +363,22 @@ const ChequeLeavesRequests = () => {
     // Fetch statistics
     const fetchStats = async () => {
         try {
-            const response = await API.get("chequeRequest/counts", {
-                timeout: 30000
+            console.log("fetchStats: Fetching stats");
+            const token = localStorage.getItem('token');
+            
+            const response = await API.get("/chequeRequest/counts", {
+                timeout: 30000,
+                headers: token ? {
+                    'Authorization': `Bearer ${token}`
+                } : {}
             });
-            console.log("Stats response:", response.data);
+            
+            console.log("fetchStats: Stats response:", response.data);
             if (response?.data?.data) {
                 setStats(response.data.data);
             }
         } catch (error) {
-            console.error('Error fetching stats:', error);
+            console.error('fetchStats: Error fetching stats:', error);
         }
     };
 
@@ -257,6 +393,11 @@ const ChequeLeavesRequests = () => {
             }
         };
     }, [currentPage, statusFilter]);
+
+    // Add effect to monitor users state changes
+    useEffect(() => {
+        console.log("useEffect: Users state updated:", users);
+    }, [users]);
 
     // Handle search functionality - client-side filtering only
     const filteredData = chequeRequests?.filter(item => {
@@ -285,12 +426,19 @@ const ChequeLeavesRequests = () => {
 
     const fetchChequeDetails = async (id) => {
         try {
-            const res = await API.get(`chequeRequest/chequeBy/${id}`, {
-                timeout: 30000
+            console.log("fetchChequeDetails: Fetching details for ID:", id);
+            const token = localStorage.getItem('token');
+            
+            const res = await API.get(`/chequeRequest/chequeBy/${id}`, {
+                timeout: 30000,
+                headers: token ? {
+                    'Authorization': `Bearer ${token}`
+                } : {}
             });
-            console.log("Details response:", res.data);
+            
+            console.log("fetchChequeDetails: Details response:", res.data);
             if (res.data && res.data.data) {
-                // Fetch user details if approvedBy exists
+                // Fetch user details if approvedBy exists (for both approved AND rejected)
                 if (res.data.data.approvedBy) {
                     fetchUserDetails(res.data.data.approvedBy);
                 }
@@ -299,7 +447,7 @@ const ChequeLeavesRequests = () => {
             }
             return null;
         } catch (error) {
-            console.log("Error fetching cheque details:", error);
+            console.log("fetchChequeDetails: Error fetching cheque details:", error);
             showSnackbar("error", "Failed to fetch request details");
             setRequestDetails(null);
             return null;
@@ -319,12 +467,18 @@ const ChequeLeavesRequests = () => {
                 approvedById: parseInt(userId),
                 remarks: remarks
             };
-            console.log("Update payload:", payload);
-            const res = await API.post(`chequeRequest/chequeUpdateAdmin/${id}`, payload, {
-                timeout: 30000
+            console.log("updateChequeStatus: Update payload:", payload);
+            
+            const token = localStorage.getItem('token');
+            
+            const res = await API.post(`/chequeRequest/chequeUpdateAdmin/${id}`, payload, {
+                timeout: 30000,
+                headers: token ? {
+                    'Authorization': `Bearer ${token}`
+                } : {}
             });
 
-            console.log("Update response:", res.data);
+            console.log("updateChequeStatus: Update response:", res.data);
 
             if (res.data && res.data.status === true) {
                 // After successful update, fetch the updated data
@@ -334,7 +488,7 @@ const ChequeLeavesRequests = () => {
             }
             return null;
         } catch (error) {
-            console.log("Error updating cheque status:", error);
+            console.log("updateChequeStatus: Error updating cheque status:", error);
             showSnackbar("error", "Failed to update request status");
             return null;
         }
@@ -434,6 +588,7 @@ const ChequeLeavesRequests = () => {
             fetchChequeRequests(newPage);
         }
     };
+
     const StatusBadge = ({ status }) => {
         const statusConfig = {
             Approved: { color: "#10B981", bg: "rgba(16, 185, 129, 0.1)", icon: FaCheckCircle, text: "Approved" },
@@ -476,17 +631,6 @@ const ChequeLeavesRequests = () => {
         return `${leaves} Leaves`;
     };
 
-    // Function to get the updated by - Returns the user's name from the users state
-    const getUpdatedBy = (item) => {
-        // For pending/rejected requests, return empty string
-        if (item.status !== "Approved") {
-            return "";
-        }
-
-        // For approved requests, return "Ram Kumar"
-        return "Ram Kumar";
-    };
-
     const ChequeRequestModal = ({ request, onClose }) => {
         if (!request) return null;
 
@@ -507,7 +651,7 @@ const ChequeLeavesRequests = () => {
                             </div>
                             <div>
                                 <h3 style={styles.modalTitle}>Cheque Leaves Request</h3>
-                                <p style={styles.modalSubtitle}>ID: {displayData.chequeRequestId}</p>
+                                
                             </div>
                         </div>
                         <button style={styles.closeBtn} onClick={onClose}>×</button>
@@ -575,13 +719,13 @@ const ChequeLeavesRequests = () => {
                                 )}
                                 {displayData.approvedDate && (
                                     <div style={styles.infoRow}>
-                                        <span style={styles.infoLabel}>Approved Date</span>
+                                        <span style={styles.infoLabel}>Approved/Rejected Date</span>
                                         <span style={styles.infoValue}>{formatDate(displayData.approvedDate)}</span>
                                     </div>
                                 )}
                                 {approverName && (
                                     <div style={styles.infoRow}>
-                                        <span style={styles.infoLabel}>Approved By</span>
+                                        <span style={styles.infoLabel}>Processed By</span>
                                         <span style={styles.infoValue}>{approverName}</span>
                                     </div>
                                 )}
@@ -606,7 +750,7 @@ const ChequeLeavesRequests = () => {
         );
     };
 
-    // Rejection Modal - Separate component with fixed textarea
+    // Rejection Modal
     const RejectionModal = () => {
         if (!showRejectReason) return null;
 
@@ -650,7 +794,6 @@ const ChequeLeavesRequests = () => {
                                 spellCheck="false"
                                 autoComplete="off"
                                 onFocus={(e) => {
-                                    // Ensure cursor is at the end of text
                                     const val = e.target.value;
                                     e.target.value = '';
                                     e.target.value = val;
@@ -897,6 +1040,7 @@ const ChequeLeavesRequests = () => {
         </div>
     );
 };
+
 // ==================== STYLES OBJECT ====================
 const styles = {
     container: {
@@ -982,15 +1126,6 @@ const styles = {
         cursor: "pointer",
         transition: "all 0.2s ease",
         boxShadow: "0 4px 12px rgba(0, 51, 102, 0.15)",
-        ':hover': {
-            transform: "translateY(-2px)",
-            boxShadow: "0 8px 16px rgba(0, 51, 102, 0.25)",
-        },
-        ':disabled': {
-            opacity: 0.7,
-            cursor: "not-allowed",
-            transform: "none",
-        },
     },
     refreshIcon: {
         transition: "transform 0.3s ease",
@@ -1082,9 +1217,6 @@ const styles = {
     tableRow: {
         borderBottom: "1px solid #E6EDF5",
         transition: "background 0.2s ease",
-        ':hover': {
-            background: "#F8FBFF",
-        },
     },
     tableCell: {
         padding: "16px",
@@ -1143,10 +1275,6 @@ const styles = {
         cursor: "pointer",
         transition: "all 0.2s ease",
         boxShadow: "0 4px 12px rgba(0, 51, 102, 0.15)",
-        ':hover': {
-            transform: "translateY(-2px)",
-            boxShadow: "0 8px 16px rgba(0, 51, 102, 0.25)",
-        },
     },
     viewText: {
         marginLeft: "2px",
@@ -1221,35 +1349,11 @@ const styles = {
         cursor: "pointer",
         color: "#003366",
         transition: "all 0.2s ease",
-        ':hover': {
-            borderColor: "#FFD700",
-            background: "#FFF9E6",
-        },
-        ':disabled': {
-            opacity: 0.5,
-            cursor: "not-allowed",
-            borderColor: "#E6EDF5",
-        },
     },
     pageInfo: {
         fontSize: "14px",
         color: "#4A6F8F",
         fontWeight: "500",
-    },
-    searchInfo: {
-        textAlign: "center",
-        marginTop: "16px",
-        marginBottom: "8px",
-        fontSize: "14px",
-        color: "#4A6F8F",
-        fontWeight: "500",
-        padding: "8px 20px",
-        background: "#F8FBFF",
-        borderRadius: "8px",
-        display: "inline-block",
-        marginLeft: "auto",
-        marginRight: "auto",
-        width: "fit-content",
     },
     modalOverlay: {
         position: "fixed",
@@ -1322,10 +1426,6 @@ const styles = {
         alignItems: "center",
         justifyContent: "center",
         transition: "all 0.2s ease",
-        ':hover': {
-            borderColor: "#FFD700",
-            color: "#FFD700",
-        },
     },
     modalBody: {
         padding: "32px",
@@ -1401,10 +1501,6 @@ const styles = {
         cursor: "pointer",
         transition: "all 0.2s ease",
         boxShadow: "0 8px 16px rgba(220, 38, 38, 0.15)",
-        ':hover': {
-            transform: "translateY(-2px)",
-            boxShadow: "0 12px 20px rgba(220, 38, 38, 0.25)",
-        },
     },
     approveBtn: {
         flex: 1,
@@ -1422,10 +1518,6 @@ const styles = {
         cursor: "pointer",
         transition: "all 0.2s ease",
         boxShadow: "0 8px 16px rgba(16, 185, 129, 0.15)",
-        ':hover': {
-            transform: "translateY(-2px)",
-            boxShadow: "0 12px 20px rgba(16, 185, 129, 0.25)",
-        },
     },
     rejectModalOverlay: {
         position: "fixed",
@@ -1481,11 +1573,6 @@ const styles = {
         alignItems: "center",
         justifyContent: "center",
         transition: "all 0.2s ease",
-        ':hover': {
-            borderColor: "#DC2626",
-            color: "#DC2626",
-            background: "#FEF2F2",
-        },
     },
     rejectModalBody: {
         padding: "28px",
@@ -1499,21 +1586,6 @@ const styles = {
         fontWeight: "600",
         color: "#1E293B",
         marginBottom: "8px",
-    },
-    rejectTextarea: {
-        width: "100%",
-        padding: "12px 16px",
-        border: "2px solid #E6EDF5",
-        borderRadius: "12px",
-        fontSize: "14px",
-        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-        lineHeight: "1.5",
-        resize: "vertical",
-        outline: "none",
-        transition: "border-color 0.2s ease",
-        ':focus': {
-            borderColor: "#DC2626",
-        },
     },
     rejectCharCount: {
         textAlign: "right",
@@ -1538,10 +1610,6 @@ const styles = {
         fontWeight: "600",
         cursor: "pointer",
         transition: "all 0.2s ease",
-        ':hover': {
-            background: "#E6F0FF",
-            borderColor: "#CCE5FF",
-        },
     },
     rejectSubmitBtn: {
         display: "flex",
@@ -1557,16 +1625,6 @@ const styles = {
         cursor: "pointer",
         transition: "all 0.2s ease",
         boxShadow: "0 4px 12px rgba(220, 38, 38, 0.15)",
-        ':hover': {
-            transform: "translateY(-2px)",
-            boxShadow: "0 8px 20px rgba(220, 38, 38, 0.25)",
-        },
-        ':disabled': {
-            opacity: 0.6,
-            cursor: "not-allowed",
-            transform: "none",
-            boxShadow: "none",
-        },
     },
 };
 
@@ -1575,6 +1633,7 @@ const styleSheet = document.createElement("style");
 styleSheet.textContent = `
     @keyframes spin {
         0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
     }
 `;
 document.head.appendChild(styleSheet);
