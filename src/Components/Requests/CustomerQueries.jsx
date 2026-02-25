@@ -449,7 +449,7 @@ const CustomerQueries = () => {
                             </div>
                             <div>
                                 <h3 style={styles.modalTitle}>Customer Query Details</h3>
-                                <p style={styles.modalSubtitle}>Query ID: Q-{displayData.queriesId}</p>
+                                {/* <p style={styles.modalSubtitle}>Query ID: Q-{displayData.queriesId}</p> */}
                             </div>
                         </div>
                         <button style={styles.closeBtn} onClick={onClose}>×</button>

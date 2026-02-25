@@ -598,7 +598,7 @@ const StolenCardRequests = () => {
                             </div>
                             <div>
                                 <h3 style={styles.modalTitle}>Stolen Card Report</h3>
-                                <p style={styles.modalSubtitle}>Request ID: {displayData.lostCardId}</p>
+                                
                             </div>
                         </div>
                         <button style={styles.closeBtn} onClick={onClose}>×</button>
@@ -661,10 +661,10 @@ const StolenCardRequests = () => {
                                 Incident Details
                             </h4>
                             <div style={styles.infoGrid}>
-                                <div style={styles.infoRow}>
+                                {/* <div style={styles.infoRow}>
                                     <span style={styles.infoLabel}>Lost Card ID</span>
                                     <span style={styles.infoValue}>{displayData.lostCardId || "N/A"}</span>
-                                </div>
+                                </div> */}
                                 <div style={styles.infoRow}>
                                     <span style={styles.infoLabel}>Created Date</span>
                                     <span style={styles.infoValue}>{formatDate(displayData.createdDate)}</span>

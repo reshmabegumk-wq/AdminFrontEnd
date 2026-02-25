@@ -102,94 +102,226 @@ const ResolvedRequests = () => {
             // Process and combine all resolved requests
             let allResolved = [];
 
-            // Cheque requests - FIXED
-            if (chequeRes.status === 'fulfilled' && chequeRes.value?.data?.status === true) {
-                if (chequeRes.value.data.data && chequeRes.value.data.data.content) {
-                    const chequeRequests = chequeRes.value.data.data.content.map(item => ({
-                        id: `cheque-${item.chequeRequestId}`,
-                        requestId: item.chequeRequestId,
-                        module: "Cheque Leaves",
-                        moduleIcon: FaMoneyCheck,
-                        moduleColor: "#003366",
-                        customerName: item.fullName || "Unknown",
-                        accountNumber: item.accountNumber || "N/A",
-                        status: item.status || "Approved",
-                        requestedDate: item.requestedDate || item.createdDate,
-                        resolvedDate: item.approvedDate || item.updatedDate,
-                        description: `${item.noOfLeaves || 0} leaves cheque leaves requested`,
-                        value: `${item.noOfLeaves || 0} leaves`,
-                        resolvedBy: item.approvedByName || "System",
-                        originalData: item
-                    }));
-                    allResolved = [...allResolved, ...chequeRequests];
-                }
-            }
+            // // Cheque requests - FIXED: Check both approvedBy fields and fetch individual details if needed
+            // if (chequeRes.status === 'fulfilled' && chequeRes.value?.data?.status === true) {
+            //     if (chequeRes.value.data.data && chequeRes.value.data.data.content) {
+            //         const chequeRequests = await Promise.all(
+            //             chequeRes.value.data.data.content
+            //                 .filter(item => item.status?.toLowerCase() === "approved")
+            //                 .map(async (item) => {
+            //                     let approvedByName = item.approvedByName;
+                                
+            //                     // If approvedByName is null but approvedBy has an ID, fetch the individual record
+            //                     if ((!approvedByName || approvedByName === "System") && item.approvedBy) {
+            //                         try {
+            //                             const detailRes = await API.get(`chequeRequest/chequeBy/${item.chequeRequestId}`);
+            //                             if (detailRes.data?.status && detailRes.data?.data?.approvedByName) {
+            //                                 approvedByName = detailRes.data.data.approvedByName;
+            //                             }
+            //                         } catch (error) {
+            //                             console.log("Error fetching cheque detail:", error);
+            //                         }
+            //                     }
 
-            // Query requests - FIXED
+            //                     return {
+            //                         id: `cheque-${item.chequeRequestId}`,
+            //                         requestId: item.chequeRequestId,
+            //                         module: "Cheque Leaves",
+            //                         moduleIcon: FaMoneyCheck,
+            //                         moduleColor: "#003366",
+            //                         customerName: item.fullName || "Unknown",
+            //                         accountNumber: item.accountNumber || "N/A",
+            //                         status: item.status || "Approved",
+            //                         requestedDate: item.requestedDate || item.createdDate,
+            //                         resolvedDate: item.approvedDate || item.updatedDate,
+            //                         description: `${item.noOfLeaves || 0} leaves cheque leaves requested`,
+            //                         value: `${item.noOfLeaves || 0} leaves`,
+            //                         resolvedBy: approvedByName || 
+            //                                    (item.approvedBy ? `Admin ID: ${item.approvedBy}` : "System"),
+            //                         originalData: item
+            //                     };
+            //                 })
+            //         );
+            //         allResolved = [...allResolved, ...chequeRequests];
+            //     }
+            // }
+
+
+            if (chequeRes.status === 'fulfilled' && chequeRes.value?.data?.status === true) {
+    if (chequeRes.value.data.data?.content) {
+
+        const chequeRequests = await Promise.all(
+            chequeRes.value.data.data.content.map(async (item) => {
+
+                let approvedByName = item.approvedByName;
+
+                // Fetch detail only if name missing
+                if (!approvedByName && item.approvedBy) {
+                    try {
+                        const detailRes = await API.get(
+                            `chequeRequest/chequeBy/${item.chequeRequestId}`
+                        );
+
+                        if (detailRes?.data?.data?.approvedByName) {
+                            approvedByName = detailRes.data.data.approvedByName;
+                        }
+                    } catch (error) {
+                        console.log("Error fetching cheque detail:", error);
+                    }
+                }
+
+                return {
+                    id: `cheque-${item.chequeRequestId}`,
+                    requestId: item.chequeRequestId,
+                    module: "Cheque Leaves",
+                    moduleIcon: FaMoneyCheck,
+                    moduleColor: "#003366",
+                    customerName: item.fullName || "Unknown",
+                    accountNumber: item.accountNumber || "N/A",
+                    status: item.status || "Approved",
+                    requestedDate: item.requestedDate || item.createdDate,
+                    resolvedDate: item.approvedDate || item.updatedDate,
+                    description: `${item.noOfLeaves || 0} leaves cheque leaves requested`,
+                    value: `${item.noOfLeaves || 0} leaves`,
+                    resolvedBy:
+                        approvedByName ||
+                        (item.approvedBy ? `Admin ID: ${item.approvedBy}` : "System"),
+                    originalData: item
+                };
+            })
+        );
+
+        allResolved = [...allResolved, ...chequeRequests];
+    }
+}
+            // Query requests - FIXED: Check both approvedByName fields and fetch individual details
             if (queryRes.status === 'fulfilled' && queryRes.value?.data?.status === true) {
                 if (queryRes.value.data.data && queryRes.value.data.data.content) {
-                    const queryRequests = queryRes.value.data.data.content.map(item => ({
-                        id: `query-${item.queriesId}`,
-                        requestId: item.queriesId,
-                        module: "Customer Queries",
-                        moduleIcon: FaQuestionCircle,
-                        moduleColor: "#FFD700",
-                        customerName: item.fullName || "Unknown",
-                        accountNumber: item.accountNumber || "N/A",
-                        status: item.status || "Approved",
-                        requestedDate: item.queryRaisedDate,
-                        resolvedDate: item.queryApprovedDate,
-                        description: item.customerQuery?.substring(0, 50) + "...",
-                        value: "Query",
-                        resolvedBy: item.approvedByName || "System",
-                        originalData: item
-                    }));
+                    const queryRequests = await Promise.all(
+                        queryRes.value.data.data.content
+                            .filter(item => item.status?.toLowerCase() === "approved")
+                            .map(async (item) => {
+                                let approvedByName = item.approvedByName;
+                                
+                                // If approvedByName is null but queryApprovedBy has an ID, fetch the individual record
+                                if ((!approvedByName || approvedByName === "System") && item.queryApprovedBy) {
+                                    try {
+                                        const detailRes = await API.get(`queriesResponse/queryBy/${item.queriesId}`);
+                                        if (detailRes.data?.status && detailRes.data?.data?.approvedByName) {
+                                            approvedByName = detailRes.data.data.approvedByName;
+                                        }
+                                    } catch (error) {
+                                        console.log("Error fetching query detail:", error);
+                                    }
+                                }
+
+                                return {
+                                    id: `query-${item.queriesId}`,
+                                    requestId: item.queriesId,
+                                    module: "Customer Queries",
+                                    moduleIcon: FaQuestionCircle,
+                                    moduleColor: "#FFD700",
+                                    customerName: item.fullName || "Unknown",
+                                    accountNumber: item.accountNumber || "N/A",
+                                    status: item.status || "Approved",
+                                    requestedDate: item.queryRaisedDate,
+                                    resolvedDate: item.queryApprovedDate,
+                                    description: item.customerQuery?.substring(0, 50) + "...",
+                                    value: "Query",
+                                    resolvedBy: approvedByName || 
+                                               (item.queryApprovedBy ? `Admin ID: ${item.queryApprovedBy}` : "System"),
+                                    originalData: item
+                                };
+                            })
+                    );
                     allResolved = [...allResolved, ...queryRequests];
                 }
             }
 
-            // Limit requests - FIXED
+            // Limit requests - FIXED: Check both approvedBy fields and fetch individual details
             if (limitRes.status === 'fulfilled' && limitRes.value?.data?.status === true) {
                 if (limitRes.value.data.data && limitRes.value.data.data.content) {
-                    const limitRequests = limitRes.value.data.data.content.map(item => ({
-                        id: `limit-${item.increaseCreditLimitId}`,
-                        requestId: item.increaseCreditLimitId,
-                        module: "Limit Requests",
-                        moduleIcon: FaArrowUp,
-                        moduleColor: "#10B981",
-                        customerName: item.fullName || "Unknown",
-                        accountNumber: item.accountNumber || "N/A",
-                        status: item.status || "Approved",
-                        requestedDate: item.requestDate,
-                        resolvedDate: item.approvedDate,
-                        description: `Requested ₹${item.requestedLimit?.toLocaleString() || 0}`,
-                        value: `₹${item.requestedLimit?.toLocaleString() || 0}`,
-                        resolvedBy: item.approvedByName || "System",
-                        originalData: item
-                    }));
+                    const limitRequests = await Promise.all(
+                        limitRes.value.data.data.content
+                            .filter(item => item.status?.toLowerCase() === "approved")
+                            .map(async (item) => {
+                                let approvedByName = item.approvedByName;
+                                
+                                // If approvedByName is null but approvedBy has an ID, fetch the individual record
+                                if ((!approvedByName || approvedByName === "System") && item.approvedBy) {
+                                    try {
+                                        const detailRes = await API.get(`creditLimit/creditLimitBy/${item.increaseCreditLimitId}`);
+                                        if (detailRes.data?.status && detailRes.data?.data?.approvedByName) {
+                                            approvedByName = detailRes.data.data.approvedByName;
+                                        }
+                                    } catch (error) {
+                                        console.log("Error fetching limit detail:", error);
+                                    }
+                                }
+
+                                return {
+                                    id: `limit-${item.increaseCreditLimitId}`,
+                                    requestId: item.increaseCreditLimitId,
+                                    module: "Limit Requests",
+                                    moduleIcon: FaArrowUp,
+                                    moduleColor: "#10B981",
+                                    customerName: item.fullName || "Unknown",
+                                    accountNumber: item.accountNumber || "N/A",
+                                    status: item.status || "Approved",
+                                    requestedDate: item.requestDate,
+                                    resolvedDate: item.approvedDate,
+                                    description: `Requested ₹${item.requestedLimit?.toLocaleString() || 0}`,
+                                    value: `₹${item.requestedLimit?.toLocaleString() || 0}`,
+                                    resolvedBy: approvedByName || 
+                                               (item.approvedBy ? `Admin ID: ${item.approvedBy}` : "System"),
+                                    originalData: item
+                                };
+                            })
+                    );
                     allResolved = [...allResolved, ...limitRequests];
                 }
             }
 
-            // Stolen card requests - FIXED
+            // Stolen card requests - FIXED: Check both approvedByName fields and fetch individual details
             if (stolenRes.status === 'fulfilled' && stolenRes.value?.data?.status === true) {
                 if (stolenRes.value.data.data && stolenRes.value.data.data.content) {
-                    const stolenRequests = stolenRes.value.data.data.content.map(item => ({
-                        id: `stolen-${item.lostCardId}`,
-                        requestId: item.lostCardId,
-                        module: "Stolen Cards",
-                        moduleIcon: FaExclamationTriangle,
-                        moduleColor: "#EF4444",
-                        customerName: item.fullName || item.cardHolder || "Unknown",
-                        accountNumber: item.accountNumber || "N/A",
-                        status: item.status || "Approved",
-                        requestedDate: item.createdDate,
-                        resolvedDate: item.approvedDate || item.updatedDate,
-                        description: `Card: ${maskCardNumber(item.lostCardNumber)}`,
-                        value: "Card Blocked",
-                        resolvedBy: item.approvedByName || "System",
-                        originalData: item
-                    }));
+                    const stolenRequests = await Promise.all(
+                        stolenRes.value.data.data.content
+                            .filter(item => item.status?.toLowerCase() === "approved")
+                            .map(async (item) => {
+                                let approvedByName = item.approvedByName;
+                                
+                                // If approvedByName is null but approvedById exists, fetch the individual record
+                                if ((!approvedByName || approvedByName === "System") && item.approvedById) {
+                                    try {
+                                        const detailRes = await API.get(`lostCard/lostCardBy/${item.lostCardId}`);
+                                        if (detailRes.data?.status && detailRes.data?.data?.approvedByName) {
+                                            approvedByName = detailRes.data.data.approvedByName;
+                                        }
+                                    } catch (error) {
+                                        console.log("Error fetching stolen card detail:", error);
+                                    }
+                                }
+
+                                return {
+                                    id: `stolen-${item.lostCardId}`,
+                                    requestId: item.lostCardId,
+                                    module: "Stolen Cards",
+                                    moduleIcon: FaExclamationTriangle,
+                                    moduleColor: "#EF4444",
+                                    customerName: item.fullName || item.cardHolder || "Unknown",
+                                    accountNumber: item.accountNumber || "N/A",
+                                    status: item.status || "Approved",
+                                    requestedDate: item.createdDate,
+                                    resolvedDate: item.approvedDate || item.updatedDate,
+                                    description: `Card: ${maskCardNumber(item.lostCardNumber)}`,
+                                    value: "Card Blocked",
+                                    resolvedBy: approvedByName || 
+                                               (item.approvedById ? `Admin ID: ${item.approvedById}` : "System"),
+                                    originalData: item
+                                };
+                            })
+                    );
                     allResolved = [...allResolved, ...stolenRequests];
                 }
             }
@@ -247,11 +379,12 @@ const ResolvedRequests = () => {
         }
     };
 
+    // Rest of your component remains exactly the same...
     useEffect(() => {
         fetchResolvedRequests();
     }, [month, year]);
 
-    // Filter requests based on search (only customer name and account number) and module
+    // Filter requests based on search and module
     useEffect(() => {
         if (!resolvedRequests.length) return;
 
@@ -261,7 +394,6 @@ const ResolvedRequests = () => {
         if (searchTerm.trim()) {
             const term = searchTerm.toLowerCase().trim();
             filtered = filtered.filter(request => {
-                // FIX: Convert values to strings and handle null/undefined safely
                 const customerName = request.customerName ? String(request.customerName).toLowerCase() : '';
                 const accountNumber = request.accountNumber ? String(request.accountNumber).toLowerCase() : '';
                 
@@ -277,33 +409,22 @@ const ResolvedRequests = () => {
         }
 
         setFilteredRequests(filtered);
-        
-        // ALWAYS reset to page 1 when search or filter changes
-        // This ensures we never try to go to a non-existent page
         setCurrentPage(1);
     }, [searchTerm, selectedModule, resolvedRequests]);
 
     // Simple pagination calculation
     const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
     
-    // FIX: Ensure current page is always valid (especially when search returns 0 results)
-    // This useEffect runs after filteredRequests changes and ensures currentPage is valid
     useEffect(() => {
-        // If there are no results, currentPage should be 1 (even though no pages exist)
         if (filteredRequests.length === 0) {
             setCurrentPage(1);
-        } 
-        // If current page is greater than total pages, set to last page
-        else if (currentPage > totalPages) {
+        } else if (currentPage > totalPages) {
             setCurrentPage(totalPages);
-        }
-        // If current page is less than 1, set to 1
-        else if (currentPage < 1) {
+        } else if (currentPage < 1) {
             setCurrentPage(1);
         }
     }, [filteredRequests.length, totalPages, currentPage]);
     
-    // Calculate paginated data - this will be an empty array if filteredRequests.length === 0
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedData = filteredRequests.length > 0 
         ? filteredRequests.slice(startIndex, startIndex + itemsPerPage)
@@ -344,7 +465,6 @@ const ResolvedRequests = () => {
     };
 
     const handlePageChange = (newPage) => {
-        // Only change page if new page is valid and there are results
         if (filteredRequests.length > 0 && newPage >= 1 && newPage <= totalPages) {
             setCurrentPage(newPage);
             document.querySelector('.tableContainer')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -440,7 +560,7 @@ const ResolvedRequests = () => {
                 </div>
             </div>
 
-            {/* Filters - Updated placeholder text */}
+            {/* Filters */}
             <div style={styles.filtersContainer}>
                 <div style={styles.searchBox}>
                     <FaSearch size={14} color="#8DA6C0" style={styles.searchIcon} />
@@ -545,7 +665,7 @@ const ResolvedRequests = () => {
                 )}
             </div>
 
-            {/* Pagination - Only show if there are items AND totalPages > 0 */}
+            {/* Pagination */}
             {filteredRequests.length > 0 && totalPages > 0 && (
                 <div style={styles.pagination}>
                     <button
@@ -568,7 +688,6 @@ const ResolvedRequests = () => {
                 </div>
             )}
             
-            {/* When no results, show a simple message instead of pagination */}
             {filteredRequests.length === 0 && (
                 <div style={styles.pagination}>
                     <span style={styles.pageInfo}>
@@ -589,7 +708,7 @@ const COLORS = {
     stolen: '#EF4444'
 };
 
-// Styles
+// Styles (keep all your existing styles)
 const styles = {
     container: {
         padding: "30px",
