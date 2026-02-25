@@ -18,7 +18,8 @@ import {
     FaHome,
     FaFlag,
     FaTimes,
-    FaPen
+    FaPen,
+    FaExclamationCircle
 } from "react-icons/fa";
 import API from "../../api";
 
@@ -29,15 +30,16 @@ const Profile = () => {
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
+    const [validationErrors, setValidationErrors] = useState({});
 
     // Fields that can be edited
     const editableFields = [
-        { name: 'mobileNumber', label: 'MOBILE NUMBER', icon: FaPhone, type: 'tel' },
-        { name: 'address', label: 'ADDRESS', icon: FaHome, type: 'text' },
-        { name: 'city', label: 'CITY', icon: FaCity, type: 'text' },
-        { name: 'state', label: 'STATE', icon: FaFlag, type: 'text' },
-        { name: 'country', label: 'COUNTRY', icon: FaGlobe, type: 'text' },
-        { name: 'pincode', label: 'PINCODE', icon: FaMapPin, type: 'text' }
+        { name: 'mobileNumber', label: 'MOBILE NUMBER', icon: FaPhone, type: 'tel', required: true },
+        { name: 'address', label: 'ADDRESS', icon: FaHome, type: 'text', required: true },
+        { name: 'city', label: 'CITY', icon: FaCity, type: 'text', required: true },
+        { name: 'state', label: 'STATE', icon: FaFlag, type: 'text', required: true },
+        { name: 'country', label: 'COUNTRY', icon: FaGlobe, type: 'text', required: true },
+        { name: 'pincode', label: 'PINCODE', icon: FaMapPin, type: 'text', required: true }
     ];
 
     // Fetch profile data
@@ -94,6 +96,7 @@ const Profile = () => {
             updatedFormData[field.name] = profile[field.name] || '';
         });
         setFormData(updatedFormData);
+        setValidationErrors({}); // Clear validation errors
         setShowEditModal(true);
     };
 
@@ -104,10 +107,48 @@ const Profile = () => {
             ...prev,
             [name]: value
         }));
+        
+        // Clear validation error for this field when user starts typing
+        if (validationErrors[name]) {
+            setValidationErrors(prev => ({
+                ...prev,
+                [name]: null
+            }));
+        }
+    };
+
+    // Validate form data
+    const validateForm = () => {
+        const errors = {};
+        let isValid = true;
+
+        editableFields.forEach(field => {
+            if (field.required) {
+                const value = formData[field.name];
+                if (!value || value.trim() === '') {
+                    errors[field.name] = `${field.label} is required`;
+                    isValid = false;
+                } else if (field.name === 'mobileNumber' && !/^\d{10}$/.test(value.trim())) {
+                    errors[field.name] = 'Mobile number must be 10 digits';
+                    isValid = false;
+                } else if (field.name === 'pincode' && !/^\d{6}$/.test(value.trim())) {
+                    errors[field.name] = 'Pincode must be 6 digits';
+                    isValid = false;
+                }
+            }
+        });
+
+        setValidationErrors(errors);
+        return isValid;
     };
 
     // Handle save from modal
     const handleSave = async () => {
+        // Validate form before submitting
+        if (!validateForm()) {
+            return;
+        }
+
         setUpdating(true);
         try {
             const userId = localStorage.getItem("userId");
@@ -134,6 +175,7 @@ const Profile = () => {
                 }));
 
                 setShowEditModal(false);
+                setValidationErrors({}); // Clear validation errors
                 setShowSuccess(true);
                 setTimeout(() => setShowSuccess(false), 3000);
             }
@@ -148,6 +190,7 @@ const Profile = () => {
     // Handle cancel
     const handleCancel = () => {
         setShowEditModal(false);
+        setValidationErrors({}); // Clear validation errors
     };
 
     // Loading state
@@ -347,16 +390,25 @@ const Profile = () => {
                                 <div key={field.name} style={styles.modalField}>
                                     <label style={styles.modalLabel}>
                                         <field.icon style={styles.modalLabelIcon} />
-                                        {field.label}
+                                        {field.label} {field.required && <span style={styles.requiredStar}>*</span>}
                                     </label>
                                     <input
                                         type={field.type}
                                         name={field.name}
                                         value={formData[field.name] || ''}
                                         onChange={handleChange}
-                                        style={styles.modalInput}
+                                        style={{
+                                            ...styles.modalInput,
+                                            ...(validationErrors[field.name] ? styles.modalInputError : {})
+                                        }}
                                         placeholder={`Enter ${field.label.toLowerCase()}`}
                                     />
+                                    {validationErrors[field.name] && (
+                                        <div style={styles.errorMessage}>
+                                            <FaExclamationCircle style={styles.errorIcon} />
+                                            <span>{validationErrors[field.name]}</span>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -670,6 +722,11 @@ const styles = {
         fontSize: "14px",
     },
 
+    requiredStar: {
+        color: "#EF4444",
+        marginLeft: "4px",
+    },
+
     modalInput: {
         width: "100%",
         padding: "12px 16px",
@@ -683,6 +740,27 @@ const styles = {
         ':focus': {
             borderColor: "#1e4b8a",
         }
+    },
+
+    modalInputError: {
+        borderColor: "#EF4444",
+        ':focus': {
+            borderColor: "#EF4444",
+        }
+    },
+
+    errorMessage: {
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+        marginTop: "6px",
+        color: "#EF4444",
+        fontSize: "12px",
+        fontWeight: "500",
+    },
+
+    errorIcon: {
+        fontSize: "12px",
     },
 
     modalFooter: {
@@ -728,6 +806,10 @@ const styles = {
         transition: "all 0.2s ease",
         ':hover': {
             background: "#059669",
+        },
+        ':disabled': {
+            opacity: 0.6,
+            cursor: "not-allowed",
         }
     },
 

@@ -279,7 +279,7 @@ const Sidebar = () => {
                                     color: activeItem === "customerAdmin" ? "#FFFFFF" : "#E6F0FF"
                                 }}
                             >
-                                Customer / Admin
+                                Customer / Employee
                             </span>
 
                             {activeItem === "customerAdmin" && (

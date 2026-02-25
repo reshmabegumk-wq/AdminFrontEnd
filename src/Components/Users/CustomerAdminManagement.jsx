@@ -388,7 +388,7 @@ const CustomerAdminManagement = () => {
                         }}
                     >
                         <FaUserTie size={16} style={{ marginRight: "8px" }} />
-                        Administrators
+                        Employee
                     </div>
                 </div>
             </div>
@@ -528,7 +528,7 @@ const CustomerAdminManagement = () => {
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td style={styles.tableCell}>Administrator</td>
+                                            <td style={styles.tableCell}>Employee</td>
                                             <td style={styles.tableCell}>EMP-{item.userId}</td>
                                             <td style={styles.tableCell}>
                                                 {`${item.city || ''}, ${item.state || ''}`.trim() || 'N/A'}

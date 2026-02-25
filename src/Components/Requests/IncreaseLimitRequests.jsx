@@ -726,7 +726,7 @@ const IncreaseLimitRequests = () => {
                                 </div>
                                 <div>
                                     <h3 style={styles.modalTitle}>Credit Limit Increase Request</h3>
-                                    <p style={styles.modalSubtitle}>Request ID: {requestDetails.increaseCreditLimitId}</p>
+                                    {/* <p style={styles.modalSubtitle}>Request ID: {requestDetails.increaseCreditLimitId}</p> */}
                                 </div>
                             </div>
                             <button style={styles.closeBtn} onClick={closeOverview}>×</button>
