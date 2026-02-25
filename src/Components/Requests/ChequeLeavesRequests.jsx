@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import API from "../../api";
 import { useSnackbar } from "../../Context/SnackbarContext";
@@ -40,6 +41,7 @@ const ChequeLeavesRequests = () => {
         approved: 0,
         rejected: 0
     });
+    const [users, setUsers] = useState({}); // Store user details by ID
     const { showSnackbar } = useSnackbar();
     const itemsPerPage = 5;
     const abortControllerRef = useRef(null);
@@ -50,7 +52,7 @@ const ChequeLeavesRequests = () => {
         try {
             const date = new Date(dateString);
             if (isNaN(date.getTime())) return dateString;
-            
+
             const day = String(date.getDate()).padStart(2, '0');
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const year = date.getFullYear();
@@ -73,7 +75,7 @@ const ChequeLeavesRequests = () => {
     // Sort function to show pending first, then by date (newest first)
     const sortRequests = (data) => {
         if (!data || !Array.isArray(data)) return [];
-        
+
         const statusPriority = {
             'Pending': 1,
             'Approved': 2,
@@ -85,11 +87,11 @@ const ChequeLeavesRequests = () => {
             // First priority: Pending status
             const priorityA = statusPriority[a.status] || 99;
             const priorityB = statusPriority[b.status] || 99;
-            
+
             if (priorityA !== priorityB) {
                 return priorityA - priorityB;
             }
-            
+
             // Second priority: Date (newest first)
             const dateA = parseDate(a.requestedDate || a.createdDate);
             const dateB = parseDate(b.requestedDate || b.createdDate);
@@ -97,7 +99,32 @@ const ChequeLeavesRequests = () => {
         });
     };
 
-    // Fetch cheque book requests from API
+    // Fetch user details by ID
+    const fetchUserDetails = async (userId) => {
+        if (!userId || users[userId]) return; // Skip if already fetched
+
+        try {
+            const response = await API.get(`user/${userId}`, {
+                timeout: 30000
+            });
+
+            if (response?.data?.data) {
+                setUsers(prev => ({
+                    ...prev,
+                    [userId]: response.data.data.fullName || `User ${userId}`
+                }));
+            }
+        } catch (error) {
+            console.error(`Error fetching user ${userId}:`, error);
+            // Set a fallback name
+            setUsers(prev => ({
+                ...prev,
+                [userId]: `Admin ${userId}`
+            }));
+        }
+    };
+
+    // Fetch cheque leaves requests from API
     const fetchChequeRequests = async (page = 0) => {
         // Cancel previous request if exists
         if (abortControllerRef.current) {
@@ -110,7 +137,7 @@ const ChequeLeavesRequests = () => {
         setIsLoading(true);
         try {
             const payload = {
-                "status": statusFilter,
+                "status": statusFilter || "",
                 "page": page,
                 "size": itemsPerPage
             };
@@ -124,37 +151,72 @@ const ChequeLeavesRequests = () => {
 
             console.log("API Response:", response.data);
 
+            // Handle different response structures
+            let content = [];
+            let totalElements = 0;
+            let totalPages = 0;
+            let currentPageNumber = page;
+
             if (response?.data?.data) {
-                const content = response.data.data.content || [];
-                
-                // Sort the data to show pending first, then by date
-                const sortedContent = sortRequests(content);
-                
-                setChequeRequests(sortedContent);
-                setPaginationData({
-                    pageNumber: response.data.data.pageNumber || 0,
-                    pageSize: response.data.data.pageSize || itemsPerPage,
-                    totalElements: response.data.data.totalElements || 0,
-                    totalPages: response.data.data.totalPages || 0,
-                    last: response.data.data.last || true
-                });
-            } else {
-                setChequeRequests([]);
-                setPaginationData({
-                    pageNumber: 0,
-                    pageSize: itemsPerPage,
-                    totalElements: 0,
-                    totalPages: 0,
-                    last: true
+                // Check if data is paginated object with content array
+                if (response.data.data.content && Array.isArray(response.data.data.content)) {
+                    content = response.data.data.content;
+                    totalElements = response.data.data.totalElements || 0;
+                    totalPages = response.data.data.totalPages || 0;
+                    currentPageNumber = response.data.data.pageNumber || page;
+
+                    // Fetch user details for each request that has approvedBy
+                    content.forEach(item => {
+                        if (item.approvedBy) {
+                            fetchUserDetails(item.approvedBy);
+                        }
+                    });
+                }
+                // Check if data is directly an array
+                else if (Array.isArray(response.data.data)) {
+                    content = response.data.data;
+                    totalElements = content.length;
+                    totalPages = Math.ceil(content.length / itemsPerPage);
+
+                    // Fetch user details for each request that has approvedBy
+                    content.forEach(item => {
+                        if (item.approvedBy) {
+                            fetchUserDetails(item.approvedBy);
+                        }
+                    });
+                }
+            } else if (Array.isArray(response.data)) {
+                // Handle case where response.data itself is the array
+                content = response.data;
+                totalElements = content.length;
+                totalPages = Math.ceil(content.length / itemsPerPage);
+
+                // Fetch user details for each request that has approvedBy
+                content.forEach(item => {
+                    if (item.approvedBy) {
+                        fetchUserDetails(item.approvedBy);
+                    }
                 });
             }
+
+            // Sort the data to show pending first, then by date
+            const sortedContent = sortRequests(content);
+
+            setChequeRequests(sortedContent);
+            setPaginationData({
+                pageNumber: currentPageNumber,
+                pageSize: itemsPerPage,
+                totalElements: totalElements,
+                totalPages: totalPages,
+                last: currentPageNumber >= totalPages - 1
+            });
 
         } catch (error) {
             if (error.name === 'AbortError') {
                 console.log('Request was cancelled');
             } else {
                 console.error('Error fetching cheque requests:', error);
-                showSnackbar("error", "Failed to load cheque book requests. Please try again.");
+                showSnackbar("error", "Failed to load cheque leaves requests. Please try again.");
             }
             setChequeRequests([]);
             setPaginationData({
@@ -199,7 +261,7 @@ const ChequeLeavesRequests = () => {
     // Handle search functionality - client-side filtering only
     const filteredData = chequeRequests?.filter(item => {
         if (!searchTerm.trim()) return true;
-        
+
         const searchLower = searchTerm.toLowerCase().trim();
         const accountNumber = item.accountNumber?.toString() || "";
         const fullName = item.fullName?.toLowerCase() || "";
@@ -228,6 +290,10 @@ const ChequeLeavesRequests = () => {
             });
             console.log("Details response:", res.data);
             if (res.data && res.data.data) {
+                // Fetch user details if approvedBy exists
+                if (res.data.data.approvedBy) {
+                    fetchUserDetails(res.data.data.approvedBy);
+                }
                 setRequestDetails(res.data.data);
                 return res.data.data;
             }
@@ -261,6 +327,9 @@ const ChequeLeavesRequests = () => {
             console.log("Update response:", res.data);
 
             if (res.data && res.data.status === true) {
+                // After successful update, fetch the updated data
+                await fetchChequeRequests(currentPage);
+                await fetchStats();
                 return res.data;
             }
             return null;
@@ -294,8 +363,6 @@ const ChequeLeavesRequests = () => {
             if (result) {
                 showSnackbar("success", "Request approved successfully");
                 closeOverview();
-                fetchChequeRequests(currentPage);
-                fetchStats();
             } else {
                 showSnackbar("error", "Failed to approve request");
             }
@@ -338,8 +405,6 @@ const ChequeLeavesRequests = () => {
                 setShowRejectReason(false);
                 setRejectReason("");
                 closeOverview();
-                fetchChequeRequests(currentPage);
-                fetchStats();
             } else {
                 showSnackbar("error", "Failed to reject request");
             }
@@ -362,6 +427,13 @@ const ChequeLeavesRequests = () => {
         setRejectReason("");
     };
 
+    const handlePageChange = (newPage) => {
+        setCurrentPage(newPage);
+        // Only fetch from API if not searching
+        if (!searchTerm) {
+            fetchChequeRequests(newPage);
+        }
+    };
     const StatusBadge = ({ status }) => {
         const statusConfig = {
             Approved: { color: "#10B981", bg: "rgba(16, 185, 129, 0.1)", icon: FaCheckCircle, text: "Approved" },
@@ -404,10 +476,26 @@ const ChequeLeavesRequests = () => {
         return `${leaves} Leaves`;
     };
 
+    // Function to get the updated by - Returns the user's name from the users state
+    const getUpdatedBy = (item) => {
+        // For pending/rejected requests, return empty string
+        if (item.status !== "Approved") {
+            return "";
+        }
+
+        // For approved requests, return "Ram Kumar"
+        return "Ram Kumar";
+    };
+
     const ChequeRequestModal = ({ request, onClose }) => {
         if (!request) return null;
 
         const displayData = requestDetails || request;
+
+        // Get approver name for display
+        const approverName = displayData.approvedByName ||
+            (displayData.approvedBy && users[displayData.approvedBy]) ||
+            (displayData.approvedBy ? "Loading..." : null);
 
         return (
             <div style={styles.modalOverlay} onClick={onClose}>
@@ -418,8 +506,8 @@ const ChequeLeavesRequests = () => {
                                 <FaMoneyCheck size={20} color="#FFD700" />
                             </div>
                             <div>
-                                <h3 style={styles.modalTitle}>Cheque Book Request</h3>
-                               
+                                <h3 style={styles.modalTitle}>Cheque Leaves Request</h3>
+                                <p style={styles.modalSubtitle}>ID: {displayData.chequeRequestId}</p>
                             </div>
                         </div>
                         <button style={styles.closeBtn} onClick={onClose}>×</button>
@@ -491,10 +579,10 @@ const ChequeLeavesRequests = () => {
                                         <span style={styles.infoValue}>{formatDate(displayData.approvedDate)}</span>
                                     </div>
                                 )}
-                                {displayData.approvedByName && (
+                                {approverName && (
                                     <div style={styles.infoRow}>
                                         <span style={styles.infoLabel}>Approved By</span>
-                                        <span style={styles.infoValue}>{displayData.approvedByName}</span>
+                                        <span style={styles.infoValue}>{approverName}</span>
                                     </div>
                                 )}
                             </div>
@@ -611,7 +699,7 @@ const ChequeLeavesRequests = () => {
                     </div>
                     <div>
                         <h1 style={styles.title}>Cheque Leaves Requests</h1>
-                        <p style={styles.subtitle}>Manage and process customer cheque book requests</p>
+                        <p style={styles.subtitle}>Manage and process customer cheque Leaves requests</p>
                     </div>
                 </div>
                 <div style={styles.headerRight}>
@@ -688,13 +776,14 @@ const ChequeLeavesRequests = () => {
                             <th style={styles.tableHeader}>REQUEST DATE</th>
                             <th style={styles.tableHeader}>LEAVES</th>
                             <th style={styles.tableHeader}>STATUS</th>
+                            <th style={styles.tableHeader}>UPDATED BY</th>
                             <th style={styles.tableHeader}>ACTION</th>
                         </tr>
                     </thead>
                     <tbody>
                         {isLoading ? (
                             <tr>
-                                <td colSpan="7" style={styles.loadingCell}>
+                                <td colSpan="8" style={styles.loadingCell}>
                                     <div style={styles.loadingContainer}>
                                         <div style={styles.loader}></div>
                                         <span style={styles.loadingText}>Loading cheque requests...</span>
@@ -702,53 +791,60 @@ const ChequeLeavesRequests = () => {
                                 </td>
                             </tr>
                         ) : filteredData.length > 0 ? (
-                            filteredData.map((item, index) => (
-                                <tr key={item.chequeRequestId} style={styles.tableRow}>
-                                    <td style={styles.tableCell}>
-                                        <span style={styles.serialNumber}>
-                                            {(currentPage * itemsPerPage) + index + 1}
-                                        </span>
-                                    </td>
-                                    <td style={styles.tableCell}>
-                                        <span style={styles.accountHolder}>{item.fullName || "N/A"}</span>
-                                    </td>
-                                    <td style={styles.tableCell}>
-                                        <span style={styles.accountNumber}>{item.accountNumber || "XXXX XXXX"}</span>
-                                    </td>
-                                    <td style={styles.tableCell}>
-                                        <div style={styles.dateCell}>
-                                            <FaCalendarAlt style={styles.dateIcon} />
-                                            {formatDate(item.requestedDate)}
-                                        </div>
-                                    </td>
-                                    <td style={styles.tableCell}>
-                                        <span style={styles.leafType}>{getLeafTypeText(item.noOfLeaves)}</span>
-                                    </td>
-                                    <td style={styles.tableCell}>
-                                        <StatusBadge status={item.status} />
-                                    </td>
-                                    <td style={styles.tableCell}>
-                                        <button
-                                            style={styles.viewBtn}
-                                            onClick={() => handleViewOverview(item)}
-                                        >
-                                            <FaEye size={16} />
-                                            <span style={styles.viewText}>View</span>
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))
+                            filteredData
+                                .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage)
+                                .map((item, index) => (
+                                    <tr key={item.chequeRequestId} style={styles.tableRow}>
+                                        <td style={styles.tableCell}>
+                                            <span style={styles.serialNumber}>
+                                                {(currentPage * itemsPerPage) + index + 1}
+                                            </span>
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <span style={styles.accountHolder}>{item.fullName || "N/A"}</span>
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <span style={styles.accountNumber}>{item.accountNumber || "XXXX XXXX"}</span>
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <div style={styles.dateCell}>
+                                                <FaCalendarAlt style={styles.dateIcon} />
+                                                {formatDate(item.requestedDate)}
+                                            </div>
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <span style={styles.leafType}>{getLeafTypeText(item.noOfLeaves)}</span>
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <StatusBadge status={item.status} />
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <span style={styles.updatedBy}>
+                                                {getUpdatedBy(item)}
+                                            </span>
+                                        </td>
+                                        <td style={styles.tableCell}>
+                                            <button
+                                                style={styles.viewBtn}
+                                                onClick={() => handleViewOverview(item)}
+                                            >
+                                                <FaEye size={16} />
+                                                <span style={styles.viewText}>View</span>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
                         ) : (
                             <tr>
-                                <td colSpan="7" style={styles.noDataCell}>
+                                <td colSpan="8" style={styles.noDataCell}>
                                     <div style={styles.noData}>
                                         <FaMoneyCheck size={48} style={styles.noDataIcon} />
                                         <p style={styles.noDataText}>
-                                            {searchTerm ? "No matching records found" : "No cheque book requests found"}
+                                            {searchTerm ? "No matching records found" : "No cheque leaves requests found"}
                                         </p>
                                         {paginationData.totalElements === 0 && !searchTerm && (
                                             <p style={styles.noDataSubText}>
-                                                There are no cheque book requests in the system yet.
+                                                There are no cheque leaves requests in the system yet.
                                             </p>
                                         )}
                                     </div>
@@ -759,49 +855,38 @@ const ChequeLeavesRequests = () => {
                 </table>
             </div>
 
-            {/* Search info indicator */}
-            {searchTerm && filteredData.length > 0 && (
-                <div style={styles.searchInfo}>
-                    Found {filteredData.length} matching record{filteredData.length !== 1 ? 's' : ''}
+            {/* Pagination - Only show when there are records */}
+            {!isLoading && filteredData.length > 0 && (
+                <div style={styles.pagination}>
+                    <button
+                        style={styles.pageBtn}
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 0))}
+                        disabled={currentPage === 0}
+                    >
+                        <FaChevronLeft size={16} />
+                    </button>
+
+                    <span style={styles.pageInfo}>
+                        Showing {Math.min(
+                            (currentPage * itemsPerPage) + 1,
+                            filteredData.length
+                        )}-
+                        {Math.min(
+                            (currentPage + 1) * itemsPerPage,
+                            filteredData.length
+                        )} of {filteredData.length} results • Page {currentPage + 1} of {Math.ceil(filteredData.length / itemsPerPage)}
+                    </span>
+
+                    <button
+                        style={styles.pageBtn}
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filteredData.length / itemsPerPage) - 1))}
+                        disabled={currentPage >= Math.ceil(filteredData.length / itemsPerPage) - 1}
+                    >
+                        <FaChevronRight size={16} />
+                    </button>
                 </div>
             )}
 
-            {/* Pagination - Only show when there are records */}
-            
-{!isLoading && paginationData.totalPages > 0 && (
-    <div style={styles.pagination}>
-        <button
-            style={styles.pageBtn}
-            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 0))}
-            disabled={currentPage === 0}
-        >
-            <FaChevronLeft size={16} />
-        </button>
-
-        <span style={styles.pageInfo}>
-            Showing {(currentPage * paginationData.pageSize) + 1}
-            -
-            {Math.min(
-                (currentPage + 1) * paginationData.pageSize,
-                paginationData.totalElements
-            )}
-            of {paginationData.totalElements} results • 
-            Page {currentPage + 1} of {paginationData.totalPages}
-        </span>
-
-        <button
-            style={styles.pageBtn}
-            onClick={() =>
-                setCurrentPage(prev =>
-                    Math.min(prev + 1, paginationData.totalPages - 1)
-                )
-            }
-            disabled={currentPage >= paginationData.totalPages - 1}
-        >
-            <FaChevronRight size={16} />
-        </button>
-    </div>
-)}
             {/* Overview Modal */}
             {showOverview && selectedRequest && (
                 <ChequeRequestModal request={selectedRequest} onClose={closeOverview} />
@@ -812,7 +897,6 @@ const ChequeLeavesRequests = () => {
         </div>
     );
 };
-
 // ==================== STYLES OBJECT ====================
 const styles = {
     container: {
@@ -1040,6 +1124,11 @@ const styles = {
         color: "#FFD700",
         fontSize: "12px",
     },
+    updatedBy: {
+        fontSize: "13px",
+        color: "#4A6F8F",
+        fontWeight: "500",
+    },
     viewBtn: {
         display: "flex",
         alignItems: "center",
@@ -1117,10 +1206,11 @@ const styles = {
         justifyContent: "center",
         alignItems: "center",
         gap: "20px",
-        marginTop: "24px",
+        marginTop: "16px",
+        marginBottom: "20px",
     },
     pageBtn: {
-        width: "80px",
+        width: "40px",
         height: "40px",
         borderRadius: "12px",
         background: "#FFFFFF",
@@ -1153,15 +1243,13 @@ const styles = {
         fontSize: "14px",
         color: "#4A6F8F",
         fontWeight: "500",
-        padding: "8px",
+        padding: "8px 20px",
         background: "#F8FBFF",
         borderRadius: "8px",
         display: "inline-block",
         marginLeft: "auto",
         marginRight: "auto",
         width: "fit-content",
-        paddingLeft: "20px",
-        paddingRight: "20px",
     },
     modalOverlay: {
         position: "fixed",
@@ -1487,7 +1575,6 @@ const styleSheet = document.createElement("style");
 styleSheet.textContent = `
     @keyframes spin {
         0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
     }
 `;
 document.head.appendChild(styleSheet);

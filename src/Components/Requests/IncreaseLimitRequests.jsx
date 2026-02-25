@@ -741,7 +741,7 @@ const IncreaseLimitRequests = () => {
                                 )}
                             </div>
 
-                            {/* Limit Information */}
+                            {/* Limit Information
                             <div style={styles.currentLimitHighlight}>
                                 <div style={styles.currentLimitBox}>
                                     <FaWallet size={20} color="#FFD700" />
@@ -764,7 +764,7 @@ const IncreaseLimitRequests = () => {
                                         </div>
                                     </div>
                                 )}
-                            </div>
+                            </div> */}
 
                             {/* Cardholder Information */}
                             <div style={styles.infoSection}>
@@ -813,10 +813,10 @@ const IncreaseLimitRequests = () => {
                                     Request Details
                                 </h4>
                                 <div style={styles.infoGrid}>
-                                    <div style={styles.infoRow}>
+                                    {/* <div style={styles.infoRow}>
                                         <span style={styles.infoLabel}>Request ID</span>
                                         <span style={styles.infoValue}>{requestDetails.increaseCreditLimitId || "N/A"}</span>
-                                    </div>
+                                    </div> */}
 
                                     <div style={{ ...styles.infoRow, ...styles.highlightRow }}>
                                         <span style={styles.infoLabel}>💰 Current Limit (At Request)</span>
