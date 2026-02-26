@@ -876,7 +876,7 @@ const StolenCardRequests = () => {
                     </button>
                     <span style={styles.pageInfo}>
                         Page {currentPage} of {paginationData.totalPages} 
-                        ({paginationData.totalElements} total {paginationData.totalElements === 1 ? 'record' : 'records'})
+                        ({searchTerm ? filteredData.length : paginationData.totalElements} total {searchTerm ? (filteredData.length === 1 ? 'record' : 'records') : (paginationData.totalElements === 1 ? 'record' : 'records')})
                     </span>
                     <button
                         style={styles.pageBtn}
