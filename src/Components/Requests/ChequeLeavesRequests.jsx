@@ -889,7 +889,10 @@ const ChequeLeavesRequests = () => {
                         type="text"
                         placeholder="Search by account number, customer name"
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => {
+                            setSearchTerm(e.target.value);
+                            setCurrentPage(0); // Reset to first page when searching
+                        }}
                         style={styles.searchInput}
                     />
                 </div>
@@ -934,13 +937,13 @@ const ChequeLeavesRequests = () => {
                                 </td>
                             </tr>
                         ) : filteredData.length > 0 ? (
-                            filteredData
-                                .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage)
+                            (searchTerm ? filteredData : filteredData
+                                .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage))
                                 .map((item, index) => (
                                     <tr key={item.chequeRequestId} style={styles.tableRow}>
                                         <td style={styles.tableCell}>
                                             <span style={styles.serialNumber}>
-                                                {(currentPage * itemsPerPage) + index + 1}
+                                                {searchTerm ? index + 1 : (currentPage * itemsPerPage) + index + 1}
                                             </span>
                                         </td>
                                         <td style={styles.tableCell}>
@@ -998,8 +1001,8 @@ const ChequeLeavesRequests = () => {
                 </table>
             </div>
 
-            {/* Pagination - Only show when there are records */}
-            {!isLoading && filteredData.length > 0 && (
+            {/* Pagination - Only show when there are records and not searching */}
+            {!isLoading && filteredData.length > 0 && !searchTerm && (
                 <div style={styles.pagination}>
                     <button
                         style={styles.pageBtn}
@@ -1010,23 +1013,25 @@ const ChequeLeavesRequests = () => {
                     </button>
 
                     <span style={styles.pageInfo}>
-                        Showing {Math.min(
-                            (currentPage * itemsPerPage) + 1,
-                            filteredData.length
-                        )}-
-                        {Math.min(
-                            (currentPage + 1) * itemsPerPage,
-                            filteredData.length
-                        )} of {filteredData.length} results • Page {currentPage + 1} of {Math.ceil(filteredData.length / itemsPerPage)}
+                        Showing {Math.min((currentPage * itemsPerPage) + 1, paginationData.totalElements)}-{Math.min((currentPage + 1) * itemsPerPage, paginationData.totalElements)} of {paginationData.totalElements} results • Page {currentPage + 1} of {paginationData.totalPages}
                     </span>
 
                     <button
                         style={styles.pageBtn}
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filteredData.length / itemsPerPage) - 1))}
-                        disabled={currentPage >= Math.ceil(filteredData.length / itemsPerPage) - 1}
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(paginationData.totalElements / itemsPerPage) - 1))}
+                        disabled={currentPage >= paginationData.totalPages - 1}
                     >
                         <FaChevronRight size={16} />
                     </button>
+                </div>
+            )}
+
+            {/* Search results info - Only show when searching */}
+            {!isLoading && filteredData.length > 0 && searchTerm && (
+                <div style={styles.pagination}>
+                    <span style={styles.pageInfo}>
+                        Showing {filteredData.length} {filteredData.length === 1 ? 'result' : 'results'}
+                    </span>
                 </div>
             )}
 
@@ -1639,3 +1644,3270 @@ styleSheet.textContent = `
 document.head.appendChild(styleSheet);
 
 export default ChequeLeavesRequests;
+
+
+// import React, { useState, useEffect, useRef } from "react";
+// import API from "../../api";
+// import { useSnackbar } from "../../Context/SnackbarContext";
+// import {
+//     FaEye,
+//     FaCheckCircle,
+//     FaBan,
+//     FaClock,
+//     FaFilter,
+//     FaSearch,
+//     FaChevronLeft,
+//     FaChevronRight,
+//     FaCalendarAlt,
+//     FaSync,
+//     FaMoneyCheck,
+//     FaUser
+// } from "react-icons/fa";
+// const ChequeLeavesRequests = () => {
+//     const [searchTerm, setSearchTerm] = useState("");
+//      const [statusFilter, setStatusFilter] = useState("");
+//      const [currentPage, setCurrentPage] = useState(0);
+
+//     const [selectedRequest, setSelectedRequest] = useState(null);
+
+//     const [showOverview, setShowOverview] = useState(false);
+
+//     const [chequeRequests, setChequeRequests] = useState([]);
+
+//     const [requestDetails, setRequestDetails] = useState(null);
+
+//     const [isLoading, setIsLoading] = useState(false);
+
+//     const [showRejectReason, setShowRejectReason] = useState(false);
+
+//     const [rejectReason, setRejectReason] = useState("");
+
+//     const [paginationData, setPaginationData] = useState({
+
+//         pageNumber: 0,
+
+//         pageSize: 5,
+
+//         totalElements: 0,
+
+//         totalPages: 0,
+
+//         last: true
+
+//     });
+
+//     const [stats, setStats] = useState({
+
+//         total: 0,
+
+//         pending: 0,
+
+//         approved: 0,
+
+//         rejected: 0
+
+//     });
+
+//     const [users, setUsers] = useState({}); // Store user details by ID
+
+//     const { showSnackbar } = useSnackbar();
+
+//     const itemsPerPage = 5;
+
+//     const abortControllerRef = useRef(null);
+
+
+
+//     // Format date to DD-MM-YYYY
+
+//     const formatDate = (dateString) => {
+
+//         if (!dateString) return "N/A";
+
+//         try {
+
+//             const date = new Date(dateString);
+
+//             if (isNaN(date.getTime())) return dateString;
+
+
+
+//             const day = String(date.getDate()).padStart(2, '0');
+
+//             const month = String(date.getMonth() + 1).padStart(2, '0');
+
+//             const year = date.getFullYear();
+
+//             return `${day}-${month}-${year}`;
+
+//         } catch (error) {
+
+//             return dateString;
+
+//         }
+
+//     };
+
+
+
+//     // Function to parse date string for sorting
+
+//     const parseDate = (dateString) => {
+
+//         if (!dateString) return new Date(0);
+
+//         try {
+
+//             return new Date(dateString);
+
+//         } catch {
+
+//             return new Date(0);
+
+//         }
+
+//     };
+
+
+
+//     // Sort function to show pending first, then by date (newest first)
+
+//     const sortRequests = (data) => {
+
+//         if (!data || !Array.isArray(data)) return [];
+
+
+
+//         const statusPriority = {
+
+//             'Pending': 1,
+
+//             'Approved': 2,
+
+//             'Rejected': 3,
+
+//             'Processing': 4
+
+//         };
+
+
+
+//         return [...data].sort((a, b) => {
+
+//             // First priority: Pending status
+
+//             const priorityA = statusPriority[a.status] || 99;
+
+//             const priorityB = statusPriority[b.status] || 99;
+
+
+
+//             if (priorityA !== priorityB) {
+
+//                 return priorityA - priorityB;
+
+//             }
+
+
+
+//             // Second priority: Date (newest first)
+
+//             const dateA = parseDate(a.requestedDate || a.createdDate);
+
+//             const dateB = parseDate(b.requestedDate || b.createdDate);
+
+//             return dateB - dateA;
+
+//         });
+
+//     };
+
+
+
+//     // Fetch user details by ID with detailed logging
+
+//     const fetchUserDetails = async (userId) => {
+
+//         if (!userId) {
+
+//             console.log("fetchUserDetails: No userId provided");
+
+//             return;
+
+//         }
+
+        
+
+//         console.log(`fetchUserDetails: Starting fetch for userId: ${userId}`);
+
+//         console.log(`fetchUserDetails: Current users state:`, users);
+
+        
+
+//         // Skip if already fetched
+
+//         if (users[userId]) {
+
+//             console.log(`fetchUserDetails: User ${userId} already in state:`, users[userId]);
+
+//             return;
+
+//         }
+
+
+
+//         try {
+
+//             console.log(`fetchUserDetails: Making API call to /user/${userId}`);
+
+            
+
+//             const token = localStorage.getItem('token');
+
+//             console.log(`fetchUserDetails: Auth token present:`, !!token);
+
+            
+
+//             const response = await API.get(`/user/${userId}`, {
+
+//                 timeout: 30000,
+
+//                 headers: token ? {
+
+//                     'Authorization': `Bearer ${token}`
+
+//                 } : {}
+
+//             });
+
+
+
+//             console.log(`fetchUserDetails: Raw response for user ${userId}:`, response);
+
+//             console.log(`fetchUserDetails: Response data for user ${userId}:`, JSON.stringify(response.data, null, 2));
+
+//             console.log(`fetchUserDetails: Response status:`, response.status);
+
+
+
+//             // Extract the name based on your API response structure
+
+//             let userName = `Admin ${userId}`; // Default fallback
+
+            
+
+//             if (response?.data) {
+
+//                 // Try different possible response structures
+
+//                 if (response.data.data) {
+
+//                     console.log(`fetchUserDetails: response.data.data exists:`, response.data.data);
+
+//                     userName = response.data.data.fullName || 
+
+//                               response.data.data.name || 
+
+//                               response.data.data.username ||
+
+//                               response.data.data.firstName || 
+
+//                               (response.data.data.firstName ? 
+
+//                                   response.data.data.firstName + (response.data.data.lastName ? ' ' + response.data.data.lastName : '') 
+
+//                                   : null) ||
+
+//                               `Admin ${userId}`;
+
+//                 } else if (response.data.fullName) {
+
+//                     console.log(`fetchUserDetails: response.data.fullName exists:`, response.data.fullName);
+
+//                     userName = response.data.fullName;
+
+//                 } else if (response.data.name) {
+
+//                     console.log(`fetchUserDetails: response.data.name exists:`, response.data.name);
+
+//                     userName = response.data.name;
+
+//                 } else if (response.data.userName) {
+
+//                     console.log(`fetchUserDetails: response.data.userName exists:`, response.data.userName);
+
+//                     userName = response.data.userName;
+
+//                 } else if (response.data.firstName) {
+
+//                     console.log(`fetchUserDetails: response.data.firstName exists:`, response.data.firstName);
+
+//                     userName = response.data.firstName + (response.data.lastName ? ' ' + response.data.lastName : '');
+
+//                 } else {
+
+//                     console.log(`fetchUserDetails: No recognizable name field found in response`);
+
+//                     console.log(`fetchUserDetails: Response keys:`, Object.keys(response.data));
+
+//                 }
+
+//             }
+
+
+
+//             console.log(`fetchUserDetails: Setting user ${userId} name as:`, userName);
+
+
+
+//             setUsers(prev => {
+
+//                 console.log(`fetchUserDetails: Previous users state:`, prev);
+
+//                 const newState = {
+
+//                     ...prev,
+
+//                     [userId]: userName
+
+//                 };
+
+//                 console.log(`fetchUserDetails: New users state:`, newState);
+
+//                 return newState;
+
+//             });
+
+
+
+//         } catch (error) {
+
+//             console.error(`fetchUserDetails: Error fetching user ${userId}:`, error);
+
+//             console.error(`fetchUserDetails: Error message:`, error.message);
+
+//             if (error.response) {
+
+//                 console.error(`fetchUserDetails: Error response data:`, error.response.data);
+
+//                 console.error(`fetchUserDetails: Error response status:`, error.response.status);
+
+//                 console.error(`fetchUserDetails: Error response headers:`, error.response.headers);
+
+//             } else if (error.request) {
+
+//                 console.error(`fetchUserDetails: No response received:`, error.request);
+
+//             }
+
+//             // Set a fallback name
+
+//             setUsers(prev => ({
+
+//                 ...prev,
+
+//                 [userId]: `Admin ${userId}`
+
+//             }));
+
+//         }
+
+//     };
+
+
+
+//     // Function to get the updated by - Returns the user's name
+
+//     const getUpdatedBy = (item) => {
+
+//         console.log(`getUpdatedBy: Processing item ${item.chequeRequestId}:`, item);
+
+//         console.log(`getUpdatedBy: approvedBy:`, item.approvedBy);
+
+//         console.log(`getUpdatedBy: Current users state:`, users);
+
+
+
+//         // For pending requests (no approver)
+
+//         if (!item.approvedBy) {
+
+//             console.log(`getUpdatedBy: No approvedBy, returning empty string`);
+
+//             return "";
+
+//         }
+
+
+
+//         // If the API directly provides the name in the response
+
+//         if (item.approvedByName) {
+
+//             console.log(`getUpdatedBy: Using approvedByName:`, item.approvedByName);
+
+//             return item.approvedByName;
+
+//         }
+
+
+
+//         // If we have the name in our users state
+
+//         if (item.approvedBy && users[item.approvedBy]) {
+
+//             console.log(`getUpdatedBy: Found in users state:`, users[item.approvedBy]);
+
+//             return users[item.approvedBy];
+
+//         }
+
+
+
+//         // If not in state, trigger fetch and show loading
+
+//         if (item.approvedBy && !users[item.approvedBy]) {
+
+//             console.log(`getUpdatedBy: User ${item.approvedBy} not in state, triggering fetch`);
+
+//             // Use setTimeout to avoid state updates during render
+
+//             setTimeout(() => {
+
+//                 console.log(`getUpdatedBy: setTimeout calling fetchUserDetails for ${item.approvedBy}`);
+
+//                 fetchUserDetails(item.approvedBy);
+
+//             }, 100);
+
+//             return "Loading...";
+
+//         }
+
+
+
+//         // Fallback
+
+//         console.log(`getUpdatedBy: Using fallback: Admin ${item.approvedBy}`);
+
+//         return `Admin ${item.approvedBy}`;
+
+//     };
+
+
+
+//     // Fetch cheque leaves requests from API
+
+//     const fetchChequeRequests = async (page = 0) => {
+
+//         // Cancel previous request if exists
+
+//         if (abortControllerRef.current) {
+
+//             abortControllerRef.current.abort();
+
+//         }
+
+
+
+//         // Create new abort controller
+
+//         abortControllerRef.current = new AbortController();
+
+
+
+//         setIsLoading(true);
+
+//         try {
+
+//             const payload = {
+
+//                 "status": statusFilter || "",
+
+//                 "page": page,
+
+//                 "size": itemsPerPage
+
+//             };
+
+
+
+//             console.log("fetchChequeRequests: Fetching with payload:", payload);
+
+            
+
+//             const token = localStorage.getItem('token');
+
+//             console.log("fetchChequeRequests: Auth token present:", !!token);
+
+
+
+//             const response = await API.post("/chequeRequest/adminChequeList", payload, {
+
+//                 signal: abortControllerRef.current.signal,
+
+//                 timeout: 30000,
+
+//                 headers: token ? {
+
+//                     'Authorization': `Bearer ${token}`
+
+//                 } : {}
+
+//             });
+
+
+
+//             console.log("fetchChequeRequests: Full API Response:", JSON.stringify(response.data, null, 2));
+
+//             console.log("fetchChequeRequests: Response status:", response.status);
+
+
+
+//             // Handle different response structures
+
+//             let content = [];
+
+//             let totalElements = 0;
+
+//             let totalPages = 0;
+
+//             let currentPageNumber = page;
+
+
+
+//             if (response?.data?.data) {
+
+//                 console.log("fetchChequeRequests: response.data.data exists");
+
+//                 // Check if data is paginated object with content array
+
+//                 if (response.data.data.content && Array.isArray(response.data.data.content)) {
+
+//                     console.log("fetchChequeRequests: response.data.data.content is array");
+
+//                     content = response.data.data.content;
+
+//                     totalElements = response.data.data.totalElements || 0;
+
+//                     totalPages = response.data.data.totalPages || 0;
+
+//                     currentPageNumber = response.data.data.pageNumber || page;
+
+//                 }
+
+//                 // Check if data is directly an array
+
+//                 else if (Array.isArray(response.data.data)) {
+
+//                     console.log("fetchChequeRequests: response.data.data is array");
+
+//                     content = response.data.data;
+
+//                     totalElements = content.length;
+
+//                     totalPages = Math.ceil(content.length / itemsPerPage);
+
+//                 }
+
+//             } else if (Array.isArray(response.data)) {
+
+//                 console.log("fetchChequeRequests: response.data is array");
+
+//                 // Handle case where response.data itself is the array
+
+//                 content = response.data;
+
+//                 totalElements = content.length;
+
+//                 totalPages = Math.ceil(content.length / itemsPerPage);
+
+//             }
+
+
+
+//             console.log("fetchChequeRequests: Extracted content:", content);
+
+//             console.log("fetchChequeRequests: Content length:", content.length);
+
+//             console.log("fetchChequeRequests: Total elements:", totalElements);
+
+//             console.log("fetchChequeRequests: Total pages:", totalPages);
+
+
+
+//             // Sort the data to show pending first, then by date
+
+//             const sortedContent = sortRequests(content);
+
+
+
+//             setChequeRequests(sortedContent);
+
+//             setPaginationData({
+
+//                 pageNumber: currentPageNumber,
+
+//                 pageSize: itemsPerPage,
+
+//                 totalElements: totalElements,
+
+//                 totalPages: totalPages,
+
+//                 last: currentPageNumber >= totalPages - 1
+
+//             });
+
+
+
+//             // Get unique user IDs to fetch
+
+//             const uniqueUserIds = [...new Set(sortedContent
+
+//                 .filter(item => {
+
+//                     const hasApprovedBy = !!item.approvedBy;
+
+//                     const notInState = !users[item.approvedBy];
+
+//                     console.log(`fetchChequeRequests: Checking item ${item.chequeRequestId}, approvedBy: ${item.approvedBy}, hasApprovedBy: ${hasApprovedBy}, notInState: ${notInState}`);
+
+//                     return hasApprovedBy && notInState;
+
+//                 })
+
+//                 .map(item => item.approvedBy)
+
+//             )];
+
+
+
+//             console.log("fetchChequeRequests: Unique user IDs to fetch:", uniqueUserIds);
+
+
+
+//             // Fetch user details for unique IDs
+
+//             uniqueUserIds.forEach(userId => {
+
+//                 if (userId) {
+
+//                     console.log(`fetchChequeRequests: Calling fetchUserDetails for ${userId}`);
+
+//                     fetchUserDetails(userId);
+
+//                 }
+
+//             });
+
+
+
+//         } catch (error) {
+
+//             if (error.name === 'AbortError') {
+
+//                 console.log('fetchChequeRequests: Request was cancelled');
+
+//             } else {
+
+//                 console.error('fetchChequeRequests: Error fetching cheque requests:', error);
+
+//                 console.error('fetchChequeRequests: Error message:', error.message);
+
+//                 if (error.response) {
+
+//                     console.error('fetchChequeRequests: Error response:', error.response.data);
+
+//                     console.error('fetchChequeRequests: Error status:', error.response.status);
+
+//                 }
+
+//                 showSnackbar("error", "Failed to load cheque leaves requests. Please try again.");
+
+//             }
+
+//             setChequeRequests([]);
+
+//             setPaginationData({
+
+//                 pageNumber: 0,
+
+//                 pageSize: itemsPerPage,
+
+//                 totalElements: 0,
+
+//                 totalPages: 0,
+
+//                 last: true
+
+//             });
+
+//         } finally {
+
+//             setIsLoading(false);
+
+//         }
+
+//     };
+
+
+
+//     // Fetch statistics
+
+//     const fetchStats = async () => {
+
+//         try {
+
+//             console.log("fetchStats: Fetching stats");
+
+//             const token = localStorage.getItem('token');
+
+            
+
+//             const response = await API.get("/chequeRequest/counts", {
+
+//                 timeout: 30000,
+
+//                 headers: token ? {
+
+//                     'Authorization': `Bearer ${token}`
+
+//                 } : {}
+
+//             });
+
+            
+
+//             console.log("fetchStats: Stats response:", response.data);
+
+//             if (response?.data?.data) {
+
+//                 setStats(response.data.data);
+
+//             }
+
+//         } catch (error) {
+
+//             console.error('fetchStats: Error fetching stats:', error);
+
+//         }
+
+//     };
+
+
+
+//     useEffect(() => {
+
+//         fetchChequeRequests(currentPage);
+
+//         fetchStats();
+
+
+
+//         // Cleanup function to cancel requests on unmount
+
+//         return () => {
+
+//             if (abortControllerRef.current) {
+
+//                 abortControllerRef.current.abort();
+
+//             }
+
+//         };
+
+//     }, [currentPage, statusFilter]);
+
+
+
+//     // Add effect to monitor users state changes
+
+//     useEffect(() => {
+
+//         console.log("useEffect: Users state updated:", users);
+
+//     }, [users]);
+
+
+
+//     // Handle search functionality - client-side filtering only
+
+//     const filteredData = chequeRequests?.filter(item => {
+
+//         if (!searchTerm.trim()) return true;
+
+
+
+//         const searchLower = searchTerm.toLowerCase().trim();
+
+//         const accountNumber = item.accountNumber?.toString() || "";
+
+//         const fullName = item.fullName?.toLowerCase() || "";
+
+//         const mobileNumber = item.mobileNumber?.toString() || "";
+
+
+
+//         return fullName.includes(searchLower) ||
+
+//             accountNumber.includes(searchLower) ||
+
+//             mobileNumber.includes(searchLower);
+
+//     });
+
+
+
+//     const handleRefresh = () => {
+
+//         setCurrentPage(0);
+
+//         fetchChequeRequests(0);
+
+//         fetchStats();
+
+//     };
+
+
+
+//     const handleStatusFilterChange = (newStatus) => {
+
+//         setStatusFilter(newStatus);
+
+//         setCurrentPage(0);
+
+//     };
+
+
+
+//     const fetchChequeDetails = async (id) => {
+
+//         try {
+
+//             console.log("fetchChequeDetails: Fetching details for ID:", id);
+
+//             const token = localStorage.getItem('token');
+
+            
+
+//             const res = await API.get(`/chequeRequest/chequeBy/${id}`, {
+
+//                 timeout: 30000,
+
+//                 headers: token ? {
+
+//                     'Authorization': `Bearer ${token}`
+
+//                 } : {}
+
+//             });
+
+            
+
+//             console.log("fetchChequeDetails: Details response:", res.data);
+
+//             if (res.data && res.data.data) {
+
+//                 // Fetch user details if approvedBy exists (for both approved AND rejected)
+
+//                 if (res.data.data.approvedBy) {
+
+//                     fetchUserDetails(res.data.data.approvedBy);
+
+//                 }
+
+//                 setRequestDetails(res.data.data);
+
+//                 return res.data.data;
+
+//             }
+
+//             return null;
+
+//         } catch (error) {
+
+//             console.log("fetchChequeDetails: Error fetching cheque details:", error);
+
+//             showSnackbar("error", "Failed to fetch request details");
+
+//             setRequestDetails(null);
+
+//             return null;
+
+//         }
+
+//     };
+
+
+
+//     const updateChequeStatus = async (id, action, remarks) => {
+
+//         try {
+
+//             const userId = localStorage.getItem("userId");
+
+//             if (!userId) {
+
+//                 showSnackbar("error", "User not authenticated");
+
+//                 return null;
+
+//             }
+
+
+
+//             const payload = {
+
+//                 action: action,
+
+//                 approvedById: parseInt(userId),
+
+//                 remarks: remarks
+
+//             };
+
+//             console.log("updateChequeStatus: Update payload:", payload);
+
+            
+
+//             const token = localStorage.getItem('token');
+
+            
+
+//             const res = await API.post(`/chequeRequest/chequeUpdateAdmin/${id}`, payload, {
+
+//                 timeout: 30000,
+
+//                 headers: token ? {
+
+//                     'Authorization': `Bearer ${token}`
+
+//                 } : {}
+
+//             });
+
+
+
+//             console.log("updateChequeStatus: Update response:", res.data);
+
+
+
+//             if (res.data && res.data.status === true) {
+
+//                 // After successful update, fetch the updated data
+
+//                 await fetchChequeRequests(currentPage);
+
+//                 await fetchStats();
+
+//                 return res.data;
+
+//             }
+
+//             return null;
+
+//         } catch (error) {
+
+//             console.log("updateChequeStatus: Error updating cheque status:", error);
+
+//             showSnackbar("error", "Failed to update request status");
+
+//             return null;
+
+//         }
+
+//     };
+
+
+
+//     const handleViewOverview = async (item) => {
+
+//         setSelectedRequest(item);
+
+//         setShowOverview(true);
+
+//         await fetchChequeDetails(item.chequeRequestId);
+
+//     };
+
+
+
+//     const handleApproveRequest = async () => {
+
+//         try {
+
+//             const requestId = requestDetails?.chequeRequestId || selectedRequest?.chequeRequestId;
+
+//             if (!requestId) {
+
+//                 showSnackbar("error", "Request ID not found");
+
+//                 return;
+
+//             }
+
+
+
+//             const result = await updateChequeStatus(
+
+//                 requestId,
+
+//                 "APPROVE",
+
+//                 ""
+
+//             );
+
+
+
+//             if (result) {
+
+//                 showSnackbar("success", "Request approved successfully");
+
+//                 closeOverview();
+
+//             } else {
+
+//                 showSnackbar("error", "Failed to approve request");
+
+//             }
+
+//         } catch (error) {
+
+//             console.log("Error approving request:", error);
+
+//             showSnackbar("error", "Failed to approve request");
+
+//         }
+
+//     };
+
+
+
+//     const handleRejectRequest = () => {
+
+//         setShowRejectReason(true);
+
+//     };
+
+
+
+//     const handleRejectReasonChange = (e) => {
+
+//         const value = e.target.value;
+
+//         setRejectReason(value);
+
+//     };
+
+
+
+//     const handleSubmitRejection = async () => {
+
+//         if (!rejectReason.trim()) {
+
+//             showSnackbar("error", "Please provide a reason for rejection");
+
+//             return;
+
+//         }
+
+
+
+//         try {
+
+//             const requestId = requestDetails?.chequeRequestId || selectedRequest?.chequeRequestId;
+
+//             if (!requestId) {
+
+//                 showSnackbar("error", "Request ID not found");
+
+//                 return;
+
+//             }
+
+
+
+//             const result = await updateChequeStatus(
+
+//                 requestId,
+
+//                 "REJECT",
+
+//                 rejectReason
+
+//             );
+
+
+
+//             if (result) {
+
+//                 showSnackbar("success", "Request rejected successfully");
+
+//                 setShowRejectReason(false);
+
+//                 setRejectReason("");
+
+//                 closeOverview();
+
+//             } else {
+
+//                 showSnackbar("error", "Failed to reject request");
+
+//             }
+
+//         } catch (error) {
+
+//             console.log("Error rejecting request:", error);
+
+//             showSnackbar("error", "Failed to reject request");
+
+//         }
+
+//     };
+
+
+
+//     const handleCancelRejection = () => {
+
+//         setShowRejectReason(false);
+
+//         setRejectReason("");
+
+//     };
+
+
+
+//     const closeOverview = () => {
+
+//         setShowOverview(false);
+
+//         setSelectedRequest(null);
+
+//         setRequestDetails(null);
+
+//         setShowRejectReason(false);
+
+//         setRejectReason("");
+
+//     };
+
+
+
+//     const handlePageChange = (newPage) => {
+
+//         setCurrentPage(newPage);
+
+//         fetchChequeRequests(newPage);
+
+//     };
+
+
+
+//     const StatusBadge = ({ status }) => {
+
+//         const statusConfig = {
+
+//             Approved: { color: "#10B981", bg: "rgba(16, 185, 129, 0.1)", icon: FaCheckCircle, text: "Approved" },
+
+//             Rejected: { color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)", icon: FaBan, text: "Rejected" },
+
+//             Pending: { color: "#F97316", bg: "rgba(249, 115, 22, 0.1)", icon: FaClock, text: "Pending" },
+
+//             Processing: { color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)", icon: FaClock, text: "Processing" }
+
+//         };
+
+
+
+//         const config = statusConfig[status] || {
+
+//             color: "#6B7280",
+
+//             bg: "rgba(107, 114, 128, 0.1)",
+
+//             icon: FaClock,
+
+//             text: status || "Unknown"
+
+//         };
+
+//         const Icon = config.icon;
+
+
+
+//         return (
+
+//             <div style={{
+
+//                 display: "inline-flex",
+
+//                 alignItems: "center",
+
+//                 gap: "6px",
+
+//                 padding: "4px 12px",
+
+//                 background: config.bg,
+
+//                 color: config.color,
+
+//                 borderRadius: "30px",
+
+//                 fontSize: "12px",
+
+//                 fontWeight: "600"
+
+//             }}>
+
+//                 <Icon size={12} />
+
+//                 {config.text}
+
+//             </div>
+
+//         );
+
+//     };
+
+
+
+//     const getLeafTypeText = (leaves) => {
+
+//         if (!leaves) return "N/A";
+
+//         if (leaves === 25) return "25 Leaves";
+
+//         if (leaves === 50) return "50 Leaves";
+
+//         if (leaves === 100) return "100 Leaves";
+
+//         return `${leaves} Leaves`;
+
+//     };
+
+
+
+//     const ChequeRequestModal = ({ request, onClose }) => {
+
+//         if (!request) return null;
+
+
+
+//         const displayData = requestDetails || request;
+
+
+
+//         // Get approver name for display
+
+//         const approverName = displayData.approvedByName ||
+
+//             (displayData.approvedBy && users[displayData.approvedBy]) ||
+
+//             (displayData.approvedBy ? "Loading..." : null);
+
+
+
+//         return (
+
+//             <div style={styles.modalOverlay} onClick={onClose}>
+
+//                 <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+
+//                     <div style={styles.modalHeader}>
+
+//                         <div style={styles.modalTitleGroup}>
+
+//                             <div style={styles.modalIcon}>
+
+//                                 <FaMoneyCheck size={20} color="#FFD700" />
+
+//                             </div>
+
+//                             <div>
+
+//                                 <h3 style={styles.modalTitle}>Cheque Leaves Request</h3>
+
+                                
+
+//                             </div>
+
+//                         </div>
+
+//                         <button style={styles.closeBtn} onClick={onClose}>×</button>
+
+//                     </div>
+
+
+
+//                     <div style={styles.modalBody}>
+
+//                         <div style={styles.statusBar}>
+
+//                             <StatusBadge status={displayData.status} />
+
+//                         </div>
+
+
+
+//                         {/* Account Information */}
+
+//                         <div style={styles.infoSection}>
+
+//                             <h4 style={styles.sectionTitle}>
+
+//                                 <FaUser style={styles.sectionIcon} />
+
+//                                 Account Information
+
+//                             </h4>
+
+//                             <div style={styles.infoGrid}>
+
+//                                 <div style={styles.infoRow}>
+
+//                                     <span style={styles.infoLabel}>Account Holder</span>
+
+//                                     <span style={styles.infoValue}>{displayData.fullName || "N/A"}</span>
+
+//                                 </div>
+
+//                                 <div style={styles.infoRow}>
+
+//                                     <span style={styles.infoLabel}>Account Number</span>
+
+//                                     <span style={styles.infoValue}>{displayData.accountNumber || "N/A"}</span>
+
+//                                 </div>
+
+//                                 <div style={styles.infoRow}>
+
+//                                     <span style={styles.infoLabel}>Mobile Number</span>
+
+//                                     <span style={styles.infoValue}>{displayData.mobileNumber || "N/A"}</span>
+
+//                                 </div>
+
+//                                 <div style={styles.infoRow}>
+
+//                                     <span style={styles.infoLabel}>Email</span>
+
+//                                     <span style={styles.infoValue}>{displayData.email || "N/A"}</span>
+
+//                                 </div>
+
+//                                 <div style={styles.infoRow}>
+
+//                                     <span style={styles.infoLabel}>City</span>
+
+//                                     <span style={styles.infoValue}>{displayData.city || "N/A"}</span>
+
+//                                 </div>
+
+//                             </div>
+
+//                         </div>
+
+
+
+//                         {/* Cheque Details */}
+
+//                         <div style={styles.infoSection}>
+
+//                             <h4 style={styles.sectionTitle}>
+
+//                                 <FaMoneyCheck style={styles.sectionIcon} />
+
+//                                 Cheque Details
+
+//                             </h4>
+
+//                             <div style={styles.infoGrid}>
+
+//                                 <div style={styles.infoRow}>
+
+//                                     <span style={styles.infoLabel}>Request Date</span>
+
+//                                     <span style={styles.infoValue}>{formatDate(displayData.requestedDate)}</span>
+
+//                                 </div>
+
+//                                 <div style={styles.infoRow}>
+
+//                                     <span style={styles.infoLabel}>Leaf Type</span>
+
+//                                     <span style={styles.infoValue}>{getLeafTypeText(displayData.noOfLeaves)}</span>
+
+//                                 </div>
+
+//                                 <div style={styles.infoRow}>
+
+//                                     <span style={styles.infoLabel}>Status</span>
+
+//                                     <span style={styles.infoValue}>{displayData.status || "N/A"}</span>
+
+//                                 </div>
+
+//                                 {displayData.remarks && (
+
+//                                     <div style={styles.infoRow}>
+
+//                                         <span style={styles.infoLabel}>Remarks</span>
+
+//                                         <span style={styles.infoValue}>{displayData.remarks}</span>
+
+//                                     </div>
+
+//                                 )}
+
+//                                 {displayData.approvedDate && (
+
+//                                     <div style={styles.infoRow}>
+
+//                                         <span style={styles.infoLabel}>Approved/Rejected Date</span>
+
+//                                         <span style={styles.infoValue}>{formatDate(displayData.approvedDate)}</span>
+
+//                                     </div>
+
+//                                 )}
+
+//                                 {approverName && (
+
+//                                     <div style={styles.infoRow}>
+
+//                                         <span style={styles.infoLabel}>Processed By</span>
+
+//                                         <span style={styles.infoValue}>{approverName}</span>
+
+//                                     </div>
+
+//                                 )}
+
+//                             </div>
+
+//                         </div>
+
+
+
+//                         {displayData.status === "Pending" && (
+
+//                             <div style={styles.modalActions}>
+
+//                                 <button style={styles.blockBtn} onClick={handleRejectRequest}>
+
+//                                     <FaBan size={14} />
+
+//                                     Reject Request
+
+//                                 </button>
+
+//                                 <button style={styles.approveBtn} onClick={handleApproveRequest}>
+
+//                                     <FaCheckCircle size={14} />
+
+//                                     Approve Request
+
+//                                 </button>
+
+//                             </div>
+
+//                         )}
+
+//                     </div>
+
+//                 </div>
+
+//             </div>
+
+//         );
+
+//     };
+
+
+
+//     // Rejection Modal
+
+//     const RejectionModal = () => {
+
+//         if (!showRejectReason) return null;
+
+
+
+//         return (
+
+//             <div style={styles.rejectModalOverlay} onClick={handleCancelRejection}>
+
+//                 <div style={styles.rejectModalContent} onClick={(e) => e.stopPropagation()}>
+
+//                     <div style={styles.rejectModalHeader}>
+
+//                         <h3 style={styles.rejectModalTitle}>
+
+//                             <FaBan size={16} style={{ marginRight: "8px", color: "#DC2626" }} />
+
+//                             Reject Request
+
+//                         </h3>
+
+//                         <button style={styles.rejectCloseBtn} onClick={handleCancelRejection}>
+
+//                             ×
+
+//                         </button>
+
+//                     </div>
+
+
+
+//                     <div style={styles.rejectModalBody}>
+
+//                         <div style={styles.rejectFieldGroup}>
+
+//                             <label style={styles.rejectLabel}>Rejection Reason *</label>
+
+//                             <textarea
+
+//                                 dir="ltr"
+
+//                                 style={{
+
+//                                     width: "100%",
+
+//                                     padding: "12px 16px",
+
+//                                     border: "2px solid #E6EDF5",
+
+//                                     borderRadius: "12px",
+
+//                                     fontSize: "14px",
+
+//                                     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+
+//                                     lineHeight: "1.5",
+
+//                                     resize: "vertical",
+
+//                                     outline: "none",
+
+//                                     transition: "border-color 0.2s ease",
+
+//                                     direction: "ltr",
+
+//                                     unicodeBidi: "bidi-override",
+
+//                                     textAlign: "left",
+
+//                                 }}
+
+//                                 value={rejectReason}
+
+//                                 onChange={handleRejectReasonChange}
+
+//                                 rows={4}
+
+//                                 autoFocus
+
+//                                 spellCheck="false"
+
+//                                 autoComplete="off"
+
+//                                 onFocus={(e) => {
+
+//                                     const val = e.target.value;
+
+//                                     e.target.value = '';
+
+//                                     e.target.value = val;
+
+//                                 }}
+
+//                             />
+
+//                             <div style={styles.rejectCharCount}>
+
+//                                 {rejectReason.length}/500
+
+//                             </div>
+
+//                         </div>
+
+
+
+//                         <div style={styles.rejectModalActions}>
+
+//                             <button
+
+//                                 style={styles.rejectCancelBtn}
+
+//                                 onClick={(e) => {
+
+//                                     e.stopPropagation();
+
+//                                     handleCancelRejection();
+
+//                                 }}
+
+//                             >
+
+//                                 Cancel
+
+//                             </button>
+
+//                             <button
+
+//                                 style={styles.rejectSubmitBtn}
+
+//                                 onClick={(e) => {
+
+//                                     e.stopPropagation();
+
+//                                     handleSubmitRejection();
+
+//                                 }}
+
+//                                 disabled={!rejectReason.trim()}
+
+//                             >
+
+//                                 <FaBan size={14} />
+
+//                                 Submit Rejection
+
+//                             </button>
+
+//                         </div>
+
+//                     </div>
+
+//                 </div>
+
+//             </div>
+
+//         );
+
+//     };
+
+
+
+//     // Determine what to display based on search
+
+//     const displayData = searchTerm ? filteredData : chequeRequests;
+
+//     const totalItems = searchTerm ? filteredData.length : paginationData.totalElements;
+
+//     const totalPages = searchTerm ? Math.ceil(filteredData.length / itemsPerPage) : paginationData.totalPages;
+
+
+
+//     return (
+
+//         <div style={styles.container}>
+
+//             {/* Header Section */}
+
+//             <div style={styles.header}>
+
+//                 <div style={styles.headerLeft}>
+
+//                     <div style={styles.headerIcon}>
+
+//                         <FaMoneyCheck size={24} color="#FFD700" />
+
+//                     </div>
+
+//                     <div>
+
+//                         <h1 style={styles.title}>Cheque Leaves Requests</h1>
+
+//                         <p style={styles.subtitle}>Manage and process customer cheque Leaves requests</p>
+
+//                     </div>
+
+//                 </div>
+
+//                 <div style={styles.headerRight}>
+
+//                     <div style={styles.statsContainer}>
+
+//                         <div style={styles.statCard}>
+
+//                             <span style={styles.statValue}>{stats.total}</span>
+
+//                             <span style={styles.statLabel}>Total</span>
+
+//                         </div>
+
+//                         <div style={styles.statCard}>
+
+//                             <span style={styles.statValue}>{stats.pending}</span>
+
+//                             <span style={styles.statLabel}>Pending</span>
+
+//                         </div>
+
+//                         <div style={styles.statCard}>
+
+//                             <span style={styles.statValue}>{stats.approved}</span>
+
+//                             <span style={styles.statLabel}>Approved</span>
+
+//                         </div>
+
+//                         <div style={styles.statCard}>
+
+//                             <span style={styles.statValue}>{stats.rejected}</span>
+
+//                             <span style={styles.statLabel}>Rejected</span>
+
+//                         </div>
+
+//                     </div>
+
+//                     <button
+
+//                         style={styles.refreshBtn}
+
+//                         onClick={handleRefresh}
+
+//                         disabled={isLoading}
+
+//                     >
+
+//                         <FaSync
+
+//                             size={16}
+
+//                             style={{
+
+//                                 ...styles.refreshIcon,
+
+//                                 ...(isLoading ? styles.refreshIconSpinning : {})
+
+//                             }}
+
+//                         />
+
+//                         Refresh
+
+//                     </button>
+
+//                 </div>
+
+//             </div>
+
+
+
+//             {/* Filters Section */}
+
+//             <div style={styles.filtersContainer}>
+
+//                 <div style={styles.searchBox}>
+
+//                     <FaSearch style={styles.searchIcon} />
+
+//                     <input
+
+//                         type="text"
+
+//                         placeholder="Search by account number, customer name"
+
+//                         value={searchTerm}
+
+//                         onChange={(e) => {
+
+//                             setSearchTerm(e.target.value);
+
+//                             setCurrentPage(0); // Reset to first page when searching
+
+//                         }}
+
+//                         style={styles.searchInput}
+
+//                     />
+
+//                 </div>
+
+//                 <div style={styles.filterGroup}>
+
+//                     <FaFilter style={styles.filterIcon} />
+
+//                     <select
+
+//                         value={statusFilter}
+
+//                         onChange={(e) => handleStatusFilterChange(e.target.value)}
+
+//                         style={styles.filterSelect}
+
+//                     >
+
+//                         <option value="">All Status</option>
+
+//                         <option value="Pending">Pending</option>
+
+//                         <option value="Approved">Approved</option>
+
+//                         <option value="Rejected">Rejected</option>
+
+//                     </select>
+
+//                 </div>
+
+//             </div>
+
+
+
+//             {/* Table Section */}
+
+//             <div style={styles.tableContainer}>
+
+//                 <table style={styles.table}>
+
+//                     <thead style={styles.tableHead}>
+
+//                         <tr>
+
+//                             <th style={styles.tableHeader}>S.NO</th>
+
+//                             <th style={styles.tableHeader}>ACCOUNT HOLDER</th>
+
+//                             <th style={styles.tableHeader}>ACCOUNT NO.</th>
+
+//                             <th style={styles.tableHeader}>REQUEST DATE</th>
+
+//                             <th style={styles.tableHeader}>LEAVES</th>
+
+//                             <th style={styles.tableHeader}>STATUS</th>
+
+//                             <th style={styles.tableHeader}>UPDATED BY</th>
+
+//                             <th style={styles.tableHeader}>ACTION</th>
+
+//                         </tr>
+
+//                     </thead>
+
+//                     <tbody>
+
+//                         {isLoading ? (
+
+//                             <tr>
+
+//                                 <td colSpan="8" style={styles.loadingCell}>
+
+//                                     <div style={styles.loadingContainer}>
+
+//                                         <div style={styles.loader}></div>
+
+//                                         <span style={styles.loadingText}>Loading cheque requests...</span>
+
+//                                     </div>
+
+//                                 </td>
+
+//                             </tr>
+
+//                         ) : displayData.length > 0 ? (
+
+//                             displayData.map((item, index) => (
+
+//                                 <tr key={item.chequeRequestId} style={styles.tableRow}>
+
+//                                     <td style={styles.tableCell}>
+
+//                                         <span style={styles.serialNumber}>
+
+//                                             {(currentPage * itemsPerPage) + index + 1}
+
+//                                         </span>
+
+//                                     </td>
+
+//                                     <td style={styles.tableCell}>
+
+//                                         <span style={styles.accountHolder}>{item.fullName || "N/A"}</span>
+
+//                                     </td>
+
+//                                     <td style={styles.tableCell}>
+
+//                                         <span style={styles.accountNumber}>{item.accountNumber || "XXXX XXXX"}</span>
+
+//                                     </td>
+
+//                                     <td style={styles.tableCell}>
+
+//                                         <div style={styles.dateCell}>
+
+//                                             <FaCalendarAlt style={styles.dateIcon} />
+
+//                                             {formatDate(item.requestedDate)}
+
+//                                         </div>
+
+//                                     </td>
+
+//                                     <td style={styles.tableCell}>
+
+//                                         <span style={styles.leafType}>{getLeafTypeText(item.noOfLeaves)}</span>
+
+//                                     </td>
+
+//                                     <td style={styles.tableCell}>
+
+//                                         <StatusBadge status={item.status} />
+
+//                                     </td>
+
+//                                     <td style={styles.tableCell}>
+
+//                                         <span style={styles.updatedBy}>
+
+//                                             {getUpdatedBy(item)}
+
+//                                         </span>
+
+//                                     </td>
+
+//                                     <td style={styles.tableCell}>
+
+//                                         <button
+
+//                                             style={styles.viewBtn}
+
+//                                             onClick={() => handleViewOverview(item)}
+
+//                                         >
+
+//                                             <FaEye size={16} />
+
+//                                             <span style={styles.viewText}>View</span>
+
+//                                         </button>
+
+//                                     </td>
+
+//                                 </tr>
+
+//                             ))
+
+//                         ) : (
+
+//                             <tr>
+
+//                                 <td colSpan="8" style={styles.noDataCell}>
+
+//                                     <div style={styles.noData}>
+
+//                                         <FaMoneyCheck size={48} style={styles.noDataIcon} />
+
+//                                         <p style={styles.noDataText}>
+
+//                                             {searchTerm ? "No matching records found" : "No cheque leaves requests found"}
+
+//                                         </p>
+
+//                                         {paginationData.totalElements === 0 && !searchTerm && (
+
+//                                             <p style={styles.noDataSubText}>
+
+//                                                 There are no cheque leaves requests in the system yet.
+
+//                                             </p>
+
+//                                         )}
+
+//                                     </div>
+
+//                                 </td>
+
+//                             </tr>
+
+//                         )}
+
+//                     </tbody>
+
+//                 </table>
+
+//             </div>
+
+
+
+//             {/* Pagination - Only show when there are records */}
+
+//             {!isLoading && totalItems > 0 && (
+
+//                 <div style={styles.pagination}>
+
+//                     <button
+
+//                         style={styles.pageBtn}
+
+//                         onClick={() => handlePageChange(currentPage - 1)}
+
+//                         disabled={currentPage === 0}
+
+//                     >
+
+//                         <FaChevronLeft size={16} />
+
+//                     </button>
+
+
+
+//                     <span style={styles.pageInfo}>
+
+//                         {searchTerm ? (
+
+//                             // For search results, show client-side pagination info
+
+//                             `Showing ${Math.min((currentPage * itemsPerPage) + 1, totalItems)}-${Math.min((currentPage + 1) * itemsPerPage, totalItems)} of ${totalItems} results • Page ${currentPage + 1} of ${totalPages}`
+
+//                         ) : (
+
+//                             // For normal view, show server-side pagination info
+
+//                             `Showing ${Math.min((currentPage * itemsPerPage) + 1, paginationData.totalElements)}-${Math.min((currentPage + 1) * itemsPerPage, paginationData.totalElements)} of ${paginationData.totalElements} results • Page ${currentPage + 1} of ${paginationData.totalPages}`
+
+//                         )}
+
+//                     </span>
+
+
+
+//                     <button
+
+//                         style={styles.pageBtn}
+
+//                         onClick={() => handlePageChange(currentPage + 1)}
+
+//                         disabled={currentPage >= totalPages - 1}
+
+//                     >
+
+//                         <FaChevronRight size={16} />
+
+//                     </button>
+
+//                 </div>
+
+//             )}
+
+//             {/* Overview Modal */}
+
+//             {showOverview && selectedRequest && (
+
+//                 <ChequeRequestModal request={selectedRequest} onClose={closeOverview} />
+
+//             )}
+
+
+
+//             {/* Rejection Modal */}
+
+//             <RejectionModal />
+
+//         </div>
+
+//     );
+
+// };
+
+
+
+// // ==================== STYLES OBJECT ====================
+
+// const styles = {
+
+//     container: {
+
+//         padding: "30px",
+
+//         background: "#F5F9FF",
+
+//         minHeight: "100vh",
+
+//         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+
+//     },
+
+//     header: {
+
+//         display: "flex",
+
+//         justifyContent: "space-between",
+
+//         alignItems: "center",
+
+//         marginBottom: "30px",
+
+//     },
+
+//     headerLeft: {
+
+//         display: "flex",
+
+//         alignItems: "center",
+
+//         gap: "16px",
+
+//     },
+
+//     headerIcon: {
+
+//         width: "56px",
+
+//         height: "56px",
+
+//         borderRadius: "16px",
+
+//         background: "linear-gradient(135deg, #003366, #002244)",
+
+//         display: "flex",
+
+//         alignItems: "center",
+
+//         justifyContent: "center",
+
+//         boxShadow: "0 8px 16px rgba(0, 51, 102, 0.15)",
+
+//     },
+
+//     title: {
+
+//         fontSize: "28px",
+
+//         fontWeight: "700",
+
+//         margin: 0,
+
+//         color: "#003366",
+
+//         letterSpacing: "-0.5px",
+
+//     },
+
+//     subtitle: {
+
+//         fontSize: "14px",
+
+//         margin: "6px 0 0",
+
+//         color: "#4A6F8F",
+
+//     },
+
+//     headerRight: {
+
+//         display: "flex",
+
+//         alignItems: "center",
+
+//         gap: "20px",
+
+//     },
+
+//     statsContainer: {
+
+//         display: "flex",
+
+//         gap: "16px",
+
+//     },
+
+//     statCard: {
+
+//         background: "#FFFFFF",
+
+//         padding: "12px 24px",
+
+//         borderRadius: "16px",
+
+//         display: "flex",
+
+//         flexDirection: "column",
+
+//         alignItems: "center",
+
+//         boxShadow: "0 4px 12px rgba(0, 51, 102, 0.05)",
+
+//         border: "1px solid rgba(255, 215, 0, 0.15)",
+
+//         minWidth: "80px",
+
+//     },
+
+//     statValue: {
+
+//         fontSize: "24px",
+
+//         fontWeight: "700",
+
+//         color: "#003366",
+
+//     },
+
+//     statLabel: {
+
+//         fontSize: "12px",
+
+//         color: "#4A6F8F",
+
+//         marginTop: "4px",
+
+//     },
+
+//     refreshBtn: {
+
+//         display: "flex",
+
+//         alignItems: "center",
+
+//         gap: "8px",
+
+//         padding: "12px 20px",
+
+//         background: "linear-gradient(135deg, #003366, #002244)",
+
+//         border: "none",
+
+//         borderRadius: "16px",
+
+//         color: "#FFFFFF",
+
+//         fontSize: "14px",
+
+//         fontWeight: "600",
+
+//         cursor: "pointer",
+
+//         transition: "all 0.2s ease",
+
+//         boxShadow: "0 4px 12px rgba(0, 51, 102, 0.15)",
+
+//     },
+
+//     refreshIcon: {
+
+//         transition: "transform 0.3s ease",
+
+//     },
+
+//     refreshIconSpinning: {
+
+//         animation: "spin 1s linear infinite",
+
+//     },
+
+//     filtersContainer: {
+
+//         display: "flex",
+
+//         justifyContent: "space-between",
+
+//         alignItems: "center",
+
+//         marginBottom: "24px",
+
+//         gap: "20px",
+
+//         flexWrap: "wrap",
+
+//     },
+
+//     searchBox: {
+
+//         flex: 1,
+
+//         display: "flex",
+
+//         alignItems: "center",
+
+//         gap: "12px",
+
+//         padding: "12px 20px",
+
+//         background: "#FFFFFF",
+
+//         borderRadius: "16px",
+
+//         border: "2px solid #E6EDF5",
+
+//         transition: "all 0.2s ease",
+
+//         minWidth: "300px",
+
+//     },
+
+//     searchIcon: {
+
+//         color: "#6B8BA4",
+
+//         fontSize: "16px",
+
+//     },
+
+//     searchInput: {
+
+//         flex: 1,
+
+//         border: "none",
+
+//         outline: "none",
+
+//         fontSize: "14px",
+
+//         color: "#003366",
+
+//         background: "transparent",
+
+//     },
+
+//     filterGroup: {
+
+//         display: "flex",
+
+//         alignItems: "center",
+
+//         gap: "12px",
+
+//         padding: "12px 20px",
+
+//         background: "#FFFFFF",
+
+//         borderRadius: "16px",
+
+//         border: "2px solid #E6EDF5",
+
+//         minWidth: "180px",
+
+//     },
+
+//     filterIcon: {
+
+//         color: "#FFD700",
+
+//         fontSize: "14px",
+
+//     },
+
+//     filterSelect: {
+
+//         flex: 1,
+
+//         border: "none",
+
+//         outline: "none",
+
+//         fontSize: "14px",
+
+//         color: "#003366",
+
+//         fontWeight: "500",
+
+//         background: "transparent",
+
+//         cursor: "pointer",
+
+//     },
+
+//     tableContainer: {
+
+//         background: "#FFFFFF",
+
+//         borderRadius: "24px",
+
+//         padding: "24px",
+
+//         boxShadow: "0 8px 24px rgba(0, 51, 102, 0.08)",
+
+//         border: "1px solid rgba(255, 215, 0, 0.1)",
+
+//         overflow: "auto",
+
+//     },
+
+//     table: {
+
+//         width: "100%",
+
+//         borderCollapse: "collapse",
+
+//     },
+
+//     tableHead: {
+
+//         background: "#F8FBFF",
+
+//     },
+
+//     tableHeader: {
+
+//         padding: "16px",
+
+//         textAlign: "left",
+
+//         fontSize: "13px",
+
+//         fontWeight: "600",
+
+//         color: "#003366",
+
+//         borderBottom: "2px solid #FFD700",
+
+//         textTransform: "uppercase",
+
+//         letterSpacing: "0.5px",
+
+//     },
+
+//     tableRow: {
+
+//         borderBottom: "1px solid #E6EDF5",
+
+//         transition: "background 0.2s ease",
+
+//     },
+
+//     tableCell: {
+
+//         padding: "16px",
+
+//         fontSize: "14px",
+
+//         color: "#1E293B",
+
+//     },
+
+//     serialNumber: {
+
+//         fontWeight: "600",
+
+//         color: "#003366",
+
+//         fontFamily: "monospace",
+
+//     },
+
+//     accountHolder: {
+
+//         fontWeight: "500",
+
+//         color: "#1E293B",
+
+//     },
+
+//     accountNumber: {
+
+//         fontFamily: "monospace",
+
+//         color: "#4A6F8F",
+
+//     },
+
+//     leafType: {
+
+//         padding: "4px 10px",
+
+//         background: "#F0F7FF",
+
+//         borderRadius: "20px",
+
+//         fontSize: "12px",
+
+//         color: "#0052A5",
+
+//         fontWeight: "500",
+
+//         display: "inline-block",
+
+//     },
+
+//     dateCell: {
+
+//         display: "flex",
+
+//         alignItems: "center",
+
+//         gap: "8px",
+
+//         color: "#4A6F8F",
+
+//         flexWrap: "wrap",
+
+//     },
+
+//     dateIcon: {
+
+//         color: "#FFD700",
+
+//         fontSize: "12px",
+
+//     },
+
+//     updatedBy: {
+
+//         fontSize: "13px",
+
+//         color: "#4A6F8F",
+
+//         fontWeight: "500",
+
+//     },
+
+//     viewBtn: {
+
+//         display: "flex",
+
+//         alignItems: "center",
+
+//         gap: "6px",
+
+//         padding: "8px 14px",
+
+//         background: "linear-gradient(135deg, #003366, #002244)",
+
+//         border: "none",
+
+//         borderRadius: "10px",
+
+//         color: "#FFFFFF",
+
+//         fontSize: "12px",
+
+//         fontWeight: "600",
+
+//         cursor: "pointer",
+
+//         transition: "all 0.2s ease",
+
+//         boxShadow: "0 4px 12px rgba(0, 51, 102, 0.15)",
+
+//     },
+
+//     viewText: {
+
+//         marginLeft: "2px",
+
+//     },
+
+//     noData: {
+
+//         display: "flex",
+
+//         flexDirection: "column",
+
+//         alignItems: "center",
+
+//         justifyContent: "center",
+
+//         padding: "60px",
+
+//         textAlign: "center",
+
+//     },
+
+//     noDataIcon: {
+
+//         color: "#FFD700",
+
+//         opacity: 0.5,
+
+//         marginBottom: "16px",
+
+//     },
+
+//     noDataText: {
+
+//         fontSize: "16px",
+
+//         color: "#4A6F8F",
+
+//         margin: 0,
+
+//     },
+
+//     noDataSubText: {
+
+//         fontSize: "14px",
+
+//         color: "#6B8BA4",
+
+//         marginTop: "8px",
+
+//     },
+
+//     noDataCell: {
+
+//         padding: "0",
+
+//     },
+
+//     loadingCell: {
+
+//         padding: "60px",
+
+//         textAlign: "center",
+
+//     },
+
+//     loadingContainer: {
+
+//         display: "flex",
+
+//         flexDirection: "column",
+
+//         alignItems: "center",
+
+//         justifyContent: "center",
+
+//         gap: "16px",
+
+//     },
+
+//     loader: {
+
+//         width: "40px",
+
+//         height: "40px",
+
+//         border: "4px solid #E6EDF5",
+
+//         borderTop: "4px solid #FFD700",
+
+//         borderRadius: "50%",
+
+//         animation: "spin 1s linear infinite",
+
+//     },
+
+//     loadingText: {
+
+//         fontSize: "16px",
+
+//         color: "#4A6F8F",
+
+//         fontWeight: "500",
+
+//     },
+
+//     pagination: {
+
+//         display: "flex",
+
+//         justifyContent: "center",
+
+//         alignItems: "center",
+
+//         gap: "20px",
+
+//         marginTop: "16px",
+
+//         marginBottom: "20px",
+
+//     },
+
+//     pageBtn: {
+
+//         width: "40px",
+
+//         height: "40px",
+
+//         borderRadius: "12px",
+
+//         background: "#FFFFFF",
+
+//         border: "2px solid #E6EDF5",
+
+//         display: "flex",
+
+//         alignItems: "center",
+
+//         justifyContent: "center",
+
+//         cursor: "pointer",
+
+//         color: "#003366",
+
+//         transition: "all 0.2s ease",
+
+//     },
+
+//     pageInfo: {
+
+//         fontSize: "14px",
+
+//         color: "#4A6F8F",
+
+//         fontWeight: "500",
+
+//     },
+
+//     modalOverlay: {
+
+//         position: "fixed",
+
+//         top: 0,
+
+//         left: 0,
+
+//         right: 0,
+
+//         bottom: 0,
+
+//         background: "rgba(0, 51, 102, 0.5)",
+
+//         backdropFilter: "blur(8px)",
+
+//         display: "flex",
+
+//         alignItems: "center",
+
+//         justifyContent: "center",
+
+//         zIndex: 1000,
+
+//     },
+
+//     modalContent: {
+
+//         width: "90%",
+
+//         maxWidth: "800px",
+
+//         maxHeight: "90vh",
+
+//         overflow: "auto",
+
+//         background: "#FFFFFF",
+
+//         borderRadius: "32px",
+
+//         boxShadow: "0 25px 50px rgba(0, 51, 102, 0.25)",
+
+//         border: "1px solid rgba(255, 215, 0, 0.2)",
+
+//     },
+
+//     modalHeader: {
+
+//         display: "flex",
+
+//         justifyContent: "space-between",
+
+//         alignItems: "center",
+
+//         padding: "24px 32px",
+
+//         borderBottom: "1px solid #E6EDF5",
+
+//         background: "linear-gradient(135deg, #F8FBFF, #FFFFFF)",
+
+//     },
+
+//     modalTitleGroup: {
+
+//         display: "flex",
+
+//         alignItems: "center",
+
+//         gap: "16px",
+
+//     },
+
+//     modalIcon: {
+
+//         width: "48px",
+
+//         height: "48px",
+
+//         borderRadius: "14px",
+
+//         background: "linear-gradient(135deg, #003366, #002244)",
+
+//         display: "flex",
+
+//         alignItems: "center",
+
+//         justifyContent: "center",
+
+//     },
+
+//     modalTitle: {
+
+//         fontSize: "20px",
+
+//         fontWeight: "700",
+
+//         margin: 0,
+
+//         color: "#003366",
+
+//     },
+
+//     modalSubtitle: {
+
+//         fontSize: "13px",
+
+//         margin: "4px 0 0",
+
+//         color: "#4A6F8F",
+
+//         fontFamily: "monospace",
+
+//     },
+
+//     closeBtn: {
+
+//         width: "40px",
+
+//         height: "40px",
+
+//         borderRadius: "12px",
+
+//         border: "2px solid #E6EDF5",
+
+//         background: "#FFFFFF",
+
+//         fontSize: "24px",
+
+//         fontWeight: "500",
+
+//         color: "#4A6F8F",
+
+//         cursor: "pointer",
+
+//         display: "flex",
+
+//         alignItems: "center",
+
+//         justifyContent: "center",
+
+//         transition: "all 0.2s ease",
+
+//     },
+
+//     modalBody: {
+
+//         padding: "32px",
+
+//     },
+
+//     statusBar: {
+
+//         display: "flex",
+
+//         gap: "12px",
+
+//         marginBottom: "24px",
+
+//         paddingBottom: "24px",
+
+//         borderBottom: "1px solid #E6EDF5",
+
+//         flexWrap: "wrap",
+
+//     },
+
+//     infoSection: {
+
+//         marginBottom: "28px",
+
+//     },
+
+//     sectionTitle: {
+
+//         display: "flex",
+
+//         alignItems: "center",
+
+//         gap: "10px",
+
+//         fontSize: "16px",
+
+//         fontWeight: "600",
+
+//         color: "#003366",
+
+//         marginBottom: "16px",
+
+//     },
+
+//     sectionIcon: {
+
+//         color: "#FFD700",
+
+//         fontSize: "16px",
+
+//     },
+
+//     infoGrid: {
+
+//         display: "grid",
+
+//         gridTemplateColumns: "repeat(2, 1fr)",
+
+//         gap: "16px",
+
+//         background: "#F8FBFF",
+
+//         padding: "20px",
+
+//         borderRadius: "16px",
+
+//     },
+
+//     infoRow: {
+
+//         display: "flex",
+
+//         flexDirection: "column",
+
+//         gap: "4px",
+
+//     },
+
+//     infoLabel: {
+
+//         fontSize: "12px",
+
+//         color: "#6B8BA4",
+
+//         fontWeight: "500",
+
+//     },
+
+//     infoValue: {
+
+//         fontSize: "15px",
+
+//         color: "#003366",
+
+//         fontWeight: "600",
+
+//     },
+
+//     modalActions: {
+
+//         display: "flex",
+
+//         gap: "12px",
+
+//         marginTop: "32px",
+
+//         paddingTop: "24px",
+
+//         borderTop: "1px solid #E6EDF5",
+
+//         flexWrap: "wrap",
+
+//     },
+
+//     blockBtn: {
+
+//         flex: 1,
+
+//         padding: "14px 20px",
+
+//         background: "linear-gradient(135deg, #DC2626, #B91C1C)",
+
+//         border: "none",
+
+//         borderRadius: "14px",
+
+//         color: "#FFFFFF",
+
+//         fontSize: "14px",
+
+//         fontWeight: "600",
+
+//         display: "flex",
+
+//         alignItems: "center",
+
+//         justifyContent: "center",
+
+//         gap: "8px",
+
+//         cursor: "pointer",
+
+//         transition: "all 0.2s ease",
+
+//         boxShadow: "0 8px 16px rgba(220, 38, 38, 0.15)",
+
+//     },
+
+//     approveBtn: {
+
+//         flex: 1,
+
+//         padding: "14px 20px",
+
+//         background: "linear-gradient(135deg, #10B981, #059669)",
+
+//         border: "none",
+
+//         borderRadius: "14px",
+
+//         color: "#FFFFFF",
+
+//         fontSize: "14px",
+
+//         fontWeight: "600",
+
+//         display: "flex",
+
+//         alignItems: "center",
+
+//         justifyContent: "center",
+
+//         gap: "8px",
+
+//         cursor: "pointer",
+
+//         transition: "all 0.2s ease",
+
+//         boxShadow: "0 8px 16px rgba(16, 185, 129, 0.15)",
+
+//     },
+
+//     rejectModalOverlay: {
+
+//         position: "fixed",
+
+//         top: 0,
+
+//         left: 0,
+
+//         right: 0,
+
+//         bottom: 0,
+
+//         background: "rgba(0, 0, 0, 0.6)",
+
+//         backdropFilter: "blur(4px)",
+
+//         display: "flex",
+
+//         alignItems: "center",
+
+//         justifyContent: "center",
+
+//         zIndex: 2000,
+
+//     },
+
+//     rejectModalContent: {
+
+//         background: "#FFFFFF",
+
+//         borderRadius: "20px",
+
+//         padding: "0",
+
+//         width: "90%",
+
+//         maxWidth: "500px",
+
+//         boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+
+//         border: "1px solid rgba(220, 38, 38, 0.2)",
+
+//         position: "relative",
+
+//     },
+
+//     rejectModalHeader: {
+
+//         display: "flex",
+
+//         justifyContent: "space-between",
+
+//         alignItems: "center",
+
+//         padding: "24px 28px",
+
+//         borderBottom: "1px solid #E6EDF5",
+
+//         background: "linear-gradient(135deg, #FEF2F2, #FFFFFF)",
+
+//         borderRadius: "20px 20px 0 0",
+
+//     },
+
+//     rejectModalTitle: {
+
+//         display: "flex",
+
+//         alignItems: "center",
+
+//         fontSize: "18px",
+
+//         fontWeight: "700",
+
+//         color: "#DC2626",
+
+//         margin: 0,
+
+//     },
+
+//     rejectCloseBtn: {
+
+//         width: "36px",
+
+//         height: "36px",
+
+//         borderRadius: "50%",
+
+//         border: "2px solid #E6EDF5",
+
+//         background: "#FFFFFF",
+
+//         fontSize: "20px",
+
+//         fontWeight: "500",
+
+//         color: "#6B8BA4",
+
+//         cursor: "pointer",
+
+//         display: "flex",
+
+//         alignItems: "center",
+
+//         justifyContent: "center",
+
+//         transition: "all 0.2s ease",
+
+//     },
+
+//     rejectModalBody: {
+
+//         padding: "28px",
+
+//     },
+
+//     rejectFieldGroup: {
+
+//         marginBottom: "24px",
+
+//     },
+
+//     rejectLabel: {
+
+//         display: "block",
+
+//         fontSize: "14px",
+
+//         fontWeight: "600",
+
+//         color: "#1E293B",
+
+//         marginBottom: "8px",
+
+//     },
+
+//     rejectCharCount: {
+
+//         textAlign: "right",
+
+//         fontSize: "12px",
+
+//         color: "#6B8BA4",
+
+//         marginTop: "6px",
+
+//         fontWeight: "500",
+
+//     },
+
+//     rejectModalActions: {
+
+//         display: "flex",
+
+//         gap: "12px",
+
+//         justifyContent: "flex-end",
+
+//         paddingTop: "8px",
+
+//     },
+
+//     rejectCancelBtn: {
+
+//         padding: "12px 24px",
+
+//         background: "#F8FBFF",
+
+//         border: "2px solid #E6EDF5",
+
+//         borderRadius: "10px",
+
+//         color: "#4A6F8F",
+
+//         fontSize: "14px",
+
+//         fontWeight: "600",
+
+//         cursor: "pointer",
+
+//         transition: "all 0.2s ease",
+
+//     },
+
+//     rejectSubmitBtn: {
+
+//         display: "flex",
+
+//         alignItems: "center",
+
+//         gap: "8px",
+
+//         padding: "12px 24px",
+
+//         background: "linear-gradient(135deg, #DC2626, #B91C1C)",
+
+//         border: "none",
+
+//         borderRadius: "10px",
+
+//         color: "#FFFFFF",
+
+//         fontSize: "14px",
+
+//         fontWeight: "600",
+
+//         cursor: "pointer",
+
+//         transition: "all 0.2s ease",
+
+//         boxShadow: "0 4px 12px rgba(220, 38, 38, 0.15)",
+
+//     },
+
+// };
+
+
+
+// // Add keyframes for spin animation
+
+// const styleSheet = document.createElement("style");
+
+// styleSheet.textContent = `
+
+//     @keyframes spin {
+
+//         0% { transform: rotate(0deg); }
+
+//         100% { transform: rotate(360deg); }
+
+//     }
+
+// `;
+
+// document.head.appendChild(styleSheet);
+
+
+
+// export default ChequeLeavesRequests;

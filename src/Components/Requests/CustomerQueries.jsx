@@ -842,7 +842,7 @@ const CustomerQueries = () => {
                                     <td style={styles.tableCell}>
                                         <div style={styles.customerInfo}>
                                             <span style={styles.accountHolder}>{item.fullName || "N/A"}</span>
-                                            <span style={styles.customerEmail}>{item.email || "No email"}</span>
+                                            {/* <span style={styles.customerEmail}>{item.email || "No email"}</span> */}
                                         </div>
                                     </td>
                                     <td style={styles.tableCell}>
@@ -900,7 +900,7 @@ const CustomerQueries = () => {
                         <FaChevronLeft size={16} />
                     </button>
                     <span style={styles.pageInfo}>
-                        Page {currentPage + 1} of {paginationData.totalPages} ({paginationData.totalElements} total)
+                        Page {currentPage + 1} of {paginationData.totalPages} ({searchTerm ? filteredData.length : paginationData.totalElements} total)
                     </span>
                     <button
                         style={styles.pageBtn}
