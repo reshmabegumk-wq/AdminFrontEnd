@@ -120,7 +120,7 @@ const Sidebar = () => {
                             <div style={S.subMenu}>
                                 {[
                                     { icon: FaFileInvoiceDollar, name: "Cheque Leaves", path: "/cheque-book", id: "chequeLeaves" },
-                                    { icon: FaExclamationTriangle, name: "Stolen/Lost Card", path: "/stolen-card", id: "stolenCard" },
+                                    { icon: FaExclamationTriangle, name: "Lost Card", path: "/stolen-card", id: "stolenCard" },
                                     { icon: FaArrowUp, name: "Increase Card Limit", path: "/increase-limit", id: "increaseLimit" },
                                     { icon: FaQuestionCircle, name: "Customer Queries", path: "/customer-queries", id: "queries" },
                                 ].map(item => (
