@@ -842,7 +842,7 @@ const CustomerQueries = () => {
                                     <td style={styles.tableCell}>
                                         <div style={styles.customerInfo}>
                                             <span style={styles.accountHolder}>{item.fullName || "N/A"}</span>
-                                            {/* <span style={styles.customerEmail}>{item.email || "No email"}</span> */}
+                                            
                                         </div>
                                     </td>
                                     <td style={styles.tableCell}>
