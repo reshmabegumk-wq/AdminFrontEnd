@@ -280,11 +280,11 @@ const Profile = () => {
                         <div style={styles.fieldValue}>
                             <FaPhone style={styles.fieldIcon} />
                             <span>{profile.mobileNumber || "Not provided"}</span>
-                            <FaPen
+                            {/* <FaPen
                                 style={styles.editIcon}
                                 onClick={handleEditClick}
                                 title="Click to edit"
-                            />
+                            /> */}
                         </div>
                     </div>
 
@@ -303,11 +303,11 @@ const Profile = () => {
                         <div style={styles.fieldValue}>
                             <FaHome style={styles.fieldIcon} />
                             <span>{profile.address || "Not provided"}</span>
-                            <FaPen
+                            {/* <FaPen
                                 style={styles.editIcon}
                                 onClick={handleEditClick}
                                 title="Click to edit"
-                            />
+                            /> */}
                         </div>
                     </div>
 
@@ -318,11 +318,11 @@ const Profile = () => {
                             <div style={styles.fieldValue}>
                                 <FaCity style={styles.fieldIcon} />
                                 <span>{profile.city || "Not provided"}</span>
-                                <FaPen
+                                {/* <FaPen
                                     style={styles.editIcon}
                                     onClick={handleEditClick}
                                     title="Click to edit"
-                                />
+                                /> */}
                             </div>
                         </div>
 
@@ -331,11 +331,11 @@ const Profile = () => {
                             <div style={styles.fieldValue}>
                                 <FaFlag style={styles.fieldIcon} />
                                 <span>{profile.state || "Not provided"}</span>
-                                <FaPen
+                                {/* <FaPen
                                     style={styles.editIcon}
                                     onClick={handleEditClick}
                                     title="Click to edit"
-                                />
+                                /> */}
                             </div>
                         </div>
                     </div>
@@ -347,11 +347,11 @@ const Profile = () => {
                             <div style={styles.fieldValue}>
                                 <FaGlobe style={styles.fieldIcon} />
                                 <span>{profile.country || "India"}</span>
-                                <FaPen
+                                {/* <FaPen
                                     style={styles.editIcon}
                                     onClick={handleEditClick}
                                     title="Click to edit"
-                                />
+                                /> */}
                             </div>
                         </div>
 
@@ -360,11 +360,11 @@ const Profile = () => {
                             <div style={styles.fieldValue}>
                                 <FaMapPin style={styles.fieldIcon} />
                                 <span>{profile.pincode || "Not provided"}</span>
-                                <FaPen
+                                {/* <FaPen
                                     style={styles.editIcon}
                                     onClick={handleEditClick}
                                     title="Click to edit"
-                                />
+                                /> */}
                             </div>
                         </div>
                     </div>
