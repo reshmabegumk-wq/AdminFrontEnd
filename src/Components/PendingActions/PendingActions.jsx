@@ -222,20 +222,17 @@ const PendingActions = () => {
         fetchPendingRequests();
     }, [month, year]);
 
-    // Filter requests based on search and module
+    // Filter requests based on search and module - CHANGED: Only search by account number
     useEffect(() => {
         if (!pendingRequests.length) return;
 
         let filtered = [...pendingRequests];
 
-        // Apply search filter
+        // Apply search filter - ONLY ACCOUNT NUMBER
         if (searchTerm.trim()) {
             const term = searchTerm.toLowerCase().trim();
             filtered = filtered.filter(request => 
-                safeToLowerCase(request.customerName).includes(term) ||
-                safeToLowerCase(request.accountNumber).includes(term) ||
-                safeToLowerCase(request.description).includes(term) ||
-                safeToLowerCase(request.module).includes(term)
+                safeToLowerCase(request.accountNumber).includes(term)
             );
         }
 
@@ -444,7 +441,7 @@ const PendingActions = () => {
                     <FaSearch size={14} color="#8DA6C0" style={styles.searchIcon} />
                     <input
                         type="text"
-                        placeholder="Search by customer, account, or description..."
+                        placeholder="Search by account number..."
                         style={styles.searchInput}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}

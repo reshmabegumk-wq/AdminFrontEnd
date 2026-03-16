@@ -193,7 +193,7 @@ const CustomerAdminManagement = () => {
                                 <h3 style={styles.modalTitle}>
                                     {activeTab === "customer" ? "Customer Details" : "Admin Details"}
                                 </h3>
-                                <p style={styles.modalSubtitle}>ID: {user.id}</p>
+                                {/* <p style={styles.modalSubtitle}>ID: {user.id}</p> */}
                             </div>
                         </div>
                         <button style={styles.closeBtn} onClick={onClose}>×</button>
@@ -399,7 +399,7 @@ const CustomerAdminManagement = () => {
                     <FaSearch style={styles.searchIcon} />
                     <input
                         type="text"
-                        placeholder={`Search by name, email or phone...`}
+                        placeholder={`Search by email`}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={styles.searchInput}
