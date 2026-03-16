@@ -763,7 +763,7 @@ const StolenCardRequests = () => {
                     <FaSearch style={styles.searchIcon} />
                     <input
                         type="text"
-                        placeholder="Search by cardholder name or card number..."
+                        placeholder="Search by  card number..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={styles.searchInput}

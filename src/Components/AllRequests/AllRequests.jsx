@@ -238,22 +238,17 @@ const AllRequests = () => {
 
         let filtered = [...requests];
 
-        // Apply search filter
+        // Apply search filter - ONLY ACCOUNT NUMBER
         if (searchTerm && searchTerm.trim() !== "") {
             const searchLower = searchTerm.toLowerCase().trim();
             filtered = filtered.filter(request => {
-                // Convert all values to strings safely before calling toLowerCase
-                const customerName = request.customerName ? String(request.customerName).toLowerCase() : '';
+                // Convert account number to string safely before calling toLowerCase
                 const accountNumber = request.accountNumber ? String(request.accountNumber).toLowerCase() : '';
-                const description = request.description ? String(request.description).toLowerCase() : '';
-                const module = request.module ? String(request.module).toLowerCase() : '';
-
-                const customerMatch = customerName.includes(searchLower);
+                
+                // Only check account number for matches
                 const accountMatch = accountNumber.includes(searchLower);
-                const descriptionMatch = description.includes(searchLower);
-                const moduleMatch = module.includes(searchLower);
 
-                return customerMatch || accountMatch || descriptionMatch || moduleMatch;
+                return accountMatch;
             });
         }
 
@@ -547,7 +542,7 @@ const AllRequests = () => {
                     <FaSearch size={14} color="#8DA6C0" style={styles.searchIcon} />
                     <input
                         type="text"
-                        placeholder="Search by customer, account, or description..."
+                        placeholder="Search by account number..."
                         style={styles.searchInput}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -667,7 +662,7 @@ const AllRequests = () => {
                         </p>
                         <p style={styles.noDataSubtext}>
                             {searchTerm
-                                ? "Try a different search term or clear the search"
+                                ? "Try a different account number or clear the search"
                                 : "Try adjusting your filters or select a different month"}
                         </p>
                         {searchTerm && (

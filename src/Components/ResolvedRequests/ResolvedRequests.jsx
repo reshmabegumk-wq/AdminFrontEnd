@@ -102,51 +102,6 @@ const ResolvedRequests = () => {
             // Process and combine all resolved requests
             let allResolved = [];
 
-            // // Cheque requests - FIXED: Check both approvedBy fields and fetch individual details if needed
-            // if (chequeRes.status === 'fulfilled' && chequeRes.value?.data?.status === true) {
-            //     if (chequeRes.value.data.data && chequeRes.value.data.data.content) {
-            //         const chequeRequests = await Promise.all(
-            //             chequeRes.value.data.data.content
-            //                 .filter(item => item.status?.toLowerCase() === "approved")
-            //                 .map(async (item) => {
-            //                     let approvedByName = item.approvedByName;
-                                
-            //                     // If approvedByName is null but approvedBy has an ID, fetch the individual record
-            //                     if ((!approvedByName || approvedByName === "System") && item.approvedBy) {
-            //                         try {
-            //                             const detailRes = await API.get(`chequeRequest/chequeBy/${item.chequeRequestId}`);
-            //                             if (detailRes.data?.status && detailRes.data?.data?.approvedByName) {
-            //                                 approvedByName = detailRes.data.data.approvedByName;
-            //                             }
-            //                         } catch (error) {
-            //                             console.log("Error fetching cheque detail:", error);
-            //                         }
-            //                     }
-
-            //                     return {
-            //                         id: `cheque-${item.chequeRequestId}`,
-            //                         requestId: item.chequeRequestId,
-            //                         module: "Cheque Leaves",
-            //                         moduleIcon: FaMoneyCheck,
-            //                         moduleColor: "#003366",
-            //                         customerName: item.fullName || "Unknown",
-            //                         accountNumber: item.accountNumber || "N/A",
-            //                         status: item.status || "Approved",
-            //                         requestedDate: item.requestedDate || item.createdDate,
-            //                         resolvedDate: item.approvedDate || item.updatedDate,
-            //                         description: `${item.noOfLeaves || 0} leaves cheque leaves requested`,
-            //                         value: `${item.noOfLeaves || 0} leaves`,
-            //                         resolvedBy: approvedByName || 
-            //                                    (item.approvedBy ? `Admin ID: ${item.approvedBy}` : "System"),
-            //                         originalData: item
-            //                     };
-            //                 })
-            //         );
-            //         allResolved = [...allResolved, ...chequeRequests];
-            //     }
-            // }
-
-
             if (chequeRes.status === 'fulfilled' && chequeRes.value?.data?.status === true) {
     if (chequeRes.value.data.data?.content) {
 
@@ -384,20 +339,19 @@ const ResolvedRequests = () => {
         fetchResolvedRequests();
     }, [month, year]);
 
-    // Filter requests based on search and module
+    // Filter requests based on search and module - CHANGED: Only search by account number
     useEffect(() => {
         if (!resolvedRequests.length) return;
 
         let filtered = [...resolvedRequests];
 
-        // Apply search filter - ONLY on customer name and account number
+        // Apply search filter - ONLY ACCOUNT NUMBER
         if (searchTerm.trim()) {
             const term = searchTerm.toLowerCase().trim();
             filtered = filtered.filter(request => {
-                const customerName = request.customerName ? String(request.customerName).toLowerCase() : '';
                 const accountNumber = request.accountNumber ? String(request.accountNumber).toLowerCase() : '';
                 
-                return customerName.includes(term) || accountNumber.includes(term);
+                return accountNumber.includes(term);
             });
         }
 
@@ -566,7 +520,7 @@ const ResolvedRequests = () => {
                     <FaSearch size={14} color="#8DA6C0" style={styles.searchIcon} />
                     <input
                         type="text"
-                        placeholder="Search by customer name or account number..."
+                        placeholder="Search by account number..."
                         style={styles.searchInput}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
